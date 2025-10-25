@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v3
+    command:
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+    ports: ["80:80"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    volumes: [pgdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes: [minio:/data]
+    ports: ["9001:9001"]   # dev console
+    restart: unless-stopped
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_SECURITY_ENABLED: "false"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    restart: unless-stopped
+
+  # --- Your SRS1: API ---
+  media_api:
+    build:
+      context: ../services/video-ingest-service/backend
+    env_file:
+      - ../.env.dev
+    depends_on: [postgres, redis, minio]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.media.rule=PathPrefix(`/videos`)
+      - traefik.http.services.media.loadbalancer.server.port=8000
+    restart: unless-stopped
+
+  # --- Your SRS1: Worker ---
+  media_worker:
+    build:
+      context: ../services/video-ingest-service/worker
+    env_file:
+      - ../.env.dev
+    depends_on: [postgres, redis, minio]
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  minio:
