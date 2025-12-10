@@ -94,7 +94,17 @@ function App() {
 
     const objectUrl = URL.createObjectURL(file);
     const probe = document.createElement('video');
+    const playbackProbe = document.createElement('video');
     probe.preload = 'metadata';
+    // Immediately fail fast if the browser knows it cannot play this MIME type.
+    if (file.type && playbackProbe.canPlayType(file.type) === '') {
+      setError(`This browser cannot play files of type ${file.type}. Try MP4 (H.264/AAC).`);
+      setVideoFile(null);
+      setVideoUrl(null);
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
+
     probe.onloadedmetadata = () => {
       const duration = probe.duration;
       setVideoDuration(duration);
@@ -183,16 +193,24 @@ function App() {
     if (!stream) return;
 
     try {
-      // Prefer an mp4 container (H.264 + AAC) for broad playback; fall back to WebM where unsupported.
-      const preferredMp4 = 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"';
-      const fallbackWebm = 'video/webm;codecs=vp8,opus';
+      // Try a set of broadly compatible containers/codecs, preferring H.264/AAC MP4 that most browsers can play.
+      const preferredMimeOptions = [
+        'video/mp4',
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs="avc1.42E01E, mp4a.40.2"',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ];
+
       const chosenMime =
-        (window.MediaRecorder &&
-          MediaRecorder.isTypeSupported &&
-          MediaRecorder.isTypeSupported(preferredMp4) &&
-          preferredMp4) ||
-        (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(fallbackWebm) && fallbackWebm) ||
-        '';
+        preferredMimeOptions.find(
+          (opt) =>
+            typeof MediaRecorder !== 'undefined' &&
+            typeof MediaRecorder.isTypeSupported === 'function' &&
+            MediaRecorder.isTypeSupported(opt) &&
+            document.createElement('video').canPlayType(opt) !== ''
+        ) || '';
+
       const recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
       const chunks: Blob[] = [];
       let latestElapsed = 0;
@@ -204,9 +222,11 @@ function App() {
       recorder.onstop = () => {
         clearRecordTimer();
         const blobType = chosenMime || 'video/webm';
-        const blob = new Blob(chunks, { type: blobType });
-        const extension = blobType.includes('mp4') ? 'mp4' : 'webm';
-        const file = new File([blob], `capture.${extension}`, { type: blobType });
+        // Use container-only type for better playback sniffing on some browsers.
+        const containerType = blobType.split(';')[0] || blobType;
+        const blob = new Blob(chunks, { type: containerType });
+        const extension = containerType.includes('mp4') ? 'mp4' : 'webm';
+        const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
         setVideoDuration(latestElapsed);
         setVideoFile(file);
