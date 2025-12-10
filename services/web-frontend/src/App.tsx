@@ -5,6 +5,7 @@ const MAX_VIDEO_SECONDS = 180;
 
 type Status = 'idle' | 'submitting' | 'success';
 type RecordingState = 'idle' | 'recording';
+type PermissionState = 'unknown' | 'granted' | 'denied';
 
 function formatDuration(seconds: number | null) {
   if (seconds === null || Number.isNaN(seconds)) return null;
@@ -24,6 +25,7 @@ function App() {
   const [status, setStatus] = useState<Status>('idle');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
+  const [permissionState, setPermissionState] = useState<PermissionState>('unknown');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
 
@@ -81,10 +83,34 @@ function App() {
     stream?.getTracks().forEach((t) => t.stop());
   };
 
+  const requestPermissions = async () => {
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Camera/mic not supported in this browser.');
+      setPermissionState('denied');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stopStreamTracks(stream);
+      setPermissionState('granted');
+    } catch (err) {
+      console.error(err);
+      setPermissionState('denied');
+      setError('Permission denied. Allow camera/mic to record a video.');
+    }
+  };
+
   const startRecording = async () => {
     setError(null);
     setStatus('idle');
     setRecordDuration(0);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Camera/mic not supported in this browser.');
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -244,6 +270,18 @@ function App() {
                 </button>
                 <span className="record-status">
                   {recordingState === 'recording' ? 'Recording…' : 'Not recording'}
+                </span>
+              </div>
+              <div className="record-permission">
+                <button type="button" className="ghost" onClick={requestPermissions}>
+                  {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                </button>
+                <span className="record-status">
+                  {permissionState === 'granted'
+                    ? 'Ready to record'
+                    : permissionState === 'denied'
+                    ? 'Permission denied'
+                    : 'Permission not requested'}
                 </span>
               </div>
               <div className="record-timer">
