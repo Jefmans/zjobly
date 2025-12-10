@@ -63,6 +63,8 @@ services:
       - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
       - traefik.http.routers.frontend.tls.certresolver=le
+      - traefik.http.routers.frontend.tls.domains[0].main=zjobly.com
+      - traefik.http.routers.frontend.tls.domains[0].sans[0]=www.zjobly.com
       - traefik.http.routers.frontend.middlewares=frontend-https-redirect
       - traefik.http.middlewares.frontend-https-redirect.redirectscheme.scheme=https
 

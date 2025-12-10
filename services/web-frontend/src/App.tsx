@@ -6,6 +6,7 @@ const MAX_VIDEO_SECONDS = 180;
 type Status = 'idle' | 'submitting' | 'success';
 type RecordingState = 'idle' | 'recording';
 type PermissionState = 'unknown' | 'granted' | 'denied';
+type ViewMode = 'welcome' | 'create' | 'find';
 
 function formatDuration(seconds: number | null) {
   if (seconds === null || Number.isNaN(seconds)) return null;
@@ -17,6 +18,7 @@ function formatDuration(seconds: number | null) {
 }
 
 function App() {
+  const [view, setView] = useState<ViewMode>('welcome');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -307,157 +309,243 @@ function App() {
   const durationLabel = formatDuration(videoDuration);
   const recordLabel = formatDuration(recordDuration);
 
+  const backToWelcome = () => {
+    setView('welcome');
+    setStatus('idle');
+    setError(null);
+  };
+
+  const renderSwitcher = () => (
+    <div className="top-nav">
+      <button type="button" className="link-btn" onClick={backToWelcome}>
+        ← Back
+      </button>
+      <div className="nav-actions">
+        <button
+          type="button"
+          className={`nav-btn ${view === 'create' ? 'active' : ''}`}
+          onClick={() => setView('create')}
+        >
+          Create Zjob
+        </button>
+        <button
+          type="button"
+          className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
+          onClick={() => setView('find')}
+        >
+          Find Zjob
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <main className="app-shell">
-      <section className="hero">
-        <p className="tag">Zjobly</p>
-        <h1>Post a role with a video intro</h1>
-        <p className="lede">
-          Upload a short clip (max 3:00) that tells candidates what makes this role special.
-        </p>
-
-        <form className="upload-form" onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="title">Job title</label>
-            <input
-              id="title"
-              name="title"
-              value={form.title}
-              onChange={handleInputChange}
-              placeholder="e.g., Senior Backend Engineer"
-              required
-            />
+      {view === 'welcome' && (
+        <section className="hero welcome">
+          <p className="tag">Zjobly</p>
+          <h1>Welcome to Zjobly</h1>
+          <p className="lede">Pick where you want to start.</p>
+          <div className="welcome-actions">
+            <button type="button" className="cta primary" onClick={() => setView('create')}>
+              Create Zjob
+            </button>
+            <button type="button" className="cta ghost" onClick={() => setView('find')}>
+              Find Zjob
+            </button>
           </div>
+        </section>
+      )}
 
-          <div className="field">
-            <label htmlFor="location">Location</label>
-            <input
-              id="location"
-              name="location"
-              value={form.location}
-              onChange={handleInputChange}
-              placeholder="e.g., Remote (EU) or Brussels"
-              required
-            />
-          </div>
+      {view === 'create' && (
+        <>
+          {renderSwitcher()}
+          <section className="hero">
+            <div className="view-pill">Create Zjob</div>
+            <p className="tag">Zjobly</p>
+            <h1>Post a role with a video intro</h1>
+            <p className="lede">
+              Upload a short clip (max 3:00) that tells candidates what makes this role special.
+            </p>
 
-          <div className="field">
-            <label htmlFor="description">What should candidates know?</label>
-            <textarea
-              id="description"
-              name="description"
-              value={form.description}
-              onChange={handleInputChange}
-              placeholder="Key responsibilities, stack, team, and why it matters."
-              rows={4}
-              required
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="video">Job intro video (max 3:00)</label>
-            <div className="upload-box">
-              <input
-                id="video"
-                name="video"
-                type="file"
-                accept="video/*"
-                onChange={handleVideoChange}
-              />
-              <div className="upload-copy">
-                <strong>Select a video file</strong>
-                <span>MP4, MOV, WEBM - up to 3 minutes</span>
-                {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
-              </div>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Or record now (camera + mic)</label>
-            <div className="record-box">
-              <div className="record-actions">
-                <div className="record-permission">
-                  <button type="button" className="ghost" onClick={requestPermissions}>
-                    {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
-                  </button>
-                  <span className="record-status">
-                    {permissionState === 'granted'
-                      ? 'Ready to record'
-                      : permissionState === 'denied'
-                      ? 'Permission denied'
-                      : 'Permission not requested'}
-                  </span>
-                </div>
-                <button type="button" className="ghost" onClick={openRecorder}>
-                  {recorderOpen ? 'Open recorder again' : 'Open recorder'}
-                </button>
+            <form className="upload-form" onSubmit={handleSubmit}>
+              <div className="field">
+                <label htmlFor="title">Job title</label>
+                <input
+                  id="title"
+                  name="title"
+                  value={form.title}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Senior Backend Engineer"
+                  required
+                />
               </div>
 
-              {recorderOpen && (
-                <div className="record-screen">
-                  <video
-                    ref={liveVideoRef}
-                    className="live-video"
-                    autoPlay
-                    playsInline
-                    muted
+              <div className="field">
+                <label htmlFor="location">Location</label>
+                <input
+                  id="location"
+                  name="location"
+                  value={form.location}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Remote (EU) or Brussels"
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="description">What should candidates know?</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={form.description}
+                  onChange={handleInputChange}
+                  placeholder="Key responsibilities, stack, team, and why it matters."
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="video">Job intro video (max 3:00)</label>
+                <div className="upload-box">
+                  <input
+                    id="video"
+                    name="video"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoChange}
                   />
-                  <div className="record-screen-overlay">
-                    <div className="overlay-top">
-                      <span
-                        className={`status-pill ${
-                          recordingState === 'recording' ? 'live' : 'idle'
-                        }`}
-                      >
-                        {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
-                      </span>
-                      <div className="record-timer">
-                        <span>{recordLabel ?? '0:00'}</span>
-                        <span className="record-max">/ 3:00</span>
-                      </div>
-                    </div>
-                    <div className="overlay-bottom">
-                      <button
-                        type="button"
-                        className={`record-btn ${
-                          recordingState === 'recording' ? 'stop' : 'start'
-                        }`}
-                        onClick={recordingState === 'recording' ? stopRecording : startRecording}
-                      >
-                        {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-                      </button>
-                      <button type="button" className="ghost dark" onClick={closeRecorder}>
-                        Close preview
-                      </button>
-                    </div>
+                  <div className="upload-copy">
+                    <strong>Select a video file</strong>
+                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                    {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
                   </div>
                 </div>
+              </div>
+
+              <div className="field">
+                <label>Or record now (camera + mic)</label>
+                <div className="record-box">
+                  <div className="record-actions">
+                    <div className="record-permission">
+                      <button type="button" className="ghost" onClick={requestPermissions}>
+                        {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                      </button>
+                      <span className="record-status">
+                        {permissionState === 'granted'
+                          ? 'Ready to record'
+                          : permissionState === 'denied'
+                          ? 'Permission denied'
+                          : 'Permission not requested'}
+                      </span>
+                    </div>
+                    <button type="button" className="ghost" onClick={openRecorder}>
+                      {recorderOpen ? 'Open recorder again' : 'Open recorder'}
+                    </button>
+                  </div>
+
+                  {recorderOpen && (
+                    <div className="record-screen">
+                      <video
+                        ref={liveVideoRef}
+                        className="live-video"
+                        autoPlay
+                        playsInline
+                        muted
+                      />
+                      <div className="record-screen-overlay">
+                        <div className="overlay-top">
+                          <span
+                            className={`status-pill ${
+                              recordingState === 'recording' ? 'live' : 'idle'
+                            }`}
+                          >
+                            {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
+                          </span>
+                          <div className="record-timer">
+                            <span>{recordLabel ?? '0:00'}</span>
+                            <span className="record-max">/ 3:00</span>
+                          </div>
+                        </div>
+                        <div className="overlay-bottom">
+                          <button
+                            type="button"
+                            className={`record-btn ${
+                              recordingState === 'recording' ? 'stop' : 'start'
+                            }`}
+                            onClick={recordingState === 'recording' ? stopRecording : startRecording}
+                          >
+                            {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                          </button>
+                          <button type="button" className="ghost dark" onClick={closeRecorder}>
+                            Close preview
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!recorderOpen && (
+                    <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
+                  )}
+                  <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
+                </div>
+              </div>
+
+              {videoUrl && (
+                <div className="video-preview">
+                  <div className="preview-label">Preview</div>
+                  <video src={videoUrl} controls preload="metadata" />
+                </div>
               )}
 
-              {!recorderOpen && (
-                <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
+              {error && <div className="error">{error}</div>}
+              {status === 'success' && (
+                <div className="success">Saved! (API wire-up coming next.)</div>
               )}
-              <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
+
+              <button type="submit" disabled={status === 'submitting'}>
+                {status === 'submitting' ? 'Uploading...' : 'Save job & video'}
+              </button>
+            </form>
+          </section>
+        </>
+      )}
+
+      {view === 'find' && (
+        <>
+          {renderSwitcher()}
+          <section className="hero">
+            <div className="view-pill">Find Zjob</div>
+            <p className="tag">Zjobly</p>
+            <h1>Discover an open Zjob</h1>
+            <p className="lede">
+              Search for roles shared with you. We’ll add richer search soon—start with a keyword or a Zjob link.
+            </p>
+            <div className="search-card">
+              <label className="field-label" htmlFor="search">
+                Enter a keyword or Zjob link
+              </label>
+              <div className="search-row">
+                <input id="search" name="search" placeholder="e.g., frontend, data, or https://zjob.ly/123" />
+                <button type="button" className="cta primary">
+                  Search
+                </button>
+              </div>
             </div>
-          </div>
-
-          {videoUrl && (
-            <div className="video-preview">
-              <div className="preview-label">Preview</div>
-              <video src={videoUrl} controls preload="metadata" />
+            <p className="hint">Search results and job discovery are coming next.</p>
+            <div className="welcome-actions">
+              <button type="button" className="ghost" onClick={backToWelcome}>
+                Back to welcome
+              </button>
+              <button type="button" className="cta primary" onClick={() => setView('create')}>
+                Create a Zjob instead
+              </button>
             </div>
-          )}
-
-          {error && <div className="error">{error}</div>}
-          {status === 'success' && (
-            <div className="success">Saved! (API wire-up coming next.)</div>
-          )}
-
-          <button type="submit" disabled={status === 'submitting'}>
-            {status === 'submitting' ? 'Uploading...' : 'Save job & video'}
-          </button>
-        </form>
-      </section>
+          </section>
+        </>
+      )}
     </main>
   );
 }
