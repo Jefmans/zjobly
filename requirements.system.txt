@@ -1,4 +1,3 @@
-# Server prerequisites (Ubuntu/Debian)
 git
 ca-certificates
 curl
