@@ -1,12 +1,13 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import './App.css';
 
-const MAX_VIDEO_SECONDS = 180;
+const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 
 type Status = 'idle' | 'submitting' | 'success';
 type RecordingState = 'idle' | 'recording';
 type PermissionState = 'unknown' | 'granted' | 'denied';
 type ViewMode = 'welcome' | 'create' | 'find';
+type CreateStep = 'details' | 'record' | 'select';
 
 function formatDuration(seconds: number | null) {
   if (seconds === null || Number.isNaN(seconds)) return null;
@@ -19,6 +20,7 @@ function formatDuration(seconds: number | null) {
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
+  const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -82,6 +84,13 @@ function App() {
     setError(null);
   };
 
+  const clearVideoSelection = () => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(null);
+    setVideoUrl(null);
+    setVideoDuration(null);
+  };
+
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setError(null);
@@ -89,8 +98,7 @@ function App() {
     setVideoDuration(null);
 
     if (!file) {
-      setVideoFile(null);
-      setVideoUrl(null);
+      clearVideoSelection();
       return;
     }
 
@@ -101,8 +109,7 @@ function App() {
     // Immediately fail fast if the browser knows it cannot play this MIME type.
     if (file.type && playbackProbe.canPlayType(file.type) === '') {
       setError(`This browser cannot play files of type ${file.type}. Try MP4 (H.264/AAC).`);
-      setVideoFile(null);
-      setVideoUrl(null);
+      clearVideoSelection();
       URL.revokeObjectURL(objectUrl);
       return;
     }
@@ -112,8 +119,7 @@ function App() {
       setVideoDuration(duration);
       if (duration > MAX_VIDEO_SECONDS) {
         setError('Video must be 3 minutes or less.');
-        setVideoFile(null);
-        setVideoUrl(null);
+        clearVideoSelection();
         URL.revokeObjectURL(objectUrl);
         return;
       }
@@ -122,8 +128,7 @@ function App() {
     };
     probe.onerror = () => {
       setError('Could not read video metadata. Try a different file.');
-      setVideoFile(null);
-      setVideoUrl(null);
+      clearVideoSelection();
       URL.revokeObjectURL(objectUrl);
     };
     probe.src = objectUrl;
@@ -253,6 +258,7 @@ function App() {
         if (videoUrl) URL.revokeObjectURL(videoUrl);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
+        setCreateStep('select'); // Jump to selection once recording ends
       };
 
       mediaRecorderRef.current = recorder;
@@ -288,8 +294,20 @@ function App() {
     e.preventDefault();
     setError(null);
 
-    if (!form.title || !form.location || !form.description || !videoFile) {
-      setError('Please complete all fields and attach a video.');
+    if (!form.title || !form.location) {
+      setError('Add a title and location first.');
+      setCreateStep('details');
+      return;
+    }
+
+    if (!videoFile) {
+      setError('Record or upload a video before publishing.');
+      setCreateStep('record');
+      return;
+    }
+
+    if (!form.description) {
+      setError('Add a short description before publishing.');
       return;
     }
 
@@ -313,6 +331,22 @@ function App() {
     setView('welcome');
     setStatus('idle');
     setError(null);
+    setCreateStep('details');
+  };
+
+  const goToStep = (nextStep: CreateStep) => {
+    setError(null);
+    setCreateStep(nextStep);
+  };
+
+  const resetRecording = () => {
+    clearRecordTimer();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setRecordingState('idle');
+    setRecordDuration(0);
+    clearVideoSelection();
   };
 
   const renderSwitcher = () => (
@@ -365,149 +399,235 @@ function App() {
             <p className="tag">Zjobly</p>
             <h1>Post a role with a video intro</h1>
             <p className="lede">
-              Upload a short clip (max 3:00) that tells candidates what makes this role special.
+              Follow the steps: add the role, record a quick clip (hard stop at 3:00), then choose the video to publish.
             </p>
 
+            <div className="stepper">
+              <div className={`step ${createStep === 'details' ? 'active' : ''}`}>
+                <span className="step-id">1</span>
+                <span>Role details</span>
+              </div>
+              <div className={`step ${createStep === 'record' ? 'active' : ''}`}>
+                <span className="step-id">2</span>
+                <span>Record</span>
+              </div>
+              <div className={`step ${createStep === 'select' ? 'active' : ''}`}>
+                <span className="step-id">3</span>
+                <span>Choose video & publish</span>
+              </div>
+            </div>
+
             <form className="upload-form" onSubmit={handleSubmit}>
-              <div className="field">
-                <label htmlFor="title">Job title</label>
-                <input
-                  id="title"
-                  name="title"
-                  value={form.title}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Senior Backend Engineer"
-                  required
-                />
-              </div>
+              {createStep === 'details' && (
+                <div className="panel">
+                  <div className="field">
+                    <label htmlFor="title">Job title</label>
+                    <input
+                      id="title"
+                      name="title"
+                      value={form.title}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Senior Backend Engineer"
+                      required
+                    />
+                  </div>
 
-              <div className="field">
-                <label htmlFor="location">Location</label>
-                <input
-                  id="location"
-                  name="location"
-                  value={form.location}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Remote (EU) or Brussels"
-                  required
-                />
-              </div>
+                  <div className="field">
+                    <label htmlFor="location">Location</label>
+                    <input
+                      id="location"
+                      name="location"
+                      value={form.location}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Remote (EU) or Brussels"
+                      required
+                    />
+                  </div>
 
-              <div className="field">
-                <label htmlFor="description">What should candidates know?</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={form.description}
-                  onChange={handleInputChange}
-                  placeholder="Key responsibilities, stack, team, and why it matters."
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="video">Job intro video (max 3:00)</label>
-                <div className="upload-box">
-                  <input
-                    id="video"
-                    name="video"
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoChange}
-                  />
-                  <div className="upload-copy">
-                    <strong>Select a video file</strong>
-                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
-                    {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
+                  <div className="panel-actions">
+                    <button
+                      type="button"
+                      className="cta primary"
+                      onClick={() => goToStep('record')}
+                      disabled={!form.title || !form.location}
+                    >
+                      Continue to recording
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="field">
-                <label>Or record now (camera + mic)</label>
-                <div className="record-box">
-                  <div className="record-actions">
-                    <div className="record-permission">
-                      <button type="button" className="ghost" onClick={requestPermissions}>
-                        {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
-                      </button>
-                      <span className="record-status">
-                        {permissionState === 'granted'
-                          ? 'Ready to record'
-                          : permissionState === 'denied'
-                          ? 'Permission denied'
-                          : 'Permission not requested'}
-                      </span>
+              {createStep === 'record' && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Record your intro</h2>
+                      <p className="hint">We stop automatically at 3:00. You can retake anytime.</p>
                     </div>
-                    <button type="button" className="ghost" onClick={openRecorder}>
-                      {recorderOpen ? 'Open recorder again' : 'Open recorder'}
+                    <div className="pill">Hard cap: 3:00</div>
+                  </div>
+
+                  <div className="record-box">
+                    <div className="record-actions">
+                      <div className="record-permission">
+                        <button type="button" className="ghost" onClick={requestPermissions}>
+                          {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                        </button>
+                        <span className="record-status">
+                          {permissionState === 'granted'
+                            ? 'Ready to record'
+                            : permissionState === 'denied'
+                            ? 'Permission denied'
+                            : 'Permission not requested'}
+                        </span>
+                      </div>
+                      <button type="button" className="ghost" onClick={openRecorder}>
+                        {recorderOpen ? 'Open recorder again' : 'Open recorder'}
+                      </button>
+                    </div>
+
+                    {recorderOpen && (
+                      <div className="record-screen">
+                        <video
+                          ref={liveVideoRef}
+                          className="live-video"
+                          autoPlay
+                          playsInline
+                          muted
+                        />
+                        <div className="record-screen-overlay">
+                          <div className="overlay-top">
+                            <span
+                              className={`status-pill ${
+                                recordingState === 'recording' ? 'live' : 'idle'
+                              }`}
+                            >
+                              {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
+                            </span>
+                            <div className="record-timer">
+                              <span>{recordLabel ?? '0:00'}</span>
+                              <span className="record-max">/ 3:00</span>
+                            </div>
+                          </div>
+                          <div className="overlay-bottom">
+                            <button
+                              type="button"
+                              className={`record-btn ${
+                                recordingState === 'recording' ? 'stop' : 'start'
+                              }`}
+                              onClick={
+                                recordingState === 'recording' ? stopRecording : startRecording
+                              }
+                            >
+                              {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                            </button>
+                            <button type="button" className="ghost dark" onClick={closeRecorder}>
+                              Close preview
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!recorderOpen && (
+                      <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
+                    )}
+                    <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
+                  </div>
+
+                  {videoUrl && (
+                    <div className="video-preview">
+                      <div className="preview-label">Latest take (max 3:00)</div>
+                      <video src={videoUrl} controls preload="metadata" />
+                    </div>
+                  )}
+
+                  {error && <div className="error">{error}</div>}
+
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={() => goToStep('details')}>
+                      Back
+                    </button>
+                    <div className="panel-action-right">
+                      <button type="button" className="ghost" onClick={resetRecording}>
+                        Retake recording
+                      </button>
+                      <button
+                        type="button"
+                        className="cta primary"
+                        onClick={() => goToStep('select')}
+                        disabled={!videoFile}
+                      >
+                        Continue to choose video
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 'select' && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Choose a video for publication</h2>
+                      <p className="hint">Use your latest take or upload a different file (still capped at 3:00).</p>
+                    </div>
+                    <button type="button" className="ghost" onClick={() => goToStep('record')}>
+                      Retake
                     </button>
                   </div>
 
-                  {recorderOpen && (
-                    <div className="record-screen">
-                      <video
-                        ref={liveVideoRef}
-                        className="live-video"
-                        autoPlay
-                        playsInline
-                        muted
-                      />
-                      <div className="record-screen-overlay">
-                        <div className="overlay-top">
-                          <span
-                            className={`status-pill ${
-                              recordingState === 'recording' ? 'live' : 'idle'
-                            }`}
-                          >
-                            {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
-                          </span>
-                          <div className="record-timer">
-                            <span>{recordLabel ?? '0:00'}</span>
-                            <span className="record-max">/ 3:00</span>
-                          </div>
-                        </div>
-                        <div className="overlay-bottom">
-                          <button
-                            type="button"
-                            className={`record-btn ${
-                              recordingState === 'recording' ? 'stop' : 'start'
-                            }`}
-                            onClick={recordingState === 'recording' ? stopRecording : startRecording}
-                          >
-                            {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-                          </button>
-                          <button type="button" className="ghost dark" onClick={closeRecorder}>
-                            Close preview
-                          </button>
-                        </div>
-                      </div>
+                  {videoUrl && (
+                    <div className="video-preview">
+                      <div className="preview-label">Selected video</div>
+                      <video src={videoUrl} controls preload="metadata" />
+                      {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
                     </div>
                   )}
 
-                  {!recorderOpen && (
-                    <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
-                  )}
-                  <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
-                </div>
-              </div>
+                  <div className="field">
+                    <label htmlFor="video">Upload instead (max 3:00)</label>
+                    <div className="upload-box">
+                      <input
+                        id="video"
+                        name="video"
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoChange}
+                      />
+                      <div className="upload-copy">
+                        <strong>Select a video file</strong>
+                        <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                      </div>
+                    </div>
+                  </div>
 
-              {videoUrl && (
-                <div className="video-preview">
-                  <div className="preview-label">Preview</div>
-                  <video src={videoUrl} controls preload="metadata" />
+                  <div className="field">
+                    <label htmlFor="description">Short description</label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={form.description}
+                      onChange={handleInputChange}
+                      placeholder="Key responsibilities, stack, team, and why it matters."
+                      rows={4}
+                      required
+                    />
+                  </div>
+
+                  {error && <div className="error">{error}</div>}
+                  {status === 'success' && <div className="success">Saved! (API wire-up coming next.)</div>}
+
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={() => goToStep('record')}>
+                      Back
+                    </button>
+                    <button type="submit" disabled={status === 'submitting'}>
+                      {status === 'submitting' ? 'Uploading...' : 'Publish job'}
+                    </button>
+                  </div>
                 </div>
               )}
-
-              {error && <div className="error">{error}</div>}
-              {status === 'success' && (
-                <div className="success">Saved! (API wire-up coming next.)</div>
-              )}
-
-              <button type="submit" disabled={status === 'submitting'}>
-                {status === 'submitting' ? 'Uploading...' : 'Save job & video'}
-              </button>
             </form>
           </section>
         </>
