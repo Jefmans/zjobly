@@ -26,14 +26,52 @@ function App() {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
   const [permissionState, setPermissionState] = useState<PermissionState>('unknown');
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
+  const liveVideoRef = useRef<HTMLVideoElement | null>(null);
+  const liveStreamRef = useRef<MediaStream | null>(null);
+
+  const stopStreamTracks = (stream: MediaStream | null) => {
+    stream?.getTracks().forEach((t) => t.stop());
+  };
+
+  const clearRecordTimer = () => {
+    if (recordTimerRef.current) {
+      window.clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     return () => {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, [videoUrl]);
+
+  useEffect(() => {
+    liveStreamRef.current = liveStream;
+    const videoElement = liveVideoRef.current;
+    if (!videoElement) return;
+
+    if (liveStream) {
+      videoElement.srcObject = liveStream;
+      videoElement.play().catch(() => undefined);
+    } else {
+      videoElement.srcObject = null;
+    }
+  }, [liveStream]);
+
+  useEffect(() => {
+    return () => {
+      clearRecordTimer();
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      stopStreamTracks(liveStreamRef.current);
+    };
+  }, []);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -79,27 +117,61 @@ function App() {
     probe.src = objectUrl;
   };
 
-  const stopStreamTracks = (stream: MediaStream | null) => {
-    stream?.getTracks().forEach((t) => t.stop());
-  };
-
-  const requestPermissions = async () => {
-    setError(null);
+  const acquireStream = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Camera/mic not supported in this browser.');
       setPermissionState('denied');
-      return;
+      return null;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      stopStreamTracks(stream);
+      const stream =
+        liveStreamRef.current && liveStreamRef.current.active
+          ? liveStreamRef.current
+          : await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+      if (!liveStreamRef.current || !liveStreamRef.current.active) {
+        setLiveStream(stream);
+      }
       setPermissionState('granted');
+      return stream;
     } catch (err) {
       console.error(err);
       setPermissionState('denied');
       setError('Permission denied. Allow camera/mic to record a video.');
+      return null;
     }
+  };
+
+  const requestPermissions = async () => {
+    setError(null);
+    const stream = await acquireStream();
+    if (stream && !recorderOpen) {
+      stopStreamTracks(stream);
+      setLiveStream(null);
+    }
+  };
+
+  const openRecorder = async () => {
+    setError(null);
+    setRecordDuration(0);
+    setRecordingState('idle');
+    const stream = await acquireStream();
+    if (stream) {
+      setRecorderOpen(true);
+    }
+  };
+
+  const closeRecorder = () => {
+    clearRecordTimer();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setRecordingState('idle');
+    stopStreamTracks(liveStreamRef.current);
+    setLiveStream(null);
+    setRecorderOpen(false);
+    setRecordDuration(0);
   };
 
   const startRecording = async () => {
@@ -107,34 +179,24 @@ function App() {
     setStatus('idle');
     setRecordDuration(0);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera/mic not supported in this browser.');
-      return;
-    }
+    const stream = await acquireStream();
+    if (!stream) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-
       const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       const chunks: Blob[] = [];
+      let latestElapsed = 0;
 
       recorder.ondataavailable = (ev) => {
         if (ev.data.size > 0) chunks.push(ev.data);
       };
 
       recorder.onstop = () => {
-        stopStreamTracks(stream);
-        if (recordTimerRef.current) {
-          window.clearInterval(recordTimerRef.current);
-          recordTimerRef.current = null;
-        }
+        clearRecordTimer();
         const blob = new Blob(chunks, { type: 'video/webm' });
         const file = new File([blob], 'capture.webm', { type: 'video/webm' });
         const objectUrl = URL.createObjectURL(blob);
-        setVideoDuration(recordDuration);
+        setVideoDuration(latestElapsed);
         setVideoFile(file);
         if (videoUrl) URL.revokeObjectURL(videoUrl);
         setVideoUrl(objectUrl);
@@ -146,8 +208,10 @@ function App() {
       setRecordingState('recording');
 
       const startedAt = Date.now();
+      clearRecordTimer();
       recordTimerRef.current = window.setInterval(() => {
         const elapsed = (Date.now() - startedAt) / 1000;
+        latestElapsed = elapsed;
         setRecordDuration(elapsed);
         if (elapsed >= MAX_VIDEO_SECONDS) {
           stopRecording();
@@ -161,6 +225,7 @@ function App() {
   };
 
   const stopRecording = () => {
+    clearRecordTimer();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
@@ -251,7 +316,7 @@ function App() {
               />
               <div className="upload-copy">
                 <strong>Select a video file</strong>
-                <span>MP4, MOV, WEBM — up to 3 minutes</span>
+                <span>MP4, MOV, WEBM - up to 3 minutes</span>
                 {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
               </div>
             </div>
@@ -260,34 +325,68 @@ function App() {
           <div className="field">
             <label>Or record now (camera + mic)</label>
             <div className="record-box">
-              <div className="record-controls">
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={recordingState === 'recording' ? stopRecording : startRecording}
-                >
-                  {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+              <div className="record-actions">
+                <div className="record-permission">
+                  <button type="button" className="ghost" onClick={requestPermissions}>
+                    {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                  </button>
+                  <span className="record-status">
+                    {permissionState === 'granted'
+                      ? 'Ready to record'
+                      : permissionState === 'denied'
+                      ? 'Permission denied'
+                      : 'Permission not requested'}
+                  </span>
+                </div>
+                <button type="button" className="ghost" onClick={openRecorder}>
+                  {recorderOpen ? 'Open recorder again' : 'Open recorder'}
                 </button>
-                <span className="record-status">
-                  {recordingState === 'recording' ? 'Recording…' : 'Not recording'}
-                </span>
               </div>
-              <div className="record-permission">
-                <button type="button" className="ghost" onClick={requestPermissions}>
-                  {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
-                </button>
-                <span className="record-status">
-                  {permissionState === 'granted'
-                    ? 'Ready to record'
-                    : permissionState === 'denied'
-                    ? 'Permission denied'
-                    : 'Permission not requested'}
-                </span>
-              </div>
-              <div className="record-timer">
-                <span>{recordLabel ?? '0:00'}</span>
-                <span className="record-max">/ 3:00</span>
-              </div>
+
+              {recorderOpen && (
+                <div className="record-screen">
+                  <video
+                    ref={liveVideoRef}
+                    className="live-video"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  <div className="record-screen-overlay">
+                    <div className="overlay-top">
+                      <span
+                        className={`status-pill ${
+                          recordingState === 'recording' ? 'live' : 'idle'
+                        }`}
+                      >
+                        {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
+                      </span>
+                      <div className="record-timer">
+                        <span>{recordLabel ?? '0:00'}</span>
+                        <span className="record-max">/ 3:00</span>
+                      </div>
+                    </div>
+                    <div className="overlay-bottom">
+                      <button
+                        type="button"
+                        className={`record-btn ${
+                          recordingState === 'recording' ? 'stop' : 'start'
+                        }`}
+                        onClick={recordingState === 'recording' ? stopRecording : startRecording}
+                      >
+                        {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                      </button>
+                      <button type="button" className="ghost dark" onClick={closeRecorder}>
+                        Close preview
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!recorderOpen && (
+                <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
+              )}
               <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
             </div>
           </div>
@@ -305,7 +404,7 @@ function App() {
           )}
 
           <button type="submit" disabled={status === 'submitting'}>
-            {status === 'submitting' ? 'Uploading…' : 'Save job & video'}
+            {status === 'submitting' ? 'Uploading...' : 'Save job & video'}
           </button>
         </form>
       </section>
