@@ -128,8 +128,26 @@ function App() {
   };
 
   const acquireStream = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera/mic not supported in this browser.');
+    const legacyGetUserMedia = (navigator as any).webkitGetUserMedia || (navigator as any).mozGetUserMedia;
+    const getUserMedia =
+      navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices) ||
+      (legacyGetUserMedia
+        ? (constraints: MediaStreamConstraints) =>
+            new Promise<MediaStream>((resolve, reject) =>
+              legacyGetUserMedia.call(navigator, constraints, resolve, reject),
+            )
+        : null);
+
+    if (!getUserMedia) {
+      const insecure =
+        typeof window !== 'undefined' &&
+        !window.isSecureContext &&
+        !['localhost', '127.0.0.1'].includes(window.location.hostname);
+      setError(
+        insecure
+          ? 'Camera/mic access is blocked on non-HTTPS pages. Open this site via https:// (or use localhost).'
+          : 'Camera/mic not supported in this browser.',
+      );
       setPermissionState('denied');
       return null;
     }
@@ -138,7 +156,7 @@ function App() {
       const stream =
         liveStreamRef.current && liveStreamRef.current.active
           ? liveStreamRef.current
-          : await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          : await getUserMedia({ video: true, audio: true });
 
       if (!liveStreamRef.current || !liveStreamRef.current.active) {
         setLiveStream(stream);
