@@ -511,6 +511,11 @@ button[type='submit']:disabled {
   background: #000;
 }
 
+.playback-video {
+  object-fit: contain;
+  background: #000;
+}
+
 .record-screen-overlay {
   position: absolute;
   inset: 0;

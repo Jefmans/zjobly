@@ -36,6 +36,7 @@ function App() {
   const recordTimerRef = useRef<number | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
+  const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const stopStreamTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach((t) => t.stop());
@@ -76,6 +77,16 @@ function App() {
       stopStreamTracks(liveStreamRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    // Auto-play the latest take when not recording.
+    if (recordingState !== 'recording' && playbackVideoRef.current) {
+      const player = playbackVideoRef.current;
+      player.pause();
+      player.currentTime = 0;
+      player.play().catch(() => undefined);
+    }
+  }, [videoUrl, recordingState]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -469,7 +480,16 @@ function App() {
                       {recorderOpen ? (
                         <div className={`record-screen ${recordingState !== 'recording' && videoUrl ? 'playback' : ''}`}>
                           {recordingState !== 'recording' && videoUrl ? (
-                            <video src={videoUrl} className="live-video playback-video" controls playsInline />
+                            <video
+                              key={videoUrl}
+                              ref={playbackVideoRef}
+                              src={videoUrl}
+                              className="live-video playback-video"
+                              controls
+                              playsInline
+                              autoPlay
+                              muted
+                            />
                           ) : (
                             <video
                               ref={liveVideoRef}
@@ -502,8 +522,15 @@ function App() {
                                 <button type="button" className="ghost dark" onClick={() => goToStep('details')}>
                                   Back
                                 </button>
-                                <button type="button" className="ghost dark" onClick={resetRecording}>
-                                  Retake
+                                <button
+                                  type="button"
+                                  className="ghost dark"
+                                  onClick={() => {
+                                    resetRecording();
+                                    startRecording();
+                                  }}
+                                >
+                                  Restart recording
                                 </button>
                               </div>
                               <div className="overlay-actions-right">
