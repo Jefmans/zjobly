@@ -6,6 +6,6 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ['zjobly.com'],
+    allowedHosts: ['zjobly.com', 'www.zjobly.com'],
   },
 });

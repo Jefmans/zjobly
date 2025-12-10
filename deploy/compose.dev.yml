@@ -7,7 +7,6 @@ services:
       - --providers.docker=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      - --providers.file.filename=/etc/traefik/dynamic.yml
       - --certificatesresolvers.le.acme.httpchallenge=true
       - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.le.acme.email=ops@zjobly.com
@@ -15,8 +14,6 @@ services:
     ports: ["80:80", "443:443"]
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "../certs:/certs:ro"
-      - "./traefik_dynamic.yml:/etc/traefik/dynamic.yml:ro"
       - "../letsencrypt:/letsencrypt"
     restart: unless-stopped
 
@@ -62,9 +59,12 @@ services:
     command: npm run dev -- --host --port 5173
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=Host(`zjobly.com`)
+      - traefik.http.routers.frontend.rule=Host(`zjobly.com`,`www.zjobly.com`)
       - traefik.http.routers.frontend.entrypoints=websecure
       - traefik.http.routers.frontend.tls.certresolver=le
+      - traefik.http.middlewares.frontend-redirect.redirectregex.regex=^https://www\\.zjobly\\.com/(.*)
+      - traefik.http.middlewares.frontend-redirect.redirectregex.replacement=https://zjobly.com/$${1}
+      - traefik.http.routers.frontend.middlewares=frontend-redirect
       - traefik.http.services.frontend.loadbalancer.server.port=5173
     restart: unless-stopped
 
