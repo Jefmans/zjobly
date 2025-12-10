@@ -467,17 +467,20 @@ function App() {
                   <div className="record-shell">
                     <div className="record-stage">
                       {recorderOpen ? (
-                        <div className="record-screen">
-                          <video
-                            ref={liveVideoRef}
-                            className="live-video"
-                            autoPlay
-                            playsInline
-                            muted
-                          />
+                        <div className={`record-screen ${recordingState !== 'recording' && videoUrl ? 'playback' : ''}`}>
+                          {recordingState !== 'recording' && videoUrl ? (
+                            <video src={videoUrl} className="live-video playback-video" controls playsInline />
+                          ) : (
+                            <video
+                              ref={liveVideoRef}
+                              className="live-video"
+                              autoPlay
+                              playsInline
+                              muted
+                            />
+                          )}
                           <div className="record-screen-overlay">
                             <div className="overlay-top">
-                              <span className="cap-badge">Hard cap: 3:00</span>
                               <span
                                 className={`status-pill ${
                                   recordingState === 'recording' ? 'live' : 'idle'
@@ -486,7 +489,11 @@ function App() {
                                 {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
                               </span>
                               <div className="record-timer">
-                                <span>{recordLabel ?? '0:00'}</span>
+                                <span>
+                                  {recordingState === 'recording'
+                                    ? recordLabel ?? '0:00'
+                                    : durationLabel ?? recordLabel ?? '0:00'}
+                                </span>
                                 <span className="record-max">/ 3:00</span>
                               </div>
                             </div>
@@ -530,13 +537,6 @@ function App() {
                         </div>
                       )}
                     </div>
-
-                    {videoUrl && (
-                      <div className="record-footer">
-                        <div className="preview-label">Latest take (max 3:00)</div>
-                        <video src={videoUrl} controls preload="metadata" />
-                      </div>
-                    )}
 
                     {error && <div className="error floating">{error}</div>}
                   </div>
