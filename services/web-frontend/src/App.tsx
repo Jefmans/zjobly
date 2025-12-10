@@ -8,6 +8,14 @@ type RecordingState = 'idle' | 'recording';
 type PermissionState = 'unknown' | 'granted' | 'denied';
 type ViewMode = 'welcome' | 'create' | 'find';
 type CreateStep = 'details' | 'record' | 'select';
+type RecordedTake = {
+  id: string;
+  file: File;
+  url: string;
+  duration: number;
+  label: string;
+  source: 'recording' | 'upload';
+};
 
 function formatDuration(seconds: number | null) {
   if (seconds === null || Number.isNaN(seconds)) return null;
@@ -22,9 +30,10 @@ function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
-  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [recordedTakes, setRecordedTakes] = useState<RecordedTake[]>([]);
+  const [selectedTakeId, setSelectedTakeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -97,9 +106,9 @@ function App() {
 
   const clearVideoSelection = () => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
-    setVideoFile(null);
     setVideoUrl(null);
     setVideoDuration(null);
+    setSelectedTakeId(null);
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -108,10 +117,7 @@ function App() {
     setStatus('idle');
     setVideoDuration(null);
 
-    if (!file) {
-      clearVideoSelection();
-      return;
-    }
+    if (!file) return;
 
     const objectUrl = URL.createObjectURL(file);
     const probe = document.createElement('video');
@@ -130,16 +136,25 @@ function App() {
       setVideoDuration(duration);
       if (duration > MAX_VIDEO_SECONDS) {
         setError('Video must be 3 minutes or less.');
-        clearVideoSelection();
         URL.revokeObjectURL(objectUrl);
         return;
       }
-      setVideoFile(file);
+      const uploadCount = recordedTakes.filter((t) => t.source === 'upload').length + 1;
+      const take: RecordedTake = {
+        id: `upload-${Date.now()}`,
+        file,
+        url: objectUrl,
+        duration,
+        label: `Upload ${uploadCount}`,
+        source: 'upload',
+      };
+      setRecordedTakes((prev) => [take, ...prev]);
+      setSelectedTakeId(take.id);
       setVideoUrl(objectUrl);
+      setVideoDuration(duration);
     };
     probe.onerror = () => {
       setError('Could not read video metadata. Try a different file.');
-      clearVideoSelection();
       URL.revokeObjectURL(objectUrl);
     };
     probe.src = objectUrl;
@@ -270,9 +285,18 @@ function App() {
         const extension = containerType.includes('mp4') ? 'mp4' : 'webm';
         const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
+        const takeIndex = recordedTakes.filter((t) => t.source === 'recording').length + 1;
+        const take: RecordedTake = {
+          id: `rec-${Date.now()}`,
+          file,
+          url: objectUrl,
+          duration: latestElapsed,
+          label: `Take ${takeIndex}`,
+          source: 'recording',
+        };
+        setRecordedTakes((prev) => [take, ...prev]);
+        setSelectedTakeId(take.id);
         setVideoDuration(latestElapsed);
-        setVideoFile(file);
-        if (videoUrl) URL.revokeObjectURL(videoUrl);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
       };
@@ -316,7 +340,7 @@ function App() {
       return;
     }
 
-    if (!videoFile) {
+    if (!selectedTake) {
       setError('Record or upload a video before publishing.');
       setCreateStep('record');
       return;
@@ -327,7 +351,7 @@ function App() {
       return;
     }
 
-    if (videoDuration !== null && videoDuration > MAX_VIDEO_SECONDS) {
+    if ((selectedTake?.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
       setError('Video must be 3 minutes or less.');
       return;
     }
@@ -340,7 +364,8 @@ function App() {
     }, 800);
   };
 
-  const durationLabel = formatDuration(videoDuration);
+  const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
+  const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
 
   const backToWelcome = () => {
@@ -355,14 +380,12 @@ function App() {
     setCreateStep(nextStep);
   };
 
-  const resetRecording = () => {
-    clearRecordTimer();
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    setRecordingState('idle');
-    setRecordDuration(0);
-    clearVideoSelection();
+  const selectTake = (id: string) => {
+    const take = recordedTakes.find((t) => t.id === id);
+    if (!take) return;
+    setSelectedTakeId(id);
+    setVideoUrl(take.url);
+    setVideoDuration(take.duration);
   };
 
   const renderSwitcher = () => (
@@ -525,7 +548,7 @@ function App() {
                                 </button>
                               </div>
                               <div className="overlay-actions-right">
-                                {recordingState !== 'recording' && videoFile && (
+                                {recordingState !== 'recording' && selectedTake && (
                                   <button
                                     type="button"
                                     className="cta primary"
@@ -566,20 +589,38 @@ function App() {
                   <div className="panel-header">
                     <div>
                       <h2>Choose a video for publication</h2>
-                      <p className="hint">Use your latest take or upload a different file (still capped at 3:00).</p>
+                      <p className="hint">Pick one of your takes. We’ll add multi-take editing next.</p>
                     </div>
                     <button type="button" className="ghost" onClick={() => goToStep('record')}>
-                      Retake
+                      Back to record
                     </button>
                   </div>
 
-                  {videoUrl && (
-                    <div className="video-preview">
-                      <div className="preview-label">Selected video</div>
-                      <video src={videoUrl} controls preload="metadata" />
-                      {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
-                    </div>
-                  )}
+                  <div className="take-list">
+                    {recordedTakes.length === 0 && (
+                      <p className="hint">No takes yet. Record or upload to choose one.</p>
+                    )}
+                    {recordedTakes.map((take) => (
+                      <label
+                        key={take.id}
+                        className={`take-card ${selectedTakeId === take.id ? 'selected' : ''}`}
+                      >
+                        <div className="take-card-top">
+                          <div className="take-label">
+                            <input
+                              type="radio"
+                              name="selectedTake"
+                              checked={selectedTakeId === take.id}
+                              onChange={() => selectTake(take.id)}
+                            />
+                            <span>{take.label}</span>
+                          </div>
+                          <span className="take-duration">{formatDuration(take.duration) ?? '—'}</span>
+                        </div>
+                        <video src={take.url} controls preload="metadata" />
+                      </label>
+                    ))}
+                  </div>
 
                   <div className="field">
                     <label htmlFor="video">Upload instead (max 3:00)</label>
@@ -618,7 +659,7 @@ function App() {
                     <button type="button" className="ghost" onClick={() => goToStep('record')}>
                       Back
                     </button>
-                    <button type="submit" disabled={status === 'submitting'}>
+                    <button type="submit" disabled={status === 'submitting' || !selectedTake}>
                       {status === 'submitting' ? 'Uploading...' : 'Publish job'}
                     </button>
                   </div>

@@ -340,6 +340,56 @@ p {
   background: #fff;
 }
 
+.take-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.take-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+}
+
+.take-card.selected {
+  border-color: #6366f1;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.18);
+}
+
+.take-card video {
+  width: 100%;
+  border-radius: 10px;
+  background: #000;
+}
+
+.take-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.take-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.take-duration {
+  font-weight: 600;
+  color: #475569;
+}
+
 .upload-box {
   border: 1.5px dashed #cbd5e1;
   background: #f8fafc;
