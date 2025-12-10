@@ -443,6 +443,7 @@ function App() {
                       name="title"
                       value={form.title}
                       onChange={handleInputChange}
+                      autoFocus
                       placeholder="e.g., Senior Backend Engineer"
                       required
                     />
@@ -521,16 +522,6 @@ function App() {
                               <div className="overlay-actions-left">
                                 <button type="button" className="ghost dark" onClick={() => goToStep('details')}>
                                   Back
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ghost dark"
-                                  onClick={() => {
-                                    resetRecording();
-                                    startRecording();
-                                  }}
-                                >
-                                  Restart recording
                                 </button>
                               </div>
                               <div className="overlay-actions-right">
