@@ -140,6 +140,95 @@ p {
   color: #fff;
 }
 
+.fullscreen-recorder {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(140deg, #0b1224, #0d162e);
+  z-index: 30;
+  padding: 1.5rem;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.record-shell {
+  width: min(1100px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.record-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: #e2e8f0;
+}
+
+.record-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.record-bar-right {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.record-stage {
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  background: #0b1224;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.record-placeholder {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  padding: 2rem;
+}
+
+.record-footer {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 0.75rem;
+  color: #e2e8f0;
+}
+
+.record-footer video {
+  width: 100%;
+  border-radius: 10px;
+  background: #000;
+}
+
+.fullscreen-recorder .ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.fullscreen-recorder .ghost:hover {
+  border-color: #475569;
+}
+
+.error.floating {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: 340px;
+  z-index: 40;
+}
+
 .view-pill {
   display: inline-flex;
   align-items: center;

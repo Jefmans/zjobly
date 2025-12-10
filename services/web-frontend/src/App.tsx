@@ -197,6 +197,12 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (createStep === 'record' && !recorderOpen) {
+      openRecorder();
+    }
+  }, [createStep, recorderOpen]);
+
   const closeRecorder = () => {
     clearRecordTimer();
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -458,109 +464,99 @@ function App() {
               )}
 
               {createStep === 'record' && (
-                <div className="panel">
-                  <div className="panel-header">
-                    <div>
-                      <h2>Record your intro</h2>
-                      <p className="hint">We stop automatically at 3:00. You can retake anytime.</p>
-                    </div>
-                    <div className="pill">Hard cap: 3:00</div>
-                  </div>
-
-                  <div className="record-box">
-                    <div className="record-actions">
-                      <div className="record-permission">
-                        <button type="button" className="ghost" onClick={requestPermissions}>
-                          {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                <div className="fullscreen-recorder">
+                  <div className="record-shell">
+                    <div className="record-bar">
+                      <div className="record-bar-left">
+                        <button type="button" className="ghost" onClick={() => goToStep('details')}>
+                          Back
                         </button>
-                        <span className="record-status">
-                          {permissionState === 'granted'
-                            ? 'Ready to record'
-                            : permissionState === 'denied'
-                            ? 'Permission denied'
-                            : 'Permission not requested'}
-                        </span>
-                      </div>
-                      <button type="button" className="ghost" onClick={openRecorder}>
-                        {recorderOpen ? 'Open recorder again' : 'Open recorder'}
-                      </button>
-                    </div>
-
-                    {recorderOpen && (
-                      <div className="record-screen">
-                        <video
-                          ref={liveVideoRef}
-                          className="live-video"
-                          autoPlay
-                          playsInline
-                          muted
-                        />
-                        <div className="record-screen-overlay">
-                          <div className="overlay-top">
-                            <span
-                              className={`status-pill ${
-                                recordingState === 'recording' ? 'live' : 'idle'
-                              }`}
-                            >
-                              {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
-                            </span>
-                            <div className="record-timer">
-                              <span>{recordLabel ?? '0:00'}</span>
-                              <span className="record-max">/ 3:00</span>
-                            </div>
-                          </div>
-                          <div className="overlay-bottom">
-                            <button
-                              type="button"
-                              className={`record-btn ${
-                                recordingState === 'recording' ? 'stop' : 'start'
-                              }`}
-                              onClick={
-                                recordingState === 'recording' ? stopRecording : startRecording
-                              }
-                            >
-                              {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-                            </button>
-                            <button type="button" className="ghost dark" onClick={closeRecorder}>
-                              Close preview
-                            </button>
-                          </div>
+                        <div className="pill">Hard cap: 3:00</div>
+                        <div className="record-permission inline">
+                          <button type="button" className="ghost" onClick={requestPermissions}>
+                            {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
+                          </button>
+                          <span className="record-status">
+                            {permissionState === 'granted'
+                              ? 'Ready to record'
+                              : permissionState === 'denied'
+                              ? 'Permission denied'
+                              : 'Permission not requested'}
+                          </span>
                         </div>
                       </div>
+                      <div className="record-bar-right">
+                        <button type="button" className="ghost" onClick={resetRecording}>
+                          Retake
+                        </button>
+                        <button
+                          type="button"
+                          className="cta primary"
+                          onClick={() => goToStep('select')}
+                          disabled={!videoFile}
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="record-stage">
+                      {recorderOpen ? (
+                        <div className="record-screen">
+                          <video
+                            ref={liveVideoRef}
+                            className="live-video"
+                            autoPlay
+                            playsInline
+                            muted
+                          />
+                          <div className="record-screen-overlay">
+                            <div className="overlay-top">
+                              <span
+                                className={`status-pill ${
+                                  recordingState === 'recording' ? 'live' : 'idle'
+                                }`}
+                              >
+                                {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
+                              </span>
+                              <div className="record-timer">
+                                <span>{recordLabel ?? '0:00'}</span>
+                                <span className="record-max">/ 3:00</span>
+                              </div>
+                            </div>
+                            <div className="overlay-bottom">
+                              <button
+                                type="button"
+                                className={`record-btn ${
+                                  recordingState === 'recording' ? 'stop' : 'start'
+                                }`}
+                                onClick={
+                                  recordingState === 'recording' ? stopRecording : startRecording
+                                }
+                              >
+                                {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                              </button>
+                              <button type="button" className="ghost dark" onClick={closeRecorder}>
+                                Close preview
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="record-placeholder">
+                          <p>Opening camera... If it does not appear, grant permissions above.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl && (
+                      <div className="record-footer">
+                        <div className="preview-label">Latest take (max 3:00)</div>
+                        <video src={videoUrl} controls preload="metadata" />
+                      </div>
                     )}
 
-                    {!recorderOpen && (
-                      <p className="hint">Click "Open recorder" to see your camera feed and start.</p>
-                    )}
-                    <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
-                  </div>
-
-                  {videoUrl && (
-                    <div className="video-preview">
-                      <div className="preview-label">Latest take (max 3:00)</div>
-                      <video src={videoUrl} controls preload="metadata" />
-                    </div>
-                  )}
-
-                  {error && <div className="error">{error}</div>}
-
-                  <div className="panel-actions split">
-                    <button type="button" className="ghost" onClick={() => goToStep('details')}>
-                      Back
-                    </button>
-                    <div className="panel-action-right">
-                      <button type="button" className="ghost" onClick={resetRecording}>
-                        Retake recording
-                      </button>
-                      <button
-                        type="button"
-                        className="cta primary"
-                        onClick={() => goToStep('select')}
-                        disabled={!videoFile}
-                      >
-                        Continue to choose video
-                      </button>
-                    </div>
+                    {error && <div className="error floating">{error}</div>}
                   </div>
                 </div>
               )}
