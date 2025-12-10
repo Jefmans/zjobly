@@ -1,9 +1,10 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import './App.css';
 
 const MAX_VIDEO_SECONDS = 180;
 
 type Status = 'idle' | 'submitting' | 'success';
+type RecordingState = 'idle' | 'recording';
 
 function formatDuration(seconds: number | null) {
   if (seconds === null || Number.isNaN(seconds)) return null;
@@ -21,6 +22,10 @@ function App() {
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
+  const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const [recordDuration, setRecordDuration] = useState<number>(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -72,6 +77,70 @@ function App() {
     probe.src = objectUrl;
   };
 
+  const stopStreamTracks = (stream: MediaStream | null) => {
+    stream?.getTracks().forEach((t) => t.stop());
+  };
+
+  const startRecording = async () => {
+    setError(null);
+    setStatus('idle');
+    setRecordDuration(0);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunks.push(ev.data);
+      };
+
+      recorder.onstop = () => {
+        stopStreamTracks(stream);
+        if (recordTimerRef.current) {
+          window.clearInterval(recordTimerRef.current);
+          recordTimerRef.current = null;
+        }
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const file = new File([blob], 'capture.webm', { type: 'video/webm' });
+        const objectUrl = URL.createObjectURL(blob);
+        setVideoDuration(recordDuration);
+        setVideoFile(file);
+        if (videoUrl) URL.revokeObjectURL(videoUrl);
+        setVideoUrl(objectUrl);
+        setRecordingState('idle');
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecordingState('recording');
+
+      const startedAt = Date.now();
+      recordTimerRef.current = window.setInterval(() => {
+        const elapsed = (Date.now() - startedAt) / 1000;
+        setRecordDuration(elapsed);
+        if (elapsed >= MAX_VIDEO_SECONDS) {
+          stopRecording();
+        }
+      }, 500);
+    } catch (err) {
+      console.error(err);
+      setError('Could not access camera/microphone. Check permissions.');
+      setRecordingState('idle');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setRecordingState('idle');
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -95,6 +164,7 @@ function App() {
   };
 
   const durationLabel = formatDuration(videoDuration);
+  const recordLabel = formatDuration(recordDuration);
 
   return (
     <main className="app-shell">
@@ -158,6 +228,29 @@ function App() {
                 <span>MP4, MOV, WEBM — up to 3 minutes</span>
                 {durationLabel && <span className="duration">Detected: {durationLabel}</span>}
               </div>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Or record now (camera + mic)</label>
+            <div className="record-box">
+              <div className="record-controls">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={recordingState === 'recording' ? stopRecording : startRecording}
+                >
+                  {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                </button>
+                <span className="record-status">
+                  {recordingState === 'recording' ? 'Recording…' : 'Not recording'}
+                </span>
+              </div>
+              <div className="record-timer">
+                <span>{recordLabel ?? '0:00'}</span>
+                <span className="record-max">/ 3:00</span>
+              </div>
+              <p className="hint">Use your webcam or phone camera; we enforce a 3-minute cap.</p>
             </div>
           </div>
 
