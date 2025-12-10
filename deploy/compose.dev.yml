@@ -6,8 +6,18 @@ services:
     command:
       - --providers.docker=true
       - --entrypoints.web.address=:80
-    ports: ["80:80"]
-    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+      - --entrypoints.websecure.address=:443
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.email=ops@zjobly.com
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports: ["80:80", "443:443"]
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "../certs:/certs:ro"
+      - "./traefik_dynamic.yml:/etc/traefik/dynamic.yml:ro"
+      - "../letsencrypt:/letsencrypt"
     restart: unless-stopped
 
   postgres:
@@ -52,8 +62,9 @@ services:
     command: npm run dev -- --host --port 5173
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=PathPrefix(`/`)
-      - traefik.http.routers.frontend.entrypoints=web
+      - traefik.http.routers.frontend.rule=Host(`zjobly.com`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=le
       - traefik.http.services.frontend.loadbalancer.server.port=5173
     restart: unless-stopped
 
@@ -66,7 +77,9 @@ services:
     depends_on: [postgres, redis, minio]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.media.rule=PathPrefix(`/videos`)
+      - traefik.http.routers.media.rule=Host(`zjobly.com`) && PathPrefix(`/videos`)
+      - traefik.http.routers.media.entrypoints=websecure
+      - traefik.http.routers.media.tls.certresolver=le
       - traefik.http.services.media.loadbalancer.server.port=8000
     restart: unless-stopped
 

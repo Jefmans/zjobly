@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /certs/dev.zjobly.local.pem
+      keyFile: /certs/dev.zjobly.local-key.pem
