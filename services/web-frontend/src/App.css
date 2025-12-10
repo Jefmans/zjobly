@@ -580,8 +580,9 @@ button[type='submit']:disabled {
 }
 
 .overlay-bottom {
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .record-btn {
@@ -649,4 +650,22 @@ button[type='submit']:disabled {
   border-color: rgba(148, 163, 184, 0.7);
   color: #e2e8f0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.cap-badge {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-weight: 800;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+}
+
+.overlay-actions-left,
+.overlay-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }

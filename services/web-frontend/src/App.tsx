@@ -264,7 +264,6 @@ function App() {
         if (videoUrl) URL.revokeObjectURL(videoUrl);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
-        setCreateStep('select'); // Jump to selection once recording ends
       };
 
       mediaRecorderRef.current = recorder;
@@ -466,40 +465,6 @@ function App() {
               {createStep === 'record' && (
                 <div className="fullscreen-recorder">
                   <div className="record-shell">
-                    <div className="record-bar">
-                      <div className="record-bar-left">
-                        <button type="button" className="ghost" onClick={() => goToStep('details')}>
-                          Back
-                        </button>
-                        <div className="pill">Hard cap: 3:00</div>
-                        <div className="record-permission inline">
-                          <button type="button" className="ghost" onClick={requestPermissions}>
-                            {permissionState === 'granted' ? 'Camera/mic allowed' : 'Request permission'}
-                          </button>
-                          <span className="record-status">
-                            {permissionState === 'granted'
-                              ? 'Ready to record'
-                              : permissionState === 'denied'
-                              ? 'Permission denied'
-                              : 'Permission not requested'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="record-bar-right">
-                        <button type="button" className="ghost" onClick={resetRecording}>
-                          Retake
-                        </button>
-                        <button
-                          type="button"
-                          className="cta primary"
-                          onClick={() => goToStep('select')}
-                          disabled={!videoFile}
-                        >
-                          Continue
-                        </button>
-                      </div>
-                    </div>
-
                     <div className="record-stage">
                       {recorderOpen ? (
                         <div className="record-screen">
@@ -512,6 +477,7 @@ function App() {
                           />
                           <div className="record-screen-overlay">
                             <div className="overlay-top">
+                              <span className="cap-badge">Hard cap: 3:00</span>
                               <span
                                 className={`status-pill ${
                                   recordingState === 'recording' ? 'live' : 'idle'
@@ -525,20 +491,36 @@ function App() {
                               </div>
                             </div>
                             <div className="overlay-bottom">
-                              <button
-                                type="button"
-                                className={`record-btn ${
-                                  recordingState === 'recording' ? 'stop' : 'start'
-                                }`}
-                                onClick={
-                                  recordingState === 'recording' ? stopRecording : startRecording
-                                }
-                              >
-                                {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-                              </button>
-                              <button type="button" className="ghost dark" onClick={closeRecorder}>
-                                Close preview
-                              </button>
+                              <div className="overlay-actions-left">
+                                <button type="button" className="ghost dark" onClick={() => goToStep('details')}>
+                                  Back
+                                </button>
+                                <button type="button" className="ghost dark" onClick={resetRecording}>
+                                  Retake
+                                </button>
+                              </div>
+                              <div className="overlay-actions-right">
+                                {recordingState !== 'recording' && videoFile && (
+                                  <button
+                                    type="button"
+                                    className="cta primary"
+                                    onClick={() => goToStep('select')}
+                                  >
+                                    Continue
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`record-btn ${
+                                    recordingState === 'recording' ? 'stop' : 'start'
+                                  }`}
+                                  onClick={
+                                    recordingState === 'recording' ? stopRecording : startRecording
+                                  }
+                                >
+                                  {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
