@@ -59,14 +59,20 @@ services:
     command: npm run dev -- --host --port 5173
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=Host(`zjobly.com`,`www.zjobly.com`)
+      - traefik.http.routers.frontend.rule=Host(`zjobly.com`)
       - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
       - traefik.http.routers.frontend.tls.certresolver=le
-      - traefik.http.middlewares.frontend-redirect.redirectregex.regex=^https?://www\\.zjobly\\.com/(.*)
-      - traefik.http.middlewares.frontend-redirect.redirectregex.replacement=https://zjobly.com/$${1}
-      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
-      - traefik.http.routers.frontend.middlewares=frontend-redirect,https-redirect
+      - traefik.http.routers.frontend.middlewares=frontend-https-redirect
+      - traefik.http.middlewares.frontend-https-redirect.redirectscheme.scheme=https
+
+      - traefik.http.routers.frontend-www.rule=Host(`www.zjobly.com`)
+      - traefik.http.routers.frontend-www.entrypoints=web,websecure
+      - traefik.http.routers.frontend-www.tls=true
+      - traefik.http.routers.frontend-www.tls.certresolver=le
+      - traefik.http.routers.frontend-www.middlewares=frontend-www-to-apex,frontend-https-redirect
+      - traefik.http.middlewares.frontend-www-to-apex.redirectregex.regex=^https?://www\\.zjobly\\.com/(.*)
+      - traefik.http.middlewares.frontend-www-to-apex.redirectregex.replacement=https://zjobly.com/$${1}
       - traefik.http.services.frontend.loadbalancer.server.port=5173
     restart: unless-stopped
 
@@ -83,7 +89,7 @@ services:
       - traefik.http.routers.media.entrypoints=web,websecure
       - traefik.http.routers.media.tls=true
       - traefik.http.routers.media.tls.certresolver=le
-      - traefik.http.routers.media.middlewares=https-redirect
+      - traefik.http.routers.media.middlewares=frontend-https-redirect
       - traefik.http.services.media.loadbalancer.server.port=8000
     restart: unless-stopped
 
@@ -100,6 +106,8 @@ services:
         limits:
           cpus: "2.0"
           memory: 2g
+    labels:
+      - traefik.enable=false
     restart: unless-stopped
 
 volumes:
