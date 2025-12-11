@@ -16,12 +16,41 @@ type RecordedTake = {
   label: string;
   source: 'recording' | 'upload';
 };
+type FormState = {
+  title: string;
+  location: string;
+  description: string;
+};
 type Job = {
   id: string;
   title: string;
   location: string;
   status: 'published' | 'draft';
   videoLabel?: string;
+};
+
+const DRAFT_STORAGE_KEY = 'zjobly-create-draft-v1';
+const defaultFormState: FormState = { title: '', location: '', description: '' };
+
+const loadDraft = (): { view: ViewMode; createStep: CreateStep; form: FormState } | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      view: parsed.view ?? 'welcome',
+      createStep: parsed.createStep ?? 'details',
+      form: {
+        title: parsed.form?.title ?? '',
+        location: parsed.form?.location ?? '',
+        description: parsed.form?.description ?? '',
+      },
+    };
+  } catch (err) {
+    console.warn('Could not read draft', err);
+    return null;
+  }
 };
 
 function formatDuration(seconds: number | null) {
@@ -37,9 +66,10 @@ const makeTakeId = (prefix: 'rec' | 'upload') =>
   `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
 
 function App() {
-  const [view, setView] = useState<ViewMode>('welcome');
-  const [createStep, setCreateStep] = useState<CreateStep>('details');
-  const [form, setForm] = useState({ title: '', location: '', description: '' });
+  const existingDraft = loadDraft();
+  const [view, setView] = useState<ViewMode>(existingDraft?.view ?? 'welcome');
+  const [createStep, setCreateStep] = useState<CreateStep>(existingDraft?.createStep ?? 'details');
+  const [form, setForm] = useState<FormState>(existingDraft?.form ?? defaultFormState);
   const [jobs, setJobs] = useState<Job[]>([
     { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'published', videoLabel: 'Take 2' },
     { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'published', videoLabel: 'Upload 1' },
@@ -57,6 +87,7 @@ function App() {
   const [permissionState, setPermissionState] = useState<PermissionState>('unknown');
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [needsReattach, setNeedsReattach] = useState<boolean>(Boolean(existingDraft));
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -66,6 +97,20 @@ function App() {
 
   const stopStreamTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach((t) => t.stop());
+  };
+
+  const persistDraft = (partial: Partial<{ view: ViewMode; createStep: CreateStep; form: FormState }>) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const merged = {
+        view: partial.view ?? view,
+        createStep: partial.createStep ?? createStep,
+        form: { ...form, ...(partial.form ?? {}) },
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(merged));
+    } catch (err) {
+      console.warn('Could not save draft', err);
+    }
   };
 
   const clearRecordTimer = () => {
@@ -121,7 +166,11 @@ function App() {
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      persistDraft({ form: next });
+      return next;
+    });
     setStatus('idle');
     setError(null);
   };
@@ -251,6 +300,12 @@ function App() {
       openRecorder();
     }
   }, [createStep, recorderOpen]);
+
+  useEffect(() => {
+    if (recordedTakes.length > 0) {
+      setNeedsReattach(false);
+    }
+  }, [recordedTakes.length]);
 
   const closeRecorder = () => {
     clearRecordTimer();
@@ -386,13 +441,13 @@ function App() {
           title: form.title,
           location: form.location,
           status: 'published',
-          videoLabel: selectedTake?.label,
-        },
-        ...prev,
-      ]);
-      setStatus('success');
-      setView('jobs');
-    }, 800);
+        videoLabel: selectedTake?.label,
+      },
+      ...prev,
+    ]);
+    setStatus('success');
+    switchView('jobs');
+  }, 800);
   };
 
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
@@ -401,6 +456,7 @@ function App() {
 
   const backToWelcome = () => {
     setView('welcome');
+    persistDraft({ view: 'welcome', createStep: 'details' });
     setStatus('idle');
     setError(null);
     setCreateStep('details');
@@ -409,6 +465,12 @@ function App() {
   const goToStep = (nextStep: CreateStep) => {
     setError(null);
     setCreateStep(nextStep);
+    persistDraft({ createStep: nextStep });
+  };
+
+  const switchView = (next: ViewMode) => {
+    setView(next);
+    persistDraft({ view: next });
   };
 
   const selectTake = (id: string) => {
@@ -428,14 +490,14 @@ function App() {
         <button
           type="button"
           className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-          onClick={() => setView('create')}
+          onClick={() => switchView('create')}
         >
           Create Zjob
         </button>
         <button
           type="button"
           className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
-          onClick={() => setView('find')}
+          onClick={() => switchView('find')}
         >
           Find Zjob
         </button>
@@ -444,7 +506,7 @@ function App() {
           className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
           onClick={() => {
             setSelectedJobId(null);
-            setView('jobs');
+            switchView('jobs');
           }}
         >
           My Jobs
@@ -459,17 +521,17 @@ function App() {
         <section className="hero welcome">
           <p className="tag">Zjobly</p>
           <h1>Welcome to Zjobly</h1>
-          <p className="lede">Pick where you want to start.</p>
-          <div className="welcome-actions">
-            <button type="button" className="cta primary" onClick={() => setView('create')}>
-              Create Zjob
-            </button>
-            <button type="button" className="cta ghost" onClick={() => setView('find')}>
-              Find Zjob
-            </button>
-          </div>
-        </section>
-      )}
+            <p className="lede">Pick where you want to start.</p>
+            <div className="welcome-actions">
+              <button type="button" className="cta primary" onClick={() => switchView('create')}>
+                Create Zjob
+              </button>
+              <button type="button" className="cta ghost" onClick={() => switchView('find')}>
+                Find Zjob
+              </button>
+            </div>
+          </section>
+        )}
 
       {view === 'create' && (
         <>
@@ -496,6 +558,12 @@ function App() {
                 <span>Choose video & publish</span>
               </div>
             </div>
+
+            {needsReattach && recordedTakes.length === 0 && createStep !== 'details' && (
+              <div className="notice">
+                Draft restored. Re-attach your video to finish publishing.
+              </div>
+            )}
 
             <form className="upload-form" onSubmit={handleSubmit}>
               {createStep === 'details' && (
@@ -724,7 +792,7 @@ function App() {
               <button type="button" className="ghost" onClick={backToWelcome}>
                 Back to welcome
               </button>
-              <button type="button" className="cta primary" onClick={() => setView('create')}>
+              <button type="button" className="cta primary" onClick={() => switchView('create')}>
                 Create a Zjob instead
               </button>
             </div>
@@ -748,7 +816,7 @@ function App() {
                   className="job-card"
                   onClick={() => {
                     setSelectedJobId(job.id);
-                    setView('jobDetail');
+                    switchView('jobDetail');
                   }}
                 >
                   <div>
@@ -794,7 +862,7 @@ function App() {
                       <button
                         type="button"
                         className="ghost"
-                        onClick={() => setView('jobs')}
+                        onClick={() => switchView('jobs')}
                       >
                         Back to jobs
                       </button>
