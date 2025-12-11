@@ -26,6 +26,9 @@ function formatDuration(seconds: number | null) {
   return `${minutes}:${secs}`;
 }
 
+const makeTakeId = (prefix: 'rec' | 'upload') =>
+  `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
@@ -46,6 +49,7 @@ function App() {
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
+  const takeUrlsRef = useRef<Set<string>>(new Set());
 
   const stopStreamTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach((t) => t.stop());
@@ -57,12 +61,6 @@ function App() {
       recordTimerRef.current = null;
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
-    };
-  }, [videoUrl]);
 
   useEffect(() => {
     liveStreamRef.current = liveStream;
@@ -84,6 +82,8 @@ function App() {
         mediaRecorderRef.current.stop();
       }
       stopStreamTracks(liveStreamRef.current);
+      takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, []);
 
@@ -150,13 +150,14 @@ function App() {
       }
       const uploadCount = recordedTakes.filter((t) => t.source === 'upload').length + 1;
       const take: RecordedTake = {
-        id: `upload-${Date.now()}`,
+        id: makeTakeId('upload'),
         file,
         url: objectUrl,
         duration,
         label: `Upload ${uploadCount}`,
         source: 'upload',
       };
+      takeUrlsRef.current.add(objectUrl);
       setRecordedTakes((prev) => [take, ...prev]);
       setSelectedTakeId(take.id);
       setVideoUrl(objectUrl);
@@ -296,13 +297,14 @@ function App() {
         const objectUrl = URL.createObjectURL(blob);
         const takeIndex = recordedTakes.filter((t) => t.source === 'recording').length + 1;
         const take: RecordedTake = {
-          id: `rec-${Date.now()}`,
+          id: makeTakeId('rec'),
           file,
           url: objectUrl,
           duration: latestElapsed,
           label: `Take ${takeIndex}`,
           source: 'recording',
         };
+        takeUrlsRef.current.add(objectUrl);
         setRecordedTakes((prev) => [take, ...prev]);
         setSelectedTakeId(take.id);
         setVideoDuration(latestElapsed);
