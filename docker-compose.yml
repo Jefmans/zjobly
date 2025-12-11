@@ -58,6 +58,13 @@ services:
     volumes: [minio:/data]
     ports: ["9005:9001"]   # dev console
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio.rule=Host(`minio.zjobly.com`)
+      - traefik.http.routers.minio.entrypoints=web,websecure
+      - traefik.http.routers.minio.tls=true
+      - traefik.http.routers.minio.tls.certresolver=le
+      - traefik.http.services.minio.loadbalancer.server.port=9000
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
