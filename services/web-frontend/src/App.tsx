@@ -1,3 +1,4 @@
+
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import './App.css';
 
@@ -6,7 +7,8 @@ const MAX_VIDEO_SECONDS = 180;
 type Status = 'idle' | 'submitting' | 'success';
 type RecordingState = 'idle' | 'recording';
 type PermissionState = 'unknown' | 'granted' | 'denied';
-type ViewMode = 'welcome' | 'profile' | 'interview' | 'jobs' | 'jobDetail';
+type ViewMode = 'welcome' | 'profile' | 'interview' | 'create' | 'jobs' | 'jobDetail';
+type CreateStep = 'details' | 'record' | 'select';
 
 type RecordedTake = {
   id: string;
@@ -15,6 +17,7 @@ type RecordedTake = {
   duration: number;
   label: string;
   source: 'recording' | 'upload';
+  purpose: 'interview' | 'jobIntro';
   questionId?: string;
   questionPrompt?: string;
 };
@@ -102,13 +105,28 @@ const INITIAL_JOBS: Job[] = [
   },
 ];
 
-const DRAFT_STORAGE_KEY = 'zjobly-jobseeker-draft-v1';
+const DRAFT_STORAGE_KEY = 'zjobly-jobseeker-draft-v2';
 
 type DraftState = {
   view: ViewMode;
   profile: CandidateProfile;
   selectedTakeId: string | null;
   activeQuestionId: string;
+  createStep: CreateStep;
+  createForm: CreateFormState;
+  createSelectedTakeId: string | null;
+};
+
+type CreateFormState = {
+  title: string;
+  location: string;
+  description: string;
+};
+
+const defaultCreateForm: CreateFormState = {
+  title: '',
+  location: '',
+  description: '',
 };
 
 const loadDraft = (): DraftState | null => {
@@ -131,6 +149,13 @@ const loadDraft = (): DraftState | null => {
       },
       selectedTakeId: parsed.selectedTakeId ?? null,
       activeQuestionId: parsed.activeQuestionId ?? QUESTIONS[0].id,
+      createStep: parsed.createStep ?? 'details',
+      createForm: {
+        title: parsed.createForm?.title ?? '',
+        location: parsed.createForm?.location ?? '',
+        description: parsed.createForm?.description ?? '',
+      },
+      createSelectedTakeId: parsed.createSelectedTakeId ?? null,
     };
   } catch (err) {
     console.warn('Could not read draft', err);
@@ -151,7 +176,6 @@ const makeTakeId = (prefix: 'rec' | 'upload') =>
   `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
 
 const trimQuestion = (prompt: string) => (prompt.length > 52 ? `${prompt.slice(0, 52)}...` : prompt);
-
 function App() {
   const existingDraft = loadDraft();
   const [view, setView] = useState<ViewMode>(existingDraft?.view ?? 'welcome');
@@ -161,22 +185,30 @@ function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [recordedTakes, setRecordedTakes] = useState<RecordedTake[]>([]);
   const [selectedTakeId, setSelectedTakeId] = useState<string | null>(existingDraft?.selectedTakeId ?? null);
+  const [createSelectedTakeId, setCreateSelectedTakeId] = useState<string | null>(
+    existingDraft?.createSelectedTakeId ?? null,
+  );
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profileStatus, setProfileStatus] = useState<Status>('idle');
   const [jobStatus, setJobStatus] = useState<Status>('idle');
+  const [createStatus, setCreateStatus] = useState<Status>('idle');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
   const [permissionState, setPermissionState] = useState<PermissionState>('unknown');
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [createStep, setCreateStep] = useState<CreateStep>(existingDraft?.createStep ?? 'details');
+  const [createForm, setCreateForm] = useState<CreateFormState>(existingDraft?.createForm ?? defaultCreateForm);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
   const takeUrlsRef = useRef<Set<string>>(new Set());
+  const recordingPurposeRef = useRef<'interview' | 'jobIntro'>('interview');
+
   const stopStreamTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach((t) => t.stop());
   };
@@ -189,11 +221,18 @@ function App() {
         profile,
         selectedTakeId,
         activeQuestionId,
+        createStep,
+        createForm,
+        createSelectedTakeId,
         ...partial,
         profile: partial.profile ?? profile,
         selectedTakeId: partial.selectedTakeId === undefined ? selectedTakeId : partial.selectedTakeId,
         activeQuestionId: partial.activeQuestionId ?? activeQuestionId,
         view: partial.view ?? view,
+        createStep: partial.createStep ?? createStep,
+        createForm: partial.createForm ?? createForm,
+        createSelectedTakeId:
+          partial.createSelectedTakeId === undefined ? createSelectedTakeId : partial.createSelectedTakeId,
       };
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(merged));
     } catch (err) {
@@ -207,7 +246,6 @@ function App() {
       recordTimerRef.current = null;
     }
   };
-
   const handleProfileChange = (field: keyof CandidateProfile, value: string) => {
     setProfile((prev) => {
       const next = { ...prev, [field]: value };
@@ -239,68 +277,79 @@ function App() {
     setProfileStatus('success');
   };
 
-  const clearVideoSelection = () => {
-    if (videoUrl) URL.revokeObjectURL(videoUrl);
-    setVideoUrl(null);
-    setVideoDuration(null);
-    setSelectedTakeId(null);
-    persistDraft({ selectedTakeId: null });
+  const handleCreateInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCreateForm((prev) => {
+      const next = { ...prev, [name]: value };
+      persistDraft({ createForm: next });
+      return next;
+    });
+    setCreateStatus('idle');
+    setError(null);
   };
 
-  const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setError(null);
-    setJobStatus('idle');
-    setVideoDuration(null);
+  const handleVideoChange =
+    (purpose: 'interview' | 'jobIntro') => (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      setError(null);
+      setJobStatus('idle');
+      setCreateStatus('idle');
+      setVideoDuration(null);
 
-    if (!file) return;
+      if (!file) return;
 
-    const objectUrl = URL.createObjectURL(file);
-    const probe = document.createElement('video');
-    const playbackProbe = document.createElement('video');
-    probe.preload = 'metadata';
+      const objectUrl = URL.createObjectURL(file);
+      const probe = document.createElement('video');
+      const playbackProbe = document.createElement('video');
+      probe.preload = 'metadata';
 
-    if (file.type && playbackProbe.canPlayType(file.type) === '') {
-      setError(`This browser cannot play files of type ${file.type}. Try MP4 (H.264/AAC).`);
-      clearVideoSelection();
-      URL.revokeObjectURL(objectUrl);
-      return;
-    }
-
-    probe.onloadedmetadata = () => {
-      const duration = probe.duration;
-      setVideoDuration(duration);
-      if (duration > MAX_VIDEO_SECONDS) {
-        setError('Video must be 3 minutes or less.');
+      if (file.type && playbackProbe.canPlayType(file.type) === '') {
+        setError(`This browser cannot play files of type ${file.type}. Try MP4 (H.264/AAC).`);
         URL.revokeObjectURL(objectUrl);
         return;
       }
-      const uploadCount = recordedTakes.filter((t) => t.source === 'upload').length + 1;
-      const question = QUESTIONS.find((q) => q.id === activeQuestionId);
-      const take: RecordedTake = {
-        id: makeTakeId('upload'),
-        file,
-        url: objectUrl,
-        duration,
-        label: `${question ? trimQuestion(question.prompt) : 'Upload'} - Upload ${uploadCount}`,
-        source: 'upload',
-        questionId: question?.id,
-        questionPrompt: question?.prompt,
-      };
-      takeUrlsRef.current.add(objectUrl);
-      setRecordedTakes((prev) => [take, ...prev]);
-      setSelectedTakeId(take.id);
-      setVideoUrl(objectUrl);
-      setVideoDuration(duration);
-      persistDraft({ selectedTakeId: take.id });
-    };
-    probe.onerror = () => {
-      setError('Could not read video metadata. Try a different file.');
-      URL.revokeObjectURL(objectUrl);
-    };
-    probe.src = objectUrl;
-  };
 
+      probe.onloadedmetadata = () => {
+        const duration = probe.duration;
+        setVideoDuration(duration);
+        if (duration > MAX_VIDEO_SECONDS) {
+          setError('Video must be 3 minutes or less.');
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        const uploadCount =
+          recordedTakes.filter((t) => t.source === 'upload' && t.purpose === purpose).length + 1;
+        const question = purpose === 'interview' ? QUESTIONS.find((q) => q.id === activeQuestionId) : null;
+        const take: RecordedTake = {
+          id: makeTakeId('upload'),
+          file,
+          url: objectUrl,
+          duration,
+          label:
+            purpose === 'interview'
+              ? `${question ? trimQuestion(question.prompt) : 'Interview'} - Upload ${uploadCount}`
+              : `${createForm.title || 'Job intro'} - Upload ${uploadCount}`,
+          source: 'upload',
+          purpose,
+          questionId: purpose === 'interview' ? question?.id : 'job-intro',
+          questionPrompt: purpose === 'interview' ? question?.prompt : createForm.title || 'Job intro',
+        };
+        takeUrlsRef.current.add(objectUrl);
+        setRecordedTakes((prev) => [take, ...prev]);
+        setSelectedTakeId(take.id);
+        if (purpose === 'jobIntro') {
+          setCreateSelectedTakeId(take.id);
+        }
+        setVideoUrl(objectUrl);
+        setVideoDuration(duration);
+        persistDraft({ selectedTakeId: take.id, createSelectedTakeId: purpose === 'jobIntro' ? take.id : undefined });
+      };
+      probe.onerror = () => {
+        setError('Could not read video metadata. Try a different file.');
+        URL.revokeObjectURL(objectUrl);
+      };
+      probe.src = objectUrl;
+    };
   const acquireStream = async () => {
     const legacyGetUserMedia = (navigator as any).webkitGetUserMedia || (navigator as any).mozGetUserMedia;
     const getUserMedia =
@@ -375,14 +424,17 @@ function App() {
     setRecorderOpen(false);
     setRecordDuration(0);
   };
+
   useEffect(() => {
-    if (view === 'interview' && !recorderOpen) {
+    const shouldOpen =
+      view === 'interview' || (view === 'create' && createStep === 'record');
+    if (shouldOpen && !recorderOpen) {
       openRecorder();
     }
-    if (view !== 'interview' && recorderOpen) {
+    if (!shouldOpen && recorderOpen) {
       closeRecorder();
     }
-  }, [view, recorderOpen]);
+  }, [view, recorderOpen, createStep]);
 
   useEffect(() => {
     liveStreamRef.current = liveStream;
@@ -425,11 +477,12 @@ function App() {
       videoEl.play().catch(() => undefined);
     }
   }, [recordingState]);
-
-  const startRecording = async () => {
+  const startRecording = async (purpose: 'interview' | 'jobIntro') => {
     setError(null);
     setJobStatus('idle');
+    setCreateStatus('idle');
     setRecordDuration(0);
+    recordingPurposeRef.current = purpose;
 
     const stream = await acquireStream();
     if (!stream) return;
@@ -469,25 +522,42 @@ function App() {
         const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
         const activeQuestion = QUESTIONS.find((q) => q.id === activeQuestionId);
+        const purpose = recordingPurposeRef.current;
         const takeIndex =
-          recordedTakes.filter((t) => t.source === 'recording' && t.questionId === activeQuestionId).length + 1;
+          recordedTakes.filter(
+            (t) =>
+              t.source === 'recording' &&
+              (purpose === 'interview'
+                ? t.questionId === activeQuestionId
+                : t.purpose === 'jobIntro'),
+          ).length + 1;
         const take: RecordedTake = {
           id: makeTakeId('rec'),
           file,
           url: objectUrl,
           duration: latestElapsed,
-          label: `${activeQuestion ? trimQuestion(activeQuestion.prompt) : 'Interview'} - Take ${takeIndex}`,
+          label:
+            purpose === 'interview'
+              ? `${activeQuestion ? trimQuestion(activeQuestion.prompt) : 'Interview'} - Take ${takeIndex}`
+              : `${createForm.title || 'Job intro'} - Take ${takeIndex}`,
           source: 'recording',
-          questionId: activeQuestion?.id,
-          questionPrompt: activeQuestion?.prompt,
+          purpose,
+          questionId: purpose === 'interview' ? activeQuestion?.id : 'job-intro',
+          questionPrompt: purpose === 'interview' ? activeQuestion?.prompt : createForm.title || 'Job intro',
         };
         takeUrlsRef.current.add(objectUrl);
         setRecordedTakes((prev) => [take, ...prev]);
         setSelectedTakeId(take.id);
+        if (purpose === 'jobIntro') {
+          setCreateSelectedTakeId(take.id);
+        }
         setVideoDuration(latestElapsed);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
-        persistDraft({ selectedTakeId: take.id });
+        persistDraft({
+          selectedTakeId: take.id,
+          createSelectedTakeId: purpose === 'jobIntro' ? take.id : undefined,
+        });
       };
 
       mediaRecorderRef.current = recorder;
@@ -529,23 +599,37 @@ function App() {
     persistDraft({ selectedTakeId: id });
   };
 
+  const selectCreateTake = (id: string) => {
+    setCreateSelectedTakeId(id);
+    setSelectedTakeId(id);
+    persistDraft({ createSelectedTakeId: id, selectedTakeId: id });
+  };
+
   const switchView = (next: ViewMode) => {
     setError(null);
     setJobStatus('idle');
+    setCreateStatus('idle');
     setView(next);
     persistDraft({ view: next });
   };
-
+  const interviewTakes = recordedTakes.filter((t) => t.purpose === 'interview');
+  const jobIntroTakes = recordedTakes.filter((t) => t.purpose === 'jobIntro');
   const activeQuestion = QUESTIONS.find((q) => q.id === activeQuestionId);
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
+  const selectedInterviewTake = interviewTakes.find((t) => t.id === selectedTakeId) ?? null;
+  const selectedJobIntroTake = jobIntroTakes.find((t) => t.id === createSelectedTakeId) ?? null;
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
+  const interviewDurationLabel = formatDuration(selectedInterviewTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const answeredQuestions = new Set(recordedTakes.map((t) => t.questionId).filter(Boolean) as string[]);
+  const answeredQuestions = new Set(
+    interviewTakes.map((t) => t.questionId).filter(Boolean) as string[],
+  );
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) ?? null : null;
 
   const attachSelectedToJob = () => {
     if (!selectedJobId) return;
-    if (!selectedTake) {
+    const take = selectedTake ?? null;
+    if (!take) {
       setError('Select a take to send with this job.');
       return;
     }
@@ -557,8 +641,8 @@ function App() {
           job.id === selectedJobId
             ? {
                 ...job,
-                videoLabel: selectedTake.label,
-                videoTakeId: selectedTake.id,
+                videoLabel: take.label,
+                videoTakeId: take.id,
                 status: 'applied',
                 note: `Shared with ${job.owner}`,
               }
@@ -567,6 +651,50 @@ function App() {
       );
       setJobStatus('success');
     }, 400);
+  };
+
+  const goToCreateStep = (next: CreateStep) => {
+    setError(null);
+    setCreateStep(next);
+    persistDraft({ createStep: next });
+  };
+
+  const handleCreateSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    if (!createForm.title || !createForm.location) {
+      setError('Add a title and location first.');
+      goToCreateStep('details');
+      return;
+    }
+    if (!selectedJobIntroTake) {
+      setError('Record or upload a video before publishing.');
+      goToCreateStep('record');
+      return;
+    }
+    if ((selectedJobIntroTake.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
+      setError('Video must be 3 minutes or less.');
+      return;
+    }
+
+    setCreateStatus('submitting');
+    setTimeout(() => {
+      const newJob: Job = {
+        id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
+        title: createForm.title,
+        company: 'Your company',
+        location: createForm.location,
+        owner: 'You',
+        status: 'open',
+        videoLabel: selectedJobIntroTake.label,
+        videoTakeId: selectedJobIntroTake.id,
+        note: createForm.description,
+      };
+      setJobs((prev) => [newJob, ...prev]);
+      setCreateStatus('success');
+      setView('jobs');
+      setSelectedJobId(newJob.id);
+    }, 600);
   };
 
   const renderSwitcher = () => (
@@ -589,6 +717,13 @@ function App() {
         </button>
         <button
           type="button"
+          className={`nav-btn ghost ${view === 'create' ? 'active' : ''}`}
+          onClick={() => switchView('create')}
+        >
+          Create job
+        </button>
+        <button
+          type="button"
           className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
           onClick={() => switchView('jobs')}
         >
@@ -597,7 +732,6 @@ function App() {
       </div>
     </div>
   );
-
   return (
     <main className="app-shell">
       {view === 'welcome' && (
@@ -605,7 +739,8 @@ function App() {
           <p className="tag">Job seeker workspace</p>
           <h1>Show your profile and voice</h1>
           <p className="lede">
-            Keep your details in one place, answer the automated video prompts, and attach a take to roles you like.
+            Keep your details in one place, answer the automated video prompts, and attach a take to roles you like. Or
+            create a new role with your own intro.
           </p>
           <div className="progress-row">
             <div className="pill">Profile ready</div>
@@ -620,6 +755,9 @@ function App() {
             </button>
             <button type="button" className="cta ghost" onClick={() => switchView('profile')}>
               Update profile
+            </button>
+            <button type="button" className="ghost" onClick={() => switchView('create')}>
+              Create a job
             </button>
             <button type="button" className="ghost" onClick={() => switchView('jobs')}>
               Browse jobs
@@ -726,16 +864,24 @@ function App() {
                     <p className="hint">Pick a take to feature next to your profile.</p>
                   </div>
                 </div>
-                {recordedTakes.length === 0 && <p className="hint">Record at least one take to feature it here.</p>}
-                {selectedTake && (
+                {interviewTakes.length === 0 && <p className="hint">Record at least one take to feature it here.</p>}
+                {selectedInterviewTake && (
                   <div className="video-preview">
                     <div className="preview-label">
-                      {selectedTake.questionPrompt ? trimQuestion(selectedTake.questionPrompt) : 'Interview take'}
+                      {selectedInterviewTake.questionPrompt
+                        ? trimQuestion(selectedInterviewTake.questionPrompt)
+                        : 'Interview take'}
                     </div>
-                    <video ref={playbackVideoRef} src={selectedTake.url} controls playsInline className="profile-video" />
+                    <video
+                      ref={playbackVideoRef}
+                      src={selectedInterviewTake.url}
+                      controls
+                      playsInline
+                      className="profile-video"
+                    />
                     <div className="take-meta">
-                      <span className="pill">{durationLabel ?? '0:00'}</span>
-                      <span className="pill">{selectedTake.label}</span>
+                      <span className="pill">{interviewDurationLabel ?? '0:00'}</span>
+                      <span className="pill">{selectedInterviewTake.label}</span>
                     </div>
                   </div>
                 )}
@@ -838,7 +984,7 @@ function App() {
                             <span>
                               {recordingState === 'recording'
                                 ? recordLabel ?? '0:00'
-                                : durationLabel ?? recordLabel ?? '0:00'}
+                                : interviewDurationLabel ?? recordLabel ?? '0:00'}
                             </span>
                             <span className="record-max">/ 3:00</span>
                           </div>
@@ -850,7 +996,7 @@ function App() {
                             </span>
                           </div>
                           <div className="overlay-actions-right">
-                            {recordingState !== 'recording' && selectedTake && (
+                            {recordingState !== 'recording' && selectedInterviewTake && (
                               <button type="button" className="cta primary" onClick={() => switchView('jobs')}>
                                 Use for a job
                               </button>
@@ -858,7 +1004,11 @@ function App() {
                             <button
                               type="button"
                               className={`record-btn ${recordingState === 'recording' ? 'stop' : 'start'}`}
-                              onClick={recordingState === 'recording' ? stopRecording : startRecording}
+                              onClick={() =>
+                                recordingState === 'recording'
+                                  ? stopRecording()
+                                  : startRecording('interview')
+                              }
                             >
                               {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
                             </button>
@@ -884,8 +1034,8 @@ function App() {
                   </div>
                 </div>
                 <div className="take-list">
-                  {recordedTakes.length === 0 && <p className="hint">Record or upload to see your takes here.</p>}
-                  {recordedTakes.map((take) => (
+                  {interviewTakes.length === 0 && <p className="hint">Record or upload to see your takes here.</p>}
+                  {interviewTakes.map((take) => (
                     <label key={take.id} className={`take-card ${selectedTakeId === take.id ? 'selected' : ''}`}>
                       <div className="take-card-top">
                         <div className="take-label">
@@ -908,7 +1058,13 @@ function App() {
                 <div className="field">
                   <label htmlFor="video">Upload a take instead (max 3:00)</label>
                   <div className="upload-box">
-                    <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
+                    <input
+                      id="video"
+                      name="video"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoChange('interview')}
+                    />
                     <div className="upload-copy">
                       <strong>Select a video file</strong>
                       <span>MP4, MOV, WEBM</span>
@@ -920,7 +1076,225 @@ function App() {
           </section>
         </>
       )}
+      {view === 'create' && (
+        <>
+          {renderSwitcher()}
+          <section className="hero">
+            <div className="view-pill">Create job</div>
+            <p className="tag">Hiring manager</p>
+            <h1>Post a role with a video intro</h1>
+            <p className="lede">Add the role, record a quick intro (max 3:00), then publish it.</p>
 
+            <div className="stepper">
+              <div className={`step ${createStep === 'details' ? 'active' : ''}`}>
+                <span className="step-id">1</span>
+                <span>Role details</span>
+              </div>
+              <div className={`step ${createStep === 'record' ? 'active' : ''}`}>
+                <span className="step-id">2</span>
+                <span>Record</span>
+              </div>
+              <div className={`step ${createStep === 'select' ? 'active' : ''}`}>
+                <span className="step-id">3</span>
+                <span>Choose video & publish</span>
+              </div>
+            </div>
+
+            <form className="upload-form" onSubmit={handleCreateSubmit}>
+              {createStep === 'details' && (
+                <div className="panel">
+                  <div className="field">
+                    <label htmlFor="create-title">Job title</label>
+                    <input
+                      id="create-title"
+                      name="title"
+                      value={createForm.title}
+                      onChange={handleCreateInputChange}
+                      placeholder="e.g., Senior Backend Engineer"
+                      required
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="create-location">Location</label>
+                    <input
+                      id="create-location"
+                      name="location"
+                      value={createForm.location}
+                      onChange={handleCreateInputChange}
+                      placeholder="e.g., Remote (EU) or Brussels"
+                      required
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="create-description">Description</label>
+                    <textarea
+                      id="create-description"
+                      name="description"
+                      rows={3}
+                      value={createForm.description}
+                      onChange={handleCreateInputChange}
+                      placeholder="Short pitch for this role"
+                    />
+                  </div>
+
+                  <div className="panel-actions">
+                    <button
+                      type="button"
+                      className="cta primary"
+                      onClick={() => goToCreateStep('record')}
+                      disabled={!createForm.title || !createForm.location}
+                    >
+                      Continue to recording
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 'record' && (
+                <div className="fullscreen-recorder">
+                  <div className="record-shell">
+                    <div className="record-stage">
+                      {recorderOpen ? (
+                        <div className={`record-screen ${recordingState !== 'recording' && videoUrl ? 'playback' : ''}`}>
+                          {recordingState !== 'recording' && videoUrl ? (
+                            <video
+                              key={videoUrl}
+                              ref={playbackVideoRef}
+                              src={videoUrl}
+                              className="live-video playback-video"
+                              controls
+                              playsInline
+                              autoPlay
+                              muted
+                            />
+                          ) : (
+                            <video ref={liveVideoRef} className="live-video" autoPlay playsInline muted />
+                          )}
+                          <div className="record-screen-overlay">
+                            <div className="overlay-top">
+                              <span className={`status-pill ${recordingState === 'recording' ? 'live' : 'idle'}`}>
+                                {recordingState === 'recording' ? 'Recording' : 'Camera ready'}
+                              </span>
+                              <div className="record-timer">
+                                <span>
+                                  {recordingState === 'recording'
+                                    ? recordLabel ?? '0:00'
+                                    : durationLabel ?? recordLabel ?? '0:00'}
+                                </span>
+                                <span className="record-max">/ 3:00</span>
+                              </div>
+                            </div>
+                            <div className="overlay-bottom">
+                              <div className="overlay-actions-left">
+                                <button type="button" className="ghost dark" onClick={() => goToCreateStep('details')}>
+                                  Back
+                                </button>
+                              </div>
+                              <div className="overlay-actions-right">
+                                {recordingState !== 'recording' && selectedJobIntroTake && (
+                                  <button type="button" className="cta primary" onClick={() => goToCreateStep('select')}>
+                                    Continue
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`record-btn ${recordingState === 'recording' ? 'stop' : 'start'}`}
+                                  onClick={() =>
+                                    recordingState === 'recording'
+                                      ? stopRecording()
+                                      : startRecording('jobIntro')
+                                  }
+                                >
+                                  {recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="record-placeholder">
+                          <p>Opening camera... If it does not appear, grant permissions above.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {error && <div className="error floating">{error}</div>}
+                  </div>
+                </div>
+              )}
+
+              {createStep === 'select' && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Choose a video to publish</h2>
+                      <p className="hint">Pick one of your takes. We'll add multi-take editing next.</p>
+                    </div>
+                    <button type="button" className="ghost" onClick={() => goToCreateStep('record')}>
+                      Back to record
+                    </button>
+                  </div>
+
+                  <div className="take-list">
+                    {jobIntroTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
+                    {jobIntroTakes.map((take) => (
+                      <label
+                        key={take.id}
+                        className={`take-card ${createSelectedTakeId === take.id ? 'selected' : ''}`}
+                      >
+                        <div className="take-card-top">
+                          <div className="take-label">
+                            <input
+                              type="radio"
+                              name="createSelectedTake"
+                              checked={createSelectedTakeId === take.id}
+                              onChange={() => selectCreateTake(take.id)}
+                            />
+                            <span>{take.label}</span>
+                          </div>
+                          <span className="take-duration">{formatDuration(take.duration) ?? '0:00'}</span>
+                        </div>
+                        <video src={take.url} controls preload="metadata" />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="create-video">Upload instead (max 3:00)</label>
+                    <div className="upload-box">
+                      <input
+                        id="create-video"
+                        name="video"
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoChange('jobIntro')}
+                      />
+                      <div className="upload-copy">
+                        <strong>Select a video file</strong>
+                        <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && <div className="error">{error}</div>}
+                  {createStatus === 'success' && <div className="success">Saved! (API wire-up coming next.)</div>}
+
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={() => goToCreateStep('record')}>
+                      Back
+                    </button>
+                    <button type="submit" disabled={createStatus === 'submitting' || !createSelectedTakeId}>
+                      {createStatus === 'submitting' ? 'Uploading...' : 'Publish job'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </section>
+        </>
+      )}
       {view === 'jobs' && (
         <>
           {renderSwitcher()}
