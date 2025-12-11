@@ -174,3 +174,7 @@ volumes:
   minio:
   frontend_node_modules:
   esdata:
+
+networks:
+  internal_backend:
+    driver: bridge
