@@ -22,6 +22,13 @@ export function JobSeekerFlow({
   onCreateClick,
   setView,
 }: Props) {
+  const getStatusMeta = (status: Job["status"]) => {
+    if (status === "draft") return { label: "Draft", className: "draft" };
+    if (status === "closed") return { label: "Closed", className: "closed" };
+    if (status === "open") return { label: "Open", className: "open" };
+    return { label: "Published", className: "published" };
+  };
+
   if (view === "find") {
     return (
       <>
@@ -31,7 +38,7 @@ export function JobSeekerFlow({
           <p className="tag">Zjobly</p>
           <h1>Discover an open Zjob</h1>
           <p className="lede">
-            Search for roles shared with you. We’ll add richer search soon—start with a keyword or a Zjob link.
+            Search for roles shared with you. We'll add richer search soon - start with a keyword or a Zjob link.
           </p>
           <div className="search-card">
             <label className="field-label" htmlFor="search">
@@ -65,7 +72,7 @@ export function JobSeekerFlow({
         <section className="hero">
           <div className="view-pill">My Jobs</div>
           <p className="tag">Zjobly</p>
-          <h1>Your published jobs</h1>
+          <h1>Your jobs</h1>
           <p className="lede">Click a job to see its details.</p>
           <div className="jobs-list">
             {jobs.map((job) => (
@@ -82,9 +89,10 @@ export function JobSeekerFlow({
                   <div className="job-title">{job.title}</div>
                   <div className="job-meta">{job.location}</div>
                 </div>
-                <div className={`job-status ${job.status}`}>
-                  {job.status === "published" ? "Published" : "Draft"}
-                </div>
+                {(() => {
+                  const status = getStatusMeta(job.status);
+                  return <div className={`job-status ${status.className}`}>{status.label}</div>;
+                })()}
               </button>
             ))}
           </div>
@@ -107,9 +115,10 @@ export function JobSeekerFlow({
               <h1>{job.title}</h1>
               <p className="lede">{job.location}</p>
               <div className="job-detail-meta">
-                <span className={`job-status ${job.status}`}>
-                  {job.status === "published" ? "Published" : "Draft"}
-                </span>
+                {(() => {
+                  const status = getStatusMeta(job.status);
+                  return <span className={`job-status ${status.className}`}>{status.label}</span>;
+                })()}
                 {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
               </div>
               <div className="panel">

@@ -32,6 +32,7 @@ type Props = {
   selectTake: (id: string) => void;
   handleVideoChange: (e: ChangeEvent<HTMLInputElement>) => void;
   status: Status;
+  uploadProgress: number | null;
 };
 
 export function JobCreationFlow({
@@ -58,8 +59,12 @@ export function JobCreationFlow({
   selectTake,
   handleVideoChange,
   status,
+  uploadProgress,
 }: Props) {
   if (view !== "create") return null;
+
+  const isSubmitting = status === "presigning" || status === "uploading" || status === "confirming";
+  const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
 
   return (
     <>
@@ -223,7 +228,7 @@ export function JobCreationFlow({
                         />
                         <span>{take.label}</span>
                       </div>
-                      <span className="take-duration">{formatDuration(take.duration) ?? "—"}</span>
+                      <span className="take-duration">{formatDuration(take.duration) ?? "0:00"}</span>
                     </div>
                     <video src={take.url} controls preload="metadata" />
                   </label>
@@ -242,14 +247,37 @@ export function JobCreationFlow({
               </div>
 
               {error && <div className="error">{error}</div>}
-              {status === "success" && <div className="success">Saved! (API wire-up coming next.)</div>}
+              {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
+              {status === "uploading" && (
+                <div className="upload-progress">
+                  <div className="upload-progress-top">
+                    <span>Uploading video...</span>
+                    <span>{uploadPercent !== null ? `${uploadPercent}%` : "..."}</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: `${uploadPercent ?? 5}%` }} />
+                  </div>
+                </div>
+              )}
+              {status === "confirming" && <div className="notice">Confirming your upload...</div>}
+              {status === "success" && (
+                <div className="success">Upload queued! We&apos;ll transcribe and process the video next.</div>
+              )}
 
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => goToStep("record")}>
+                <button type="button" className="ghost" onClick={() => goToStep("record")} disabled={isSubmitting}>
                   Back
                 </button>
-                <button type="submit" disabled={status === "submitting" || !selectedTake}>
-                  {status === "submitting" ? "Uploading..." : "Publish job"}
+                <button type="submit" disabled={isSubmitting || !selectedTake}>
+                  {status === "presigning"
+                    ? "Requesting upload..."
+                    : status === "uploading"
+                      ? `Uploading${uploadPercent !== null ? ` ${uploadPercent}%` : "..."}`
+                      : status === "confirming"
+                        ? "Confirming..."
+                        : status === "success"
+                          ? "Published"
+                          : "Publish job"}
                 </button>
               </div>
             </div>

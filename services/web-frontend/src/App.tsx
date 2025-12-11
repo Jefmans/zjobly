@@ -1,7 +1,8 @@
-﻿import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
+import { createUploadUrl, confirmUpload, uploadFileToUrl } from './api';
 import { formatDuration, makeTakeId } from './helpers';
 import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, ViewMode } from './types';
 
@@ -12,8 +13,8 @@ function App() {
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
   const [jobs, setJobs] = useState<Job[]>([
-    { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'published', videoLabel: 'Take 2' },
-    { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'published', videoLabel: 'Upload 1' },
+    { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'open', videoLabel: 'Take 2' },
+    { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'open', videoLabel: 'Upload 1' },
     { id: 'job-3', title: 'Data Analyst', location: 'Hybrid Antwerp', status: 'draft', videoLabel: 'Take 1' },
   ]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -23,6 +24,7 @@ function App() {
   const [selectedTakeId, setSelectedTakeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
   const [, setPermissionState] = useState<PermissionState>('unknown');
@@ -36,7 +38,7 @@ function App() {
   const takeUrlsRef = useRef<Set<string>>(new Set());
 
   const stopStreamTracks = (stream: MediaStream | null) => {
-    stream?.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach((t) => t.stop());
   };
 
   const clearRecordTimer = () => {
@@ -98,6 +100,7 @@ function App() {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setStatus('idle');
+    setUploadProgress(null);
     setError(null);
   };
 
@@ -106,12 +109,15 @@ function App() {
     setVideoUrl(null);
     setVideoDuration(null);
     setSelectedTakeId(null);
+    setUploadProgress(null);
+    setStatus('idle');
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setError(null);
     setStatus('idle');
+    setUploadProgress(null);
     setVideoDuration(null);
 
     if (!file) return;
@@ -237,7 +243,7 @@ function App() {
             document.createElement('video').canPlayType(opt) !== ''
         ) || '';
 
-      const recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+      const recorder = chosenMime  new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
       const chunks: Blob[] = [];
       let latestElapsed = 0;
 
@@ -250,7 +256,7 @@ function App() {
         const blobType = chosenMime || 'video/webm';
         const containerType = blobType.split(';')[0] || blobType;
         const blob = new Blob(chunks, { type: containerType });
-        const extension = containerType.includes('mp4') ? 'mp4' : 'webm';
+        const extension = containerType.includes('mp4')  'mp4' : 'webm';
         const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
         const takeIndex = recordedTakes.filter((t) => t.source === 'recording').length + 1;
@@ -300,9 +306,10 @@ function App() {
     setRecordingState('idle');
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setUploadProgress(null);
 
     if (!form.title || !form.location) {
       setError('Add a title and location first.');
@@ -316,27 +323,41 @@ function App() {
       return;
     }
 
-    if ((selectedTake?.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
+    if ((selectedTake.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
       setError('Video must be 3 minutes or less.');
       return;
     }
 
-    setStatus('submitting');
-
-    setTimeout(() => {
+    try {
+      setStatus('presigning');
+      const presign = await createUploadUrl(selectedTake.file);
+      setStatus('uploading');
+      setUploadProgress(0);
+      await uploadFileToUrl(presign.upload_url, selectedTake.file, (percent) => setUploadProgress(percent));
+      setStatus('confirming');
+      await confirmUpload({
+        object_key: presign.object_key,
+        duration_seconds: selectedTake.duration ?? videoDuration ?? null,
+        source: selectedTake.source,
+      });
       setJobs((prev) => [
         {
           id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
           title: form.title,
           location: form.location,
-          status: 'published',
-          videoLabel: selectedTake?.label,
+          status: 'open',
+          videoLabel: selectedTake.label,
         },
         ...prev,
       ]);
       setStatus('success');
+      setUploadProgress(100);
       setView('jobs');
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    }
   };
 
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
@@ -346,6 +367,7 @@ function App() {
   const backToWelcome = () => {
     setView('welcome');
     setStatus('idle');
+    setUploadProgress(null);
     setError(null);
     setCreateStep('details');
   };
@@ -361,12 +383,15 @@ function App() {
     setSelectedTakeId(id);
     setVideoUrl(take.url);
     setVideoDuration(take.duration);
+    setUploadProgress(null);
+    setStatus('idle');
+    setError(null);
   };
 
   const renderSwitcher = () => (
     <div className="top-nav">
       <button type="button" className="link-btn" onClick={backToWelcome}>
-        ← Back
+        Back
       </button>
       <div className="nav-actions">
         <button
@@ -439,6 +464,7 @@ function App() {
         selectTake={selectTake}
         handleVideoChange={handleVideoChange}
         status={status}
+        uploadProgress={uploadProgress}
       />
 
       <JobSeekerFlow
@@ -456,4 +482,3 @@ function App() {
 }
 
 export default App;
-

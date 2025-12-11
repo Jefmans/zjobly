@@ -455,6 +455,37 @@ p {
   border-radius: 10px;
 }
 
+.upload-progress {
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.upload-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.35rem;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(120deg, #6366f1, #3b82f6);
+  transition: width 120ms ease;
+}
+
 .notice {
   color: #1d4ed8;
   background: #eff6ff;
@@ -704,7 +735,8 @@ button[type='submit']:disabled {
   border: 1px solid #e2e8f0;
 }
 
-.job-status.published {
+.job-status.published,
+.job-status.open {
   background: #ecfdf3;
   color: #166534;
   border-color: #bbf7d0;
@@ -714,6 +746,12 @@ button[type='submit']:disabled {
   background: #fefce8;
   color: #92400e;
   border-color: #fcd34d;
+}
+
+.job-status.closed {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecdd3;
 }
 
 .job-detail-meta {
