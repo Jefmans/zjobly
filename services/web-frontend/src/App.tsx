@@ -6,7 +6,7 @@ const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 type Status = 'idle' | 'submitting' | 'success';
 type RecordingState = 'idle' | 'recording';
 type PermissionState = 'unknown' | 'granted' | 'denied';
-type ViewMode = 'welcome' | 'create' | 'find';
+type ViewMode = 'welcome' | 'create' | 'find' | 'jobs' | 'jobDetail';
 type CreateStep = 'details' | 'record' | 'select';
 type RecordedTake = {
   id: string;
@@ -15,6 +15,13 @@ type RecordedTake = {
   duration: number;
   label: string;
   source: 'recording' | 'upload';
+};
+type Job = {
+  id: string;
+  title: string;
+  location: string;
+  status: 'published' | 'draft';
+  videoLabel?: string;
 };
 
 function formatDuration(seconds: number | null) {
@@ -33,6 +40,12 @@ function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
+  const [jobs] = useState<Job[]>([
+    { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'published', videoLabel: 'Take 2' },
+    { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'published', videoLabel: 'Upload 1' },
+    { id: 'job-3', title: 'Data Analyst', location: 'Hybrid Antwerp', status: 'draft', videoLabel: 'Take 1' },
+  ]);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [recordedTakes, setRecordedTakes] = useState<RecordedTake[]>([]);
@@ -358,11 +371,6 @@ function App() {
       return;
     }
 
-    if (!form.description) {
-      setError('Add a short description before publishing.');
-      return;
-    }
-
     if ((selectedTake?.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
       setError('Video must be 3 minutes or less.');
       return;
@@ -419,6 +427,16 @@ function App() {
           onClick={() => setView('find')}
         >
           Find Zjob
+        </button>
+        <button
+          type="button"
+          className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
+          onClick={() => {
+            setSelectedJobId(null);
+            setView('jobs');
+          }}
+        >
+          My Jobs
         </button>
       </div>
     </div>
@@ -651,19 +669,6 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="field">
-                    <label htmlFor="description">Short description</label>
-                    <textarea
-                      id="description"
-                      name="description"
-                      value={form.description}
-                      onChange={handleInputChange}
-                      placeholder="Key responsibilities, stack, team, and why it matters."
-                      rows={4}
-                      required
-                    />
-                  </div>
-
                   {error && <div className="error">{error}</div>}
                   {status === 'success' && <div className="success">Saved! (API wire-up coming next.)</div>}
 
@@ -712,6 +717,83 @@ function App() {
                 Create a Zjob instead
               </button>
             </div>
+          </section>
+        </>
+      )}
+
+      {view === 'jobs' && (
+        <>
+          {renderSwitcher()}
+          <section className="hero">
+            <div className="view-pill">My Jobs</div>
+            <p className="tag">Zjobly</p>
+            <h1>Your published jobs</h1>
+            <p className="lede">Click a job to see its details.</p>
+            <div className="jobs-list">
+              {jobs.map((job) => (
+                <button
+                  key={job.id}
+                  type="button"
+                  className="job-card"
+                  onClick={() => {
+                    setSelectedJobId(job.id);
+                    setView('jobDetail');
+                  }}
+                >
+                  <div>
+                    <div className="job-title">{job.title}</div>
+                    <div className="job-meta">{job.location}</div>
+                  </div>
+                  <div className={`job-status ${job.status}`}>
+                    {job.status === 'published' ? 'Published' : 'Draft'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {view === 'jobDetail' && (
+        <>
+          {renderSwitcher()}
+          <section className="hero">
+            <div className="view-pill">Job Detail</div>
+            <p className="tag">Zjobly</p>
+            {selectedJobId ? (
+              (() => {
+                const job = jobs.find((j) => j.id === selectedJobId);
+                if (!job) {
+                  return <p className="hint">Job not found.</p>;
+                }
+                return (
+                  <>
+                    <h1>{job.title}</h1>
+                    <p className="lede">{job.location}</p>
+                    <div className="job-detail-meta">
+                      <span className={`job-status ${job.status}`}>
+                        {job.status === 'published' ? 'Published' : 'Draft'}
+                      </span>
+                      {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
+                    </div>
+                    <div className="panel">
+                      <p className="hint">Full job description and video preview will appear here.</p>
+                    </div>
+                    <div className="panel-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => setView('jobs')}
+                      >
+                        Back to jobs
+                      </button>
+                    </div>
+                  </>
+                );
+              })()
+            ) : (
+              <p className="hint">Select a job from the list first.</p>
+            )}
           </section>
         </>
       )}
