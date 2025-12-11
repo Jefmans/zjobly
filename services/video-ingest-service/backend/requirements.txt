@@ -6,3 +6,4 @@ boto3==1.28.57
 psycopg[binary]==3.1.12
 python-multipart==0.0.6
 pydantic==1.10.13
+sqlalchemy==2.0.23
