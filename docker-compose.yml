@@ -40,14 +40,25 @@ services:
     ports: ["9001:9001"]   # dev console
     restart: unless-stopped
 
-  opensearch:
-    image: opensearchproject/opensearch:2
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
     environment:
       discovery.type: single-node
-      OPENSEARCH_SECURITY_ENABLED: "false"
-      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
     ulimits:
       memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes: [esdata:/usr/share/elasticsearch/data]
+    ports: ["9200:9200"]
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.2
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on: [elasticsearch]
+    ports: ["5601:5601"]   # dev console
     restart: unless-stopped
 
   frontend:
@@ -112,7 +123,44 @@ services:
       - traefik.enable=false
     restart: unless-stopped
 
+  # --- AI: Transcription via OpenAI Whisper API ---
+  transcription_worker:
+    build:
+      context: ./services/transcription
+    env_file:
+      - ./.env.dev
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      REDIS_URL: redis://redis:6379/0
+      PGHOST: postgres
+      PGUSER: app
+      PGPASSWORD: app
+      PGDATABASE: app
+    depends_on: [redis, minio, postgres]
+    restart: unless-stopped
+
+  # --- AI: Embeddings, keywords, titles ---
+  nlp_worker:
+    build:
+      context: ./services/nlp
+    env_file:
+      - ./.env.dev
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ELASTIC_URL: http://elasticsearch:9200
+      REDIS_URL: redis://redis:6379/0
+      PGHOST: postgres
+      PGUSER: app
+      PGPASSWORD: app
+      PGDATABASE: app
+    depends_on: [redis, postgres, elasticsearch]
+    restart: unless-stopped
+
 volumes:
   pgdata:
   minio:
   frontend_node_modules:
+  esdata:
