@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import boto3
 from botocore.client import Config
+from botocore.exceptions import ClientError
 
 from app.config import settings
 
@@ -49,3 +50,18 @@ def presign_put_object(
         "object_key": object_key,
         "expires_at": int(time.time()) + expires_in,
     }
+
+
+def ensure_bucket(bucket: str) -> None:
+    """
+    Ensure the bucket exists in MinIO. No-op if already present.
+    """
+    client = get_s3_client()
+    try:
+        client.head_bucket(Bucket=bucket)
+    except ClientError as exc:
+        error_code = int(exc.response.get("Error", {}).get("Code", 0))
+        if error_code in (404, 400, 301):
+            client.create_bucket(Bucket=bucket)
+        else:
+            raise

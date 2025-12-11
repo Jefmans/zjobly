@@ -3,6 +3,7 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.routes import media
+from app.storage import ensure_bucket
 
 
 def create_app() -> FastAPI:
@@ -25,4 +26,7 @@ app = create_app()
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    # Make sure required buckets exist in MinIO.
+    ensure_bucket(settings.S3_BUCKET_RAW)
+    ensure_bucket(settings.S3_BUCKET_HLS)
     logging.info("Media API started")
