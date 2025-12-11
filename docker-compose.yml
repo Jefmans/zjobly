@@ -114,14 +114,17 @@ services:
       context: ./services/video-ingest-service/backend
     env_file:
       - ./.env
+    environment:
+      API_PREFIX: /videos
     depends_on: [postgres, redis, minio]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.media.rule=Host(`zjobly.com`) && PathPrefix(`/videos`)
+      - traefik.http.routers.media.rule=Host(`api.zjobly.com`) && PathPrefix(`/`)
       - traefik.http.routers.media.entrypoints=web,websecure
       - traefik.http.routers.media.tls=true
       - traefik.http.routers.media.tls.certresolver=le
-      - traefik.http.routers.media.middlewares=frontend-https-redirect
+      - traefik.http.routers.media.middlewares=media-https-redirect
+      - traefik.http.middlewares.media-https-redirect.redirectscheme.scheme=https
       - traefik.http.services.media.loadbalancer.server.port=8000
     restart: unless-stopped
 
