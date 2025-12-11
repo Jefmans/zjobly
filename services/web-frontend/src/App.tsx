@@ -40,7 +40,7 @@ function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
-  const [jobs] = useState<Job[]>([
+  const [jobs, setJobs] = useState<Job[]>([
     { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'published', videoLabel: 'Take 2' },
     { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'published', videoLabel: 'Upload 1' },
     { id: 'job-3', title: 'Data Analyst', location: 'Hybrid Antwerp', status: 'draft', videoLabel: 'Take 1' },
@@ -380,7 +380,18 @@ function App() {
 
     // Placeholder: simulate an API call. Replace with real POST to your media API.
     setTimeout(() => {
+      setJobs((prev) => [
+        {
+          id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
+          title: form.title,
+          location: form.location,
+          status: 'published',
+          videoLabel: selectedTake?.label,
+        },
+        ...prev,
+      ]);
       setStatus('success');
+      setView('jobs');
     }, 800);
   };
 
