@@ -38,6 +38,7 @@ function App() {
   const takeUrlsRef = useRef<Set<string>>(new Set());
 
   const stopStreamTracks = (stream: MediaStream | null) => {
+    if (!stream) return;
     stream.getTracks().forEach((t) => t.stop());
   };
 
