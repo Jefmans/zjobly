@@ -243,7 +243,9 @@ function App() {
             document.createElement('video').canPlayType(opt) !== ''
         ) || '';
 
-      const recorder = chosenMime  new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+      const recorder = chosenMime
+        ? new MediaRecorder(stream, { mimeType: chosenMime })
+        : new MediaRecorder(stream);
       const chunks: Blob[] = [];
       let latestElapsed = 0;
 
@@ -256,7 +258,7 @@ function App() {
         const blobType = chosenMime || 'video/webm';
         const containerType = blobType.split(';')[0] || blobType;
         const blob = new Blob(chunks, { type: containerType });
-        const extension = containerType.includes('mp4')  'mp4' : 'webm';
+        const extension = containerType.includes('mp4') ? 'mp4' : 'webm';
         const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
         const takeIndex = recordedTakes.filter((t) => t.source === 'recording').length + 1;
