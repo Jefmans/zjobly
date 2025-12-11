@@ -10,7 +10,7 @@ from app.schemas import (
     UploadUrlResponse,
 )
 
-router = APIRouter(prefix="/videos", tags=["videos"])
+router = APIRouter(prefix="", tags=["videos"])
 
 
 @router.post("/upload-url", response_model=UploadUrlResponse)
