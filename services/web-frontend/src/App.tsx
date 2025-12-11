@@ -62,6 +62,7 @@ function App() {
     }
   }, [liveStream]);
 
+  // Clean up media resources when the app unmounts
   useEffect(() => {
     return () => {
       clearRecordTimer();
@@ -70,9 +71,8 @@ function App() {
       }
       stopStreamTracks(liveStreamRef.current);
       takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
-  }, [videoUrl]);
+  }, []);
 
   useEffect(() => {
     if (recordingState !== 'recording' && playbackVideoRef.current) {
