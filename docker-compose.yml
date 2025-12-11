@@ -17,6 +17,8 @@ services:
       - --providers.docker=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --api.dashboard=true
+      - --api=true
       - --certificatesresolvers.le.acme.httpchallenge=true
       - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.le.acme.email=ops@zjobly.com
@@ -26,6 +28,13 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./letsencrypt:/letsencrypt"
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.zjobly.com`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls=true
+      - traefik.http.routers.traefik.tls.certresolver=le
+      - traefik.http.routers.traefik.service=api@internal
 
   postgres:
     image: postgres:16
