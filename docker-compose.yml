@@ -4,7 +4,7 @@ services:
     container_name: portainer_agent
     restart: always
     ports:
-      - "9002:9001"  # Insecure if exposed to all IPs!
+      - "9001:9001"  # Insecure if exposed to all IPs!
     networks:
       - internal_backend
     volumes:
@@ -47,7 +47,7 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     volumes: [minio:/data]
-    ports: ["9001:9001"]   # dev console
+    ports: ["9005:9001"]   # dev console
     restart: unless-stopped
 
   elasticsearch:
