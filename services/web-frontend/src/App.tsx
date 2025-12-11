@@ -97,6 +97,15 @@ function App() {
     }
   }, [videoUrl, recordingState]);
 
+  useEffect(() => {
+    // Re-attach the live stream when entering recording mode (after a playback).
+    if (recordingState === 'recording' && liveVideoRef.current && liveStreamRef.current) {
+      const videoEl = liveVideoRef.current;
+      videoEl.srcObject = liveStreamRef.current;
+      videoEl.play().catch(() => undefined);
+    }
+  }, [recordingState]);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -304,6 +313,7 @@ function App() {
       mediaRecorderRef.current = recorder;
       recorder.start();
       setRecordingState('recording');
+      setLiveStream(stream); // ensure the live element rebinds even if same stream reference
 
       const startedAt = Date.now();
       clearRecordTimer();
