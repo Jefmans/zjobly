@@ -1,6 +1,16 @@
-version: "3.9"
-
 services:
+  portainer_agent:
+    image: portainer/agent:latest
+    container_name: portainer_agent
+    restart: always
+    ports:
+      - "9001:9001"  # Insecure if exposed to all IPs!
+    networks:
+      - internal_backend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+
   traefik:
     image: traefik:v3
     command:
