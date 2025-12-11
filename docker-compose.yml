@@ -126,6 +126,12 @@ services:
       - traefik.http.routers.media.middlewares=media-https-redirect
       - traefik.http.middlewares.media-https-redirect.redirectscheme.scheme=https
       - traefik.http.services.media.loadbalancer.server.port=8000
+      # Same-origin routing for the frontend to avoid CORS: zjobly.com/videos -> media_api
+      - traefik.http.routers.media-zjob.rule=Host(`zjobly.com`) && PathPrefix(`/videos`)
+      - traefik.http.routers.media-zjob.entrypoints=web,websecure
+      - traefik.http.routers.media-zjob.tls=true
+      - traefik.http.routers.media-zjob.tls.certresolver=le
+      - traefik.http.routers.media-zjob.middlewares=media-https-redirect
     restart: unless-stopped
 
   # --- Your SRS1: Worker ---
