@@ -58,6 +58,7 @@ class JobCreate(BaseModel):
 
 class JobOut(BaseModel):
     id: str
+    user_id: str
     company_id: str
     title: str
     description: Optional[str] = None

@@ -113,6 +113,7 @@ def create_job(
     _assert_membership(session, payload.company_id, current_user.id)
 
     job = models.Job(
+        user_id=current_user.id,
         company_id=payload.company_id,
         title=payload.title,
         description=payload.description,
@@ -133,7 +134,12 @@ def list_company_jobs(
     current_user: models.User = Depends(get_current_user),
 ) -> list[JobOut]:
     _assert_membership(session, company_id, current_user.id)
-    jobs = session.query(models.Job).filter(models.Job.company_id == company_id).order_by(models.Job.created_at.desc()).all()
+    jobs = (
+        session.query(models.Job)
+        .filter(models.Job.company_id == company_id)
+        .order_by(models.Job.created_at.desc())
+        .all()
+    )
     return jobs
 
 

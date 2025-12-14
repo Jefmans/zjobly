@@ -92,6 +92,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -101,6 +102,7 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    user: Mapped["User"] = relationship()
     company: Mapped[Company] = relationship(back_populates="jobs")
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
 
