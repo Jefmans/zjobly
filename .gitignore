@@ -2,3 +2,5 @@ readme.md
 .env
 .env.*
 !.env.example
+werk uren.ods
+/idea.txt

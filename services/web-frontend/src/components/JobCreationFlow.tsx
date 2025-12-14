@@ -33,6 +33,7 @@ type Props = {
   handleVideoChange: (e: ChangeEvent<HTMLInputElement>) => void;
   status: Status;
   uploadProgress: number | null;
+  processingMessage: string | null;
 };
 
 export function JobCreationFlow({
@@ -60,10 +61,11 @@ export function JobCreationFlow({
   handleVideoChange,
   status,
   uploadProgress,
+  processingMessage,
 }: Props) {
   if (view !== "create") return null;
 
-  const isSubmitting = status === "presigning" || status === "uploading" || status === "confirming";
+  const isSubmitting = status === "presigning" || status === "uploading" || status === "confirming" || status === "processing";
   const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
 
   return (
@@ -260,6 +262,11 @@ export function JobCreationFlow({
                 </div>
               )}
               {status === "confirming" && <div className="notice">Confirming your upload...</div>}
+              {status === "processing" && (
+                <div className="notice">
+                  {processingMessage || "Processing your video (transcription/indexing) ..."}
+                </div>
+              )}
               {status === "success" && (
                 <div className="success">Upload queued! We&apos;ll transcribe and process the video next.</div>
               )}
@@ -275,9 +282,11 @@ export function JobCreationFlow({
                       ? `Uploading${uploadPercent !== null ? ` ${uploadPercent}%` : "..."}`
                       : status === "confirming"
                         ? "Confirming..."
-                        : status === "success"
-                          ? "Published"
-                          : "Publish job"}
+                        : status === "processing"
+                          ? "Processing..."
+                          : status === "success"
+                            ? "Published"
+                            : "Publish job"}
                 </button>
               </div>
             </div>

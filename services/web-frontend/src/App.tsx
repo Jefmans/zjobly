@@ -1,8 +1,8 @@
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
-import { createUploadUrl, confirmUpload, uploadFileToUrl } from './api';
+import { confirmUpload, createUploadUrl, listCompanyJobs, searchPublicJobs, uploadFileToUrl } from './api';
 import { formatDuration, makeTakeId } from './helpers';
 import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, ViewMode } from './types';
 
@@ -12,11 +12,17 @@ function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '' });
-  const [jobs, setJobs] = useState<Job[]>([
-    { id: 'job-1', title: 'Senior Backend Engineer', location: 'Remote (EU)', status: 'open', videoLabel: 'Take 2' },
-    { id: 'job-2', title: 'Product Designer', location: 'Brussels', status: 'open', videoLabel: 'Upload 1' },
-    { id: 'job-3', title: 'Data Analyst', location: 'Hybrid Antwerp', status: 'draft', videoLabel: 'Take 1' },
-  ]);
+  const [companyId] = useState<string | null>(() => {
+    const envId = (import.meta.env.VITE_COMPANY_ID || '').toString().trim();
+    return envId || null;
+  });
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Job[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -30,8 +36,11 @@ function App() {
   const [, setPermissionState] = useState<PermissionState>('unknown');
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [, setLastUploadKey] = useState<string | null>(null);
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
+  const processingTimerRef = useRef<number | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -47,6 +56,74 @@ function App() {
       window.clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
     }
+  };
+
+  const clearProcessingTimer = () => {
+    if (processingTimerRef.current) {
+      window.clearInterval(processingTimerRef.current);
+      processingTimerRef.current = null;
+    }
+  };
+
+  const refreshJobs = useCallback(async () => {
+    if (!companyId) {
+      setJobs([]);
+      setJobsError(null);
+      return;
+    }
+    setJobsLoading(true);
+    setJobsError(null);
+    try {
+      const fetched = await listCompanyJobs(companyId);
+      setJobs(fetched);
+    } catch (err) {
+      console.error(err);
+      setJobsError(err instanceof Error ? err.message : 'Could not load jobs.');
+    } finally {
+      setJobsLoading(false);
+    }
+  }, [companyId]);
+
+  const runSearch = async (query: string) => {
+    const trimmed = query.trim();
+    setSearchQuery(trimmed);
+    if (!trimmed) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const results = await searchPublicJobs(trimmed);
+      setSearchResults(results);
+    } catch (err) {
+      console.error(err);
+      setSearchError(err instanceof Error ? err.message : 'Search failed. Please try again.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const startProcessingPoll = (objectKey: string) => {
+    clearProcessingTimer();
+    setLastUploadKey(objectKey);
+    setStatus('processing');
+    setProcessingMessage('Queued for transcription and processing...');
+
+    let attempts = 0;
+    processingTimerRef.current = window.setInterval(() => {
+      attempts += 1;
+      // Stubbed status: after a few ticks, mark as ready. Replace with a real status endpoint.
+      if (attempts >= 3) {
+        clearProcessingTimer();
+        setProcessingMessage('Processing complete (stub). Ready to publish.');
+        setStatus('success');
+      } else {
+        setProcessingMessage('Processing your video (stub status)...');
+        setStatus('processing');
+      }
+    }, 2000);
   };
 
   useEffect(() => {
@@ -71,8 +148,13 @@ function App() {
       }
       stopStreamTracks(liveStreamRef.current);
       takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      clearProcessingTimer();
     };
   }, []);
+
+  useEffect(() => {
+    refreshJobs();
+  }, [refreshJobs]);
 
   useEffect(() => {
     if (recordingState !== 'recording' && playbackVideoRef.current) {
@@ -112,6 +194,9 @@ function App() {
     setSelectedTakeId(null);
     setUploadProgress(null);
     setStatus('idle');
+    clearProcessingTimer();
+    setProcessingMessage(null);
+    setLastUploadKey(null);
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -313,6 +398,8 @@ function App() {
     e.preventDefault();
     setError(null);
     setUploadProgress(null);
+    clearProcessingTimer();
+    setProcessingMessage(null);
 
     if (!form.title || !form.location) {
       setError('Add a title and location first.');
@@ -338,11 +425,13 @@ function App() {
       setUploadProgress(0);
       await uploadFileToUrl(presign.upload_url, selectedTake.file, (percent) => setUploadProgress(percent));
       setStatus('confirming');
-      await confirmUpload({
+      const confirmed = await confirmUpload({
         object_key: presign.object_key,
         duration_seconds: selectedTake.duration ?? videoDuration ?? null,
         source: selectedTake.source,
       });
+      setUploadProgress(100);
+      startProcessingPoll(confirmed.object_key || presign.object_key);
       setJobs((prev) => [
         {
           id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
@@ -353,11 +442,11 @@ function App() {
         },
         ...prev,
       ]);
-      setStatus('success');
-      setUploadProgress(100);
       setView('jobs');
     } catch (err) {
       console.error(err);
+      clearProcessingTimer();
+      setProcessingMessage(null);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
     }
@@ -378,6 +467,14 @@ function App() {
   const goToStep = (nextStep: CreateStep) => {
     setError(null);
     setCreateStep(nextStep);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  const handleSearchSubmit = () => {
+    runSearch(searchQuery);
   };
 
   const selectTake = (id: string) => {
@@ -468,18 +565,28 @@ function App() {
         handleVideoChange={handleVideoChange}
         status={status}
         uploadProgress={uploadProgress}
+        processingMessage={processingMessage}
       />
 
       <JobSeekerFlow
         view={view}
         nav={renderSwitcher()}
-        jobs={jobs}
-        selectedJobId={selectedJobId}
-        onSelectJob={setSelectedJobId}
-        onBackToWelcome={backToWelcome}
-        onCreateClick={() => setView('create')}
-        setView={setView}
-      />
+      jobs={jobs}
+      jobsLoading={jobsLoading}
+      jobsError={jobsError}
+      companyId={companyId}
+      selectedJobId={selectedJobId}
+      onSelectJob={setSelectedJobId}
+      onBackToWelcome={backToWelcome}
+      onCreateClick={() => setView('create')}
+      setView={setView}
+      searchQuery={searchQuery}
+      onSearchChange={handleSearchChange}
+      onSearchSubmit={handleSearchSubmit}
+      searchResults={searchResults}
+      searchLoading={searchLoading}
+      searchError={searchError}
+    />
     </main>
   );
 }

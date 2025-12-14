@@ -1,4 +1,4 @@
-export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'success' | 'error';
+export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'processing' | 'success' | 'error';
 export type RecordingState = 'idle' | 'recording';
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 export type ViewMode = 'welcome' | 'create' | 'find' | 'jobs' | 'jobDetail';
