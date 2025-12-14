@@ -16,6 +16,9 @@ celery_app = Celery(
     broker=os.getenv("REDIS_URL", "redis://redis:6379/0"),
 )
 
+# Listen on a dedicated queue so it doesn't consume NLP tasks.
+celery_app.conf.task_default_queue = "transcription"
+
 # OpenAI + MinIO clients are created lazily to keep workers reusable.
 _openai_client: Optional[OpenAI] = None
 _s3_client = None

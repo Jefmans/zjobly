@@ -77,7 +77,7 @@ def process_upload(
             "nlp.process_document",
             args=[object_key, transcript],
             kwargs={"job_id": None},
-            queue="celery",  # NLP worker listens on the default queue
+            queue="nlp",  # route to dedicated NLP queue so other workers ignore it
         )
 
         logger.info(

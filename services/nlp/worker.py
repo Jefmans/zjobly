@@ -9,6 +9,9 @@ celery_app = Celery(
     broker=os.getenv("REDIS_URL", "redis://redis:6379/0"),
 )
 
+# Listen on a dedicated queue to avoid consuming media/transcription messages.
+celery_app.conf.task_default_queue = "nlp"
+
 
 @celery_app.task(name="nlp.process_document")
 def process_document(document_id: str, transcript: str, job_id: Optional[str] = None) -> dict:
