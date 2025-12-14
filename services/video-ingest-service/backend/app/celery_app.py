@@ -49,7 +49,10 @@ def fetch_object(bucket: str, object_key: str) -> io.BytesIO:
 def call_whisper(file_obj: io.BytesIO) -> str:
     client = get_openai_client()
     file_obj.seek(0)
+    # Normalize legacy model names to the hosted API variant.
     model = settings.WHISPER_MODEL or "whisper-1"
+    if model.lower() == "small":
+        model = "whisper-1"
     response = client.audio.transcriptions.create(model=model, file=file_obj)
     return response.text
 
