@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from logging.config import fileConfig
+import os
+import sys
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+# Ensure the app package is importable when running alembic from /app.
+BASE_DIR = Path(__file__).resolve().parents[1]  # /app
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 from app.config import settings
 from app.models import Base
