@@ -143,6 +143,12 @@ services:
     environment:
       API_PREFIX: /videos
     depends_on: [postgres, redis, minio]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     labels:
       - traefik.enable=true
       - traefik.http.routers.media.rule=Host(`api.zjobly.com`) && PathPrefix(`/`)
@@ -152,6 +158,8 @@ services:
       - traefik.http.routers.media.middlewares=media-https-redirect
       - traefik.http.middlewares.media-https-redirect.redirectscheme.scheme=https
       - traefik.http.services.media.loadbalancer.server.port=8000
+      - traefik.http.services.media.loadbalancer.healthCheck.path=/health
+      - traefik.http.services.media.loadbalancer.healthCheck.interval=10s
       # Same-origin routing for the frontend to avoid CORS: zjobly.com/videos -> media_api
       - traefik.http.routers.media-zjob.rule=Host(`zjobly.com`) && PathPrefix(`/videos`)
       - traefik.http.routers.media-zjob.entrypoints=web,websecure
