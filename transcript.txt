@@ -1,0 +1,24 @@
+Functieomschrijving
+We’re seeking passionate colleagues who are eager to push the boundaries in digital transformation and technology consulting. At Sopra Steria, you’ll have the opportunity to grow your skills in a constructive, collaborative team environment, working on impactful projects that drive change for our clients. If you thrive on challenge and meet (most of) the qualifications below, we look forward to your application! 
+
+You are fully convinced that data science isn’t a hype, but you also believe that, in order to be valuable and really make a company smarter, it must be done right. Your goal is therefore to create the most impactful solution possible in the quickest and easiest way possible so that real value can be extracted from data and artificial intelligence. 
+
+Are you brimming with fresh ideas to lead our Data Science team in providing data-driven solutions to our customers based on the latest machine learning models and deep learning algorithms? If you are looking for a new challenge with a steep learning curve, and the support of a dynamic team, you may be our next Data Scientist.
+
+As a Data Scientist, you will dive into the world of artificial intelligence. You will apply your skills to real scenarios and in different domains, such as drug discovery in healthcare, fraud detection in banks, the development of recommendation systems in the retail sector, and more.
+
+ 
+
+
+Profiel
+You’ll have knowledge and experience of the following:
+
+At least 3+ years of experience in Data Science.
+Master's degree (or equivalent through experience) in a field that is highly data-driven. 
+Experience with some of the following data science techniques: supervised and unsupervised learning models, deep learning, anomaly detection, recommender systems, natural language processing, computer vision and reinforcement learning.
+Well versed in open-source software and libraries in Python and/or R for machine and deep learning.
+Extensive experience in building and implementing advanced analytics solutions backed up with some reference cases.
+Experience with big data and platforms such as Azure Machine Learning Services and Amazon SageMaker is a plus.
+Experience in one of the following languages: Python, R, Spark, Scala, Java or C++.
+You are resident in Belgium and look forward to working a few days a week at the client's office.
+You are fluent in Dutch or French and in English.

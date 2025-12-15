@@ -2,6 +2,7 @@ import json
 import os
 from typing import Dict, Optional
 
+import httpx
 from celery import Celery
 from openai import OpenAI
 
@@ -41,7 +42,8 @@ def get_openai_client() -> OpenAI:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required for NLP generation")
-        _openai_client = OpenAI(api_key=api_key)
+        http_client = httpx.Client(trust_env=False)
+        _openai_client = OpenAI(api_key=api_key, http_client=http_client)
     return _openai_client
 
 

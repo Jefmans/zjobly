@@ -1,6 +1,7 @@
 import json
 from typing import List
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from openai import OpenAI
 
@@ -18,7 +19,9 @@ def get_openai_client() -> OpenAI:
         api_key = settings.OPENAI_API_KEY
         if not api_key:
             raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
-        _openai_client = OpenAI(api_key=api_key)
+        # Pass a plain httpx client without proxies/trust_env to avoid incompatible proxy kwargs.
+        http_client = httpx.Client(trust_env=False)
+        _openai_client = OpenAI(api_key=api_key, http_client=http_client)
     return _openai_client
 
 
