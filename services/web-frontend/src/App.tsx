@@ -2,7 +2,15 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
-import { confirmUpload, createUploadUrl, listCompanyJobs, searchPublicJobs, uploadFileToUrl } from './api';
+import {
+  confirmUpload,
+  createCompany,
+  createJob,
+  createUploadUrl,
+  listCompanyJobs,
+  searchPublicJobs,
+  uploadFileToUrl,
+} from './api';
 import { formatDuration, makeTakeId } from './helpers';
 import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, ViewMode } from './types';
 
@@ -11,10 +19,16 @@ const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
-  const [form, setForm] = useState({ title: '', location: '', description: '' });
-  const [companyId] = useState<string | null>(() => {
+  const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
+  const [companyId, setCompanyId] = useState<string | null>(() => {
     const envId = (import.meta.env.VITE_COMPANY_ID || '').toString().trim();
-    return envId || null;
+    if (envId) return envId;
+    try {
+      const stored = localStorage.getItem('zjobly-company-id');
+      return stored || null;
+    } catch {
+      return null;
+    }
   });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
@@ -407,6 +421,12 @@ function App() {
       return;
     }
 
+    if (!companyId && !form.companyName.trim()) {
+      setError('Add a company name first.');
+      setCreateStep('details');
+      return;
+    }
+
     if (!selectedTake) {
       setError('Record or upload a video before publishing.');
       setCreateStep('record');
@@ -431,17 +451,66 @@ function App() {
         source: selectedTake.source,
       });
       setUploadProgress(100);
+
+      let resolvedCompanyId = companyId;
+      if (!resolvedCompanyId) {
+        try {
+          setStatus('processing');
+          setProcessingMessage('Creating your company...');
+          const company = await createCompany({ name: form.companyName.trim() });
+          resolvedCompanyId = company.id;
+          setCompanyId(company.id);
+          try {
+            localStorage.setItem('zjobly-company-id', company.id);
+          } catch {
+            // ignore storage failures
+          }
+        } catch (companyErr) {
+          console.error(companyErr);
+          setStatus('error');
+          setProcessingMessage(null);
+          setError(companyErr instanceof Error ? companyErr.message : 'Upload succeeded, but creating the company failed.');
+          return;
+        }
+      }
+
+      let savedJob: Job | null = null;
+      if (resolvedCompanyId) {
+        try {
+          setStatus('processing');
+          setProcessingMessage('Saving your job...');
+          savedJob = await createJob({
+            company_id: resolvedCompanyId,
+            title: form.title,
+            description: form.description || null,
+            location: form.location,
+            status: 'open',
+            visibility: 'public',
+          });
+          void refreshJobs();
+        } catch (jobErr) {
+          console.error(jobErr);
+          setStatus('error');
+          setProcessingMessage(null);
+          setError(jobErr instanceof Error ? jobErr.message : 'Upload succeeded, but saving the job failed.');
+          return;
+        }
+      }
+
       startProcessingPoll(confirmed.object_key || presign.object_key);
-      setJobs((prev) => [
+      const jobToDisplay: Job =
+        savedJob ||
         {
           id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
+          company_id: resolvedCompanyId ?? undefined,
           title: form.title,
           location: form.location,
+          description: form.description || null,
           status: 'open',
-          videoLabel: selectedTake.label,
-        },
-        ...prev,
-      ]);
+          visibility: 'public',
+        };
+
+      setJobs((prev) => [{ ...jobToDisplay, videoLabel: selectedTake.label }, ...prev]);
       setView('jobs');
     } catch (err) {
       console.error(err);
@@ -566,6 +635,7 @@ function App() {
         status={status}
         uploadProgress={uploadProgress}
         processingMessage={processingMessage}
+        companyId={companyId}
       />
 
       <JobSeekerFlow

@@ -12,7 +12,7 @@ type Props = {
   view: ViewMode;
   nav: JSX.Element;
   createStep: CreateStep;
-  form: { title: string; location: string; description: string };
+  form: { title: string; location: string; description: string; companyName: string };
   onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   goToStep: (step: CreateStep) => void;
   handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
@@ -34,6 +34,7 @@ type Props = {
   status: Status;
   uploadProgress: number | null;
   processingMessage: string | null;
+  companyId: string | null;
 };
 
 export function JobCreationFlow({
@@ -62,6 +63,7 @@ export function JobCreationFlow({
   status,
   uploadProgress,
   processingMessage,
+  companyId,
 }: Props) {
   if (view !== "create") return null;
 
@@ -122,12 +124,28 @@ export function JobCreationFlow({
                 />
               </div>
 
+              {!companyId && (
+                <div className="field">
+                  <label htmlFor="companyName">Company name</label>
+                  <input
+                    id="companyName"
+                    name="companyName"
+                    value={form.companyName}
+                    onChange={onInputChange}
+                    placeholder="e.g., Zjobly"
+                    required
+                  />
+                  <p className="hint">We&apos;ll create this company and attach your job to it.</p>
+                </div>
+              )}
+              {companyId && <p className="hint">Using your existing company (from env/local storage).</p>}
+
               <div className="panel-actions">
                 <button
                   type="button"
                   className="cta primary"
                   onClick={() => goToStep("record")}
-                  disabled={!form.title || !form.location}
+                  disabled={!form.title || !form.location || (!companyId && !form.companyName)}
                 >
                   Continue to recording
                 </button>
