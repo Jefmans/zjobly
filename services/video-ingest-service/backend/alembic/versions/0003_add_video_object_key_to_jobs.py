@@ -7,7 +7,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0003_add_video_object_key_to_jobs"
+# Keep revision id <= 32 chars because alembic_version.version_num is VARCHAR(32)
+revision = "0003_video_object_key"
 down_revision = "0002_jobs_user_id"
 branch_labels = None
 depends_on = None
