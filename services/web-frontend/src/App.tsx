@@ -52,6 +52,7 @@ function App() {
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [, setLastUploadKey] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
+  const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const processingTimerRef = useRef<number | null>(null);
@@ -89,7 +90,7 @@ function App() {
     setJobsError(null);
     try {
       const fetched = await listCompanyJobs(companyId);
-      setJobs(fetched);
+      setJobs(fetched.map((job) => ({ ...job, videoUrl: jobVideoUrlsRef.current[job.id] })));
     } catch (err) {
       console.error(err);
       setJobsError(err instanceof Error ? err.message : 'Could not load jobs.');
@@ -510,7 +511,8 @@ function App() {
           visibility: 'public',
         };
 
-      setJobs((prev) => [{ ...jobToDisplay, videoLabel: selectedTake.label }, ...prev]);
+      jobVideoUrlsRef.current[jobToDisplay.id] = selectedTake.url;
+      setJobs((prev) => [{ ...jobToDisplay, videoLabel: selectedTake.label, videoUrl: selectedTake.url }, ...prev]);
       setView('jobs');
     } catch (err) {
       console.error(err);

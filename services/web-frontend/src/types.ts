@@ -59,4 +59,5 @@ export type Job = {
   status: JobStatus;
   visibility?: JobVisibility;
   videoLabel?: string;
+  videoUrl?: string;
 };

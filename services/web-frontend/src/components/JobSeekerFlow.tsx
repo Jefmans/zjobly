@@ -176,9 +176,15 @@ export function JobSeekerFlow({
                 })()}
                 {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
               </div>
-              <div className="panel">
-                <p className="hint">Full job description and video preview will appear here.</p>
-              </div>
+              {job.videoUrl ? (
+                <div className="panel">
+                  <video className="job-detail-video" src={job.videoUrl} controls preload="metadata" />
+                </div>
+              ) : (
+                <div className="panel">
+                  <p className="hint">Video is processing or unavailable. Publish a job with a video to see it here.</p>
+                </div>
+              )}
               <div className="panel-actions">
                 <button type="button" className="ghost" onClick={() => setView("jobs")}>
                   Back to jobs

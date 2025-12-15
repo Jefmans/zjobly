@@ -770,6 +770,13 @@ button[type='submit']:disabled {
   border: 1px solid #c7d2fe;
 }
 
+.job-detail-video {
+  width: 100%;
+  max-height: 480px;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
 .record-timer {
   display: flex;
   gap: 0.35rem;
