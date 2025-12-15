@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_session
 from app import models
+from app import storage
+from app.config import settings
 from app.schemas_accounts import (
     CandidateProfileCreate,
     CandidateProfileOut,
@@ -104,6 +106,33 @@ def _assert_membership(session: Session, company_id: str, user_id: str) -> model
     return membership
 
 
+def _build_job_out(job: models.Job) -> JobOut:
+    playback_url = None
+    if job.video_object_key:
+        try:
+            presigned = storage.presign_get_object(
+                bucket=settings.S3_BUCKET_RAW,
+                object_key=job.video_object_key,
+                expires_in=settings.MEDIA_PLAY_SIGN_EXPIRY_SEC,
+            )
+            playback_url = presigned["play_url"]
+        except Exception:
+            playback_url = None
+
+    return JobOut(
+        id=job.id,
+        user_id=job.user_id,
+        company_id=job.company_id,
+        title=job.title,
+        description=job.description,
+        location=job.location,
+        status=job.status,
+        visibility=job.visibility,
+        video_object_key=job.video_object_key,
+        playback_url=playback_url,
+    )
+
+
 @router.post("/jobs", response_model=JobOut)
 def create_job(
     payload: JobCreate,
@@ -120,11 +149,12 @@ def create_job(
         location=payload.location,
         status=payload.status,
         visibility=payload.visibility,
+        video_object_key=payload.video_object_key,
     )
     session.add(job)
     session.commit()
     session.refresh(job)
-    return job
+    return _build_job_out(job)
 
 
 @router.get("/jobs", response_model=list[JobOut])
@@ -140,7 +170,7 @@ def list_company_jobs(
         .order_by(models.Job.created_at.desc())
         .all()
     )
-    return jobs
+    return [_build_job_out(job) for job in jobs]
 
 
 @router.get("/jobs/search", response_model=list[JobOut])
@@ -156,7 +186,7 @@ def search_jobs(
         ilike = f"%{q}%"
         query = query.filter(models.Job.title.ilike(ilike))
     results = query.order_by(models.Job.created_at.desc()).limit(50).all()
-    return results
+    return [_build_job_out(job) for job in results]
 
 
 @router.get("/candidates/search", response_model=list[CandidateProfileOut])

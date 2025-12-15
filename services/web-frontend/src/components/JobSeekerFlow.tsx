@@ -176,13 +176,24 @@ export function JobSeekerFlow({
                 })()}
                 {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
               </div>
-              {job.videoUrl ? (
+              {job.videoUrl || job.playback_url ? (
                 <div className="panel">
-                  <video className="job-detail-video" src={job.videoUrl} controls preload="metadata" />
+                  <video
+                    className="job-detail-video"
+                    src={job.videoUrl || job.playback_url || undefined}
+                    controls
+                    preload="metadata"
+                  />
                 </div>
               ) : (
                 <div className="panel">
                   <p className="hint">Video is processing or unavailable. Publish a job with a video to see it here.</p>
+                </div>
+              )}
+              {job.description && (
+                <div className="panel">
+                  <h2>Job description</h2>
+                  <p>{job.description}</p>
                 </div>
               )}
               <div className="panel-actions">

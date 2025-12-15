@@ -60,4 +60,6 @@ export type Job = {
   visibility?: JobVisibility;
   videoLabel?: string;
   videoUrl?: string;
+  video_object_key?: string | null;
+  playback_url?: string | null;
 };

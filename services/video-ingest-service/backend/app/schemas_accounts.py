@@ -54,6 +54,7 @@ class JobCreate(BaseModel):
     location: Optional[str] = None
     status: JobStatus = JobStatus.open
     visibility: JobVisibility = JobVisibility.public
+    video_object_key: Optional[str] = None
 
 
 class JobOut(BaseModel):
@@ -65,6 +66,8 @@ class JobOut(BaseModel):
     location: Optional[str] = None
     status: JobStatus
     visibility: JobVisibility
+    video_object_key: Optional[str] = None
+    playback_url: Optional[str] = None
 
     class Config:
         orm_mode = True

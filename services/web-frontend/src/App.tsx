@@ -7,6 +7,7 @@ import {
   createCompany,
   createJob,
   createUploadUrl,
+  generateJobDraftFromTranscript,
   listCompanyJobs,
   searchPublicJobs,
   uploadFileToUrl,
@@ -20,6 +21,9 @@ function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [createStep, setCreateStep] = useState<CreateStep>('details');
   const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
+  const [transcriptText, setTranscriptText] = useState('');
+  const [draftingFromTranscript, setDraftingFromTranscript] = useState(false);
+  const [draftingError, setDraftingError] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(() => {
     const envId = (import.meta.env.VITE_COMPANY_ID || '').toString().trim();
     if (envId) return envId;
@@ -90,7 +94,12 @@ function App() {
     setJobsError(null);
     try {
       const fetched = await listCompanyJobs(companyId);
-      setJobs(fetched.map((job) => ({ ...job, videoUrl: jobVideoUrlsRef.current[job.id] })));
+      setJobs(
+        fetched.map((job) => ({
+          ...job,
+          videoUrl: job.playback_url || jobVideoUrlsRef.current[job.id],
+        })),
+      );
     } catch (err) {
       console.error(err);
       setJobsError(err instanceof Error ? err.message : 'Could not load jobs.');
@@ -200,6 +209,36 @@ function App() {
     setStatus('idle');
     setUploadProgress(null);
     setError(null);
+  };
+
+  const handleTranscriptChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setTranscriptText(e.target.value);
+    setDraftingError(null);
+  };
+
+  const generateFromTranscript = async () => {
+    const text = transcriptText.trim();
+    setError(null);
+    if (!text) {
+      setDraftingError('Paste a transcript to generate a draft.');
+      return;
+    }
+
+    setDraftingFromTranscript(true);
+    setDraftingError(null);
+    try {
+      const draft = await generateJobDraftFromTranscript(text);
+      setForm((prev) => ({
+        ...prev,
+        title: draft.title || prev.title,
+        description: draft.description || prev.description,
+      }));
+    } catch (err) {
+      console.error(err);
+      setDraftingError(err instanceof Error ? err.message : 'Could not generate a draft from the transcript.');
+    } finally {
+      setDraftingFromTranscript(false);
+    }
   };
 
   const clearVideoSelection = () => {
@@ -487,6 +526,7 @@ function App() {
             location: form.location,
             status: 'open',
             visibility: 'public',
+            video_object_key: confirmed.object_key || presign.object_key,
           });
           void refreshJobs();
         } catch (jobErr) {
@@ -509,10 +549,20 @@ function App() {
           description: form.description || null,
           status: 'open',
           visibility: 'public',
+          video_object_key: confirmed.object_key || presign.object_key,
         };
 
-      jobVideoUrlsRef.current[jobToDisplay.id] = selectedTake.url;
-      setJobs((prev) => [{ ...jobToDisplay, videoLabel: selectedTake.label, videoUrl: selectedTake.url }, ...prev]);
+      const playbackUrl = savedJob?.playback_url ?? jobVideoUrlsRef.current[jobToDisplay.id];
+      jobVideoUrlsRef.current[jobToDisplay.id] = playbackUrl || selectedTake.url;
+      setJobs((prev) => [
+        {
+          ...jobToDisplay,
+          videoLabel: selectedTake.label,
+          videoUrl: savedJob?.playback_url || selectedTake.url,
+          playback_url: savedJob?.playback_url ?? null,
+        },
+        ...prev,
+      ]);
       setView('jobs');
     } catch (err) {
       console.error(err);
@@ -616,7 +666,12 @@ function App() {
         nav={renderSwitcher()}
         createStep={createStep}
         form={form}
+        transcriptText={transcriptText}
         onInputChange={handleInputChange}
+        onTranscriptChange={handleTranscriptChange}
+        onGenerateFromTranscript={generateFromTranscript}
+        draftingFromTranscript={draftingFromTranscript}
+        draftingError={draftingError}
         goToStep={goToStep}
         handleSubmit={handleSubmit}
         recorderOpen={recorderOpen}

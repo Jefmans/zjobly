@@ -19,6 +19,12 @@ type ConfirmUploadPayload = {
   source: "recording" | "upload";
 };
 
+export type JobDraft = {
+  title: string;
+  description: string;
+  keywords?: string[];
+};
+
 const LOCAL_USER_KEY = "zjobly-user-id";
 
 const apiBase = () => {
@@ -104,6 +110,13 @@ export async function confirmUpload(payload: ConfirmUploadPayload) {
   });
 }
 
+export async function generateJobDraftFromTranscript(transcript: string): Promise<JobDraft> {
+  return requestJson<JobDraft>("/nlp/job-draft", {
+    method: "POST",
+    body: JSON.stringify({ transcript }),
+  });
+}
+
 export async function createCompany(payload: { name: string; website?: string | null }): Promise<Company> {
   return requestJson<Company>("/accounts/companies", {
     method: "POST",
@@ -125,6 +138,7 @@ export async function createJob(payload: {
   location?: string | null;
   status?: JobStatus;
   visibility?: JobVisibility;
+  video_object_key?: string | null;
 }): Promise<Job> {
   return requestJson<Job>("/accounts/jobs", {
     method: "POST",

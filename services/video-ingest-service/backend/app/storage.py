@@ -52,6 +52,20 @@ def presign_put_object(
     }
 
 
+def presign_get_object(bucket: str, object_key: str, expires_in: int) -> dict:
+    client = get_s3_client()
+    url = client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": object_key},
+        ExpiresIn=expires_in,
+    )
+    return {
+        "play_url": url,
+        "object_key": object_key,
+        "expires_at": int(time.time()) + expires_in,
+    }
+
+
 def ensure_bucket(bucket: str) -> None:
     """
     Ensure the bucket exists in MinIO. No-op if already present.

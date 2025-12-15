@@ -13,7 +13,12 @@ type Props = {
   nav: JSX.Element;
   createStep: CreateStep;
   form: { title: string; location: string; description: string; companyName: string };
+  transcriptText: string;
   onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onTranscriptChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  onGenerateFromTranscript: () => void;
+  draftingFromTranscript: boolean;
+  draftingError: string | null;
   goToStep: (step: CreateStep) => void;
   handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
   recorderOpen: boolean;
@@ -42,7 +47,12 @@ export function JobCreationFlow({
   nav,
   createStep,
   form,
+  transcriptText,
   onInputChange,
+  onTranscriptChange,
+  onGenerateFromTranscript,
+  draftingFromTranscript,
+  draftingError,
   goToStep,
   handleSubmit,
   recorderOpen,
@@ -139,6 +149,44 @@ export function JobCreationFlow({
                 </div>
               )}
               {companyId && <p className="hint">Using your existing company (from env/local storage).</p>}
+
+              <div className="field">
+                <label htmlFor="transcript">Transcript (optional)</label>
+                <textarea
+                  id="transcript"
+                  name="transcript"
+                  value={transcriptText}
+                  onChange={onTranscriptChange}
+                  rows={5}
+                  placeholder="Paste the spoken transcript to auto-generate the title and description."
+                />
+                <div className="panel-actions split">
+                  <p className="hint">
+                    We&apos;ll send this text to the AI model to draft the posting. You can edit the result anytime.
+                  </p>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={onGenerateFromTranscript}
+                    disabled={draftingFromTranscript || !transcriptText.trim()}
+                  >
+                    {draftingFromTranscript ? "Generating..." : "Generate title + description"}
+                  </button>
+                </div>
+                {draftingError && <div className="error">{draftingError}</div>}
+              </div>
+
+              <div className="field">
+                <label htmlFor="description">Job description</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={form.description}
+                  onChange={onInputChange}
+                  rows={5}
+                  placeholder="Add a short pitch for the role. Generating from transcript will fill this in."
+                />
+              </div>
 
               <div className="panel-actions">
                 <button

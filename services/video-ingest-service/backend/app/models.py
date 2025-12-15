@@ -99,6 +99,7 @@ class Job(Base):
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[JobStatus] = mapped_column(SAEnum(JobStatus), default=JobStatus.open)
     visibility: Mapped[JobVisibility] = mapped_column(SAEnum(JobVisibility), default=JobVisibility.public)
+    video_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
