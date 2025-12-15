@@ -15,6 +15,7 @@ services:
     image: traefik:v3
     command:
       - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --api.dashboard=true
@@ -35,6 +36,9 @@ services:
       - traefik.http.routers.traefik.tls=true
       - traefik.http.routers.traefik.tls.certresolver=le
       - traefik.http.routers.traefik.service=api@internal
+    networks:
+      - internal_backend
+      - default
 
   postgres:
     image: postgres:16
@@ -187,6 +191,8 @@ services:
       PGPASSWORD: app
       PGDATABASE: app
     depends_on: [redis, minio, postgres]
+    labels:
+      - traefik.enable=false
     restart: unless-stopped
 
   # --- AI: Embeddings, keywords, titles ---
@@ -204,6 +210,8 @@ services:
       PGPASSWORD: app
       PGDATABASE: app
     depends_on: [redis, postgres, elasticsearch]
+    labels:
+      - traefik.enable=false
     restart: unless-stopped
 
 volumes:
