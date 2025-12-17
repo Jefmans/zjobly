@@ -390,6 +390,12 @@ function App() {
     setProcessingMessage(null);
   };
 
+  const clearRecordedTakes = () => {
+    takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    takeUrlsRef.current.clear();
+    setRecordedTakes([]);
+  };
+
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setError(null);
@@ -756,9 +762,11 @@ function App() {
   const recordLabel = formatDuration(recordDuration);
 
   const backToWelcome = () => {
+    clearVideoSelection();
+    clearRecordedTakes();
+    resetRecordTimer();
+    setRecordingState('idle');
     setView('welcome');
-    setStatus('idle');
-    setUploadProgress(null);
     setError(null);
     setCreateStep('record');
   };
