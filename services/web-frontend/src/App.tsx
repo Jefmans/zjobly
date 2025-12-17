@@ -14,12 +14,23 @@ import {
   uploadFileToUrl,
 } from './api';
 import { formatDuration, makeTakeId } from './helpers';
-import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, ViewMode } from './types';
+import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
+  const [role, setRole] = useState<UserRole | null>(() => {
+    try {
+      const stored = localStorage.getItem('zjobly-user-role');
+      if (stored === 'candidate' || stored === 'employer') {
+        return stored;
+      }
+    } catch {
+      // ignore storage failures
+    }
+    return null;
+  });
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
   const [transcriptText, setTranscriptText] = useState('');
@@ -67,6 +78,28 @@ function App() {
   const liveStreamRef = useRef<MediaStream | null>(null);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
   const takeUrlsRef = useRef<Set<string>>(new Set());
+
+  const persistRole = (nextRole: UserRole | null) => {
+    setRole(nextRole);
+    try {
+      if (nextRole) {
+        localStorage.setItem('zjobly-user-role', nextRole);
+      } else {
+        localStorage.removeItem('zjobly-user-role');
+      }
+    } catch {
+      // ignore storage failures
+    }
+  };
+
+  const setRoleAndView = (nextRole: UserRole, nextView?: ViewMode) => {
+    persistRole(nextRole);
+    setSelectedJobId(null);
+    if (nextRole === 'employer') {
+      setCreateStep('record');
+    }
+    setView(nextView ?? (nextRole === 'employer' ? 'create' : 'find'));
+  };
 
   const stopStreamTracks = (stream: MediaStream | null) => {
     if (!stream) return;
@@ -672,63 +705,65 @@ function App() {
     setProcessingMessage(null);
   };
 
-  const renderSwitcher = () => (
-    <div className="top-nav">
-      <button type="button" className="link-btn" onClick={backToWelcome}>
-        Back
-      </button>
-      <div className="nav-actions">
-        <button
-          type="button"
-          className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-          onClick={() => {
-            setView('create');
-            setCreateStep('record');
-          }}
-        >
-          Create Zjob
+  const renderSwitcher = () => {
+    const showEmployerNav = role !== 'candidate';
+    const showCandidateNav = role !== 'employer';
+
+    return (
+      <div className="top-nav">
+        <button type="button" className="link-btn" onClick={backToWelcome}>
+          Back
         </button>
-        <button
-          type="button"
-          className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
-          onClick={() => setView('find')}
-        >
-          Find Zjob
-        </button>
-        <button
-          type="button"
-          className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
-          onClick={() => {
-            setSelectedJobId(null);
-            setView('jobs');
-          }}
-        >
-          My Jobs
-        </button>
+        <div className="nav-actions">
+          {showEmployerNav && (
+            <button
+              type="button"
+              className={`nav-btn ${view === 'create' ? 'active' : ''}`}
+              onClick={() => setRoleAndView('employer')}
+            >
+              Create Zjob
+            </button>
+          )}
+          {showCandidateNav && (
+            <button
+              type="button"
+              className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
+              onClick={() => setRoleAndView('candidate')}
+            >
+              Find Zjob
+            </button>
+          )}
+          {showEmployerNav && (
+            <button
+              type="button"
+              className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
+              onClick={() => setRoleAndView('employer', 'jobs')}
+            >
+              My Jobs
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <main className="app-shell">
       {view === 'welcome' && (
         <section className="hero welcome">
           <p className="tag">Zjobly</p>
-          <h1>Welcome to Zjobly</h1>
-          <p className="lede">Pick where you want to start.</p>
+          <h1>Choose your role</h1>
+          <p className="lede">Pick a role to enter the matching flow. You can switch later.</p>
           <div className="welcome-actions">
             <button
               type="button"
               className="cta primary"
-              onClick={() => {
-                setView('create');
-                setCreateStep('record');
-              }}
+              onClick={() => setRoleAndView('employer')}
             >
-              Create Zjob
+              I&apos;m an employer
             </button>
-            <button type="button" className="cta ghost" onClick={() => setView('find')}>
-              Find Zjob
+            <button type="button" className="cta ghost" onClick={() => setRoleAndView('candidate')}>
+              I&apos;m a candidate
             </button>
           </div>
         </section>
@@ -775,25 +810,24 @@ function App() {
       <JobSeekerFlow
         view={view}
         nav={renderSwitcher()}
-      jobs={jobs}
-      jobsLoading={jobsLoading}
-      jobsError={jobsError}
-      companyId={companyId}
-      selectedJobId={selectedJobId}
-      onSelectJob={setSelectedJobId}
-      onBackToWelcome={backToWelcome}
-      onCreateClick={() => {
-        setView('create');
-        setCreateStep('record');
-      }}
-      setView={setView}
-      searchQuery={searchQuery}
-      onSearchChange={handleSearchChange}
-      onSearchSubmit={handleSearchSubmit}
-      searchResults={searchResults}
-      searchLoading={searchLoading}
-      searchError={searchError}
-    />
+        jobs={jobs}
+        jobsLoading={jobsLoading}
+        jobsError={jobsError}
+        companyId={companyId}
+        selectedJobId={selectedJobId}
+        onSelectJob={setSelectedJobId}
+        onBackToWelcome={backToWelcome}
+        onCreateClick={() => setRoleAndView('employer')}
+        userRole={role}
+        onSwitchRole={(nextRole) => setRoleAndView(nextRole)}
+        setView={setView}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        onSearchSubmit={handleSearchSubmit}
+        searchResults={searchResults}
+        searchLoading={searchLoading}
+        searchError={searchError}
+      />
     </main>
   );
 }

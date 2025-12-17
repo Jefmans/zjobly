@@ -1,5 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Job, ViewMode } from "../types";
+import { Job, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -12,6 +12,8 @@ type Props = {
   onSelectJob: (id: string) => void;
   onBackToWelcome: () => void;
   onCreateClick: () => void;
+  userRole: UserRole | null;
+  onSwitchRole: (role: UserRole) => void;
   setView: (v: ViewMode) => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -32,6 +34,8 @@ export function JobSeekerFlow({
   onSelectJob,
   onBackToWelcome,
   onCreateClick,
+  userRole,
+  onSwitchRole,
   setView,
   searchQuery,
   onSearchChange,
@@ -141,9 +145,15 @@ export function JobSeekerFlow({
             <button type="button" className="ghost" onClick={onBackToWelcome}>
               Back to welcome
             </button>
-            <button type="button" className="cta primary" onClick={onCreateClick}>
-              Create a Zjob instead
-            </button>
+            {userRole === "candidate" ? (
+              <button type="button" className="cta primary" onClick={() => onSwitchRole("employer")}>
+                Switch to employer flow
+              </button>
+            ) : (
+              <button type="button" className="cta primary" onClick={onCreateClick}>
+                Create a Zjob instead
+              </button>
+            )}
           </div>
         </section>
       </>
