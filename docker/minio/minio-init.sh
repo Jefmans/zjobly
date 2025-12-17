@@ -24,10 +24,25 @@ retry() {
   done
 }
 
+retry_optional() {
+  desc="$1"
+  shift
+  attempt=1
+  until "$@"; do
+    if [ "$attempt" -ge "$RETRY_COUNT" ]; then
+      echo "WARN: $desc failed after $attempt attempts; continuing."
+      return 0
+    fi
+    echo "Waiting for $desc..."
+    attempt=$((attempt + 1))
+    sleep "$RETRY_DELAY_SEC"
+  done
+}
+
 retry "MinIO" mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
 
 retry "bucket ${S3_BUCKET_RAW}" mc mb --ignore-existing "local/${S3_BUCKET_RAW}"
 retry "bucket ${S3_BUCKET_HLS}" mc mb --ignore-existing "local/${S3_BUCKET_HLS}"
 
-retry "CORS for ${S3_BUCKET_RAW}" mc cors set "local/${S3_BUCKET_RAW}" /config/cors.json
-retry "CORS for ${S3_BUCKET_HLS}" mc cors set "local/${S3_BUCKET_HLS}" /config/cors.json
+retry_optional "CORS for ${S3_BUCKET_RAW}" mc cors set "local/${S3_BUCKET_RAW}" /config/cors.json
+retry_optional "CORS for ${S3_BUCKET_HLS}" mc cors set "local/${S3_BUCKET_HLS}" /config/cors.json
