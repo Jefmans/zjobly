@@ -120,7 +120,7 @@ export function JobCreationFlow({
         <p className="tag">Zjobly</p>
         <h1>Post a role with a video intro</h1>
         <p className="lede">
-          Record a quick clip (hard stop at 3:00), pick the take you want, save it, then review the auto-filled job details.
+          Record a quick clip (hard stop at 3:00), select the take you want, save it, then complete and save the job details.
         </p>
 
         <div className="stepper">
@@ -134,11 +134,11 @@ export function JobCreationFlow({
           </div>
           <div className={stepClass(3)}>
             <span className="step-id">3</span>
-            <span>Pick + save</span>
+            <span>Select video</span>
           </div>
           <div className={stepClass(4)}>
             <span className="step-id">4</span>
-            <span>Job detail (auto fill in)</span>
+            <span>Job details + save</span>
           </div>
         </div>
 
@@ -228,24 +228,24 @@ export function JobCreationFlow({
 
               <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                  Back to saved video
+                  Back to select video
                 </button>
                 <div className="panel-action-right">
                   <button
                     type="button"
                     className="ghost"
-                    onClick={() => onSaveJob(false)}
-                    disabled={!canSaveJob || jobSaving}
-                  >
-                    {jobSaving ? "Saving..." : "Save draft"}
-                  </button>
-                  <button
-                    type="button"
-                    className="cta primary"
                     onClick={() => onSaveJob(true)}
                     disabled={!canSaveJob || jobSaving}
                   >
                     {jobSaving ? "Publishing..." : "Publish job"}
+                  </button>
+                  <button
+                    type="button"
+                    className="cta primary"
+                    onClick={() => onSaveJob(false)}
+                    disabled={!canSaveJob || jobSaving}
+                  >
+                    {jobSaving ? "Saving..." : "Save job"}
                   </button>
                 </div>
               </div>
@@ -345,12 +345,12 @@ export function JobCreationFlow({
                     {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
                   </div>
 
-                  {!hasTakes && <p className="hint">Record a take to continue, or move on to upload one.</p>}
+                  {!hasTakes && <p className="hint">Record a take to continue, or move on to upload one in the next step.</p>}
                   {error && <div className="error">{error}</div>}
 
                   <div className="panel-actions">
                     <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                      Pick + save video
+                      Continue to select video
                     </button>
                   </div>
                 </div>
@@ -385,7 +385,7 @@ export function JobCreationFlow({
                 <div className="panel">
                   <div className="panel-header">
                     <div>
-                      <h2>Pick your video + save</h2>
+                      <h2>Select your video</h2>
                       <p className="hint">Choose a take or upload a file, then save it.</p>
                       {videoSaved && <span className="pill">Video saved</span>}
                     </div>
