@@ -46,6 +46,7 @@ type Props = {
   processingMessage: string | null;
   companyId: string | null;
   jobSaving: boolean;
+  showDetailValidation: boolean;
 };
 
 export function JobCreationFlow({
@@ -86,6 +87,7 @@ export function JobCreationFlow({
   processingMessage,
   companyId,
   jobSaving,
+  showDetailValidation,
 }: Props) {
   if (view !== "create") return null;
 
@@ -96,6 +98,9 @@ export function JobCreationFlow({
   const hasTitle = Boolean(form.title.trim());
   const hasLocation = Boolean(form.location.trim());
   const hasCompany = Boolean(companyId || form.companyName.trim());
+  const showTitleError = showDetailValidation && !hasTitle;
+  const showLocationError = showDetailValidation && !hasLocation;
+  const showCompanyError = showDetailValidation && !hasCompany && !companyId;
   const canSaveJob = videoSaved && hasTitle && hasLocation && hasCompany;
   const currentStepIndex = createStep === "record" ? 2 : createStep === "select" ? 3 : 4;
   const stepClass = (index: number) => {
@@ -154,8 +159,11 @@ export function JobCreationFlow({
                   onChange={onInputChange}
                   autoFocus
                   placeholder="e.g., Senior Backend Engineer"
+                  className={showTitleError ? "invalid" : ""}
+                  aria-invalid={showTitleError}
                   required
                 />
+                {showTitleError && <span className="field-error">Required</span>}
               </div>
 
               <div className="field">
@@ -166,8 +174,11 @@ export function JobCreationFlow({
                   value={form.location}
                   onChange={onInputChange}
                   placeholder="e.g., Remote (EU) or Brussels"
+                  className={showLocationError ? "invalid" : ""}
+                  aria-invalid={showLocationError}
                   required
                 />
+                {showLocationError && <span className="field-error">Required</span>}
               </div>
 
               {!companyId && (
@@ -179,8 +190,11 @@ export function JobCreationFlow({
                     value={form.companyName}
                     onChange={onInputChange}
                     placeholder="e.g., Zjobly"
+                    className={showCompanyError ? "invalid" : ""}
+                    aria-invalid={showCompanyError}
                     required
                   />
+                  {showCompanyError && <span className="field-error">Required</span>}
                   <p className="hint">We&apos;ll create this company and attach your job to it.</p>
                 </div>
               )}
@@ -235,7 +249,8 @@ export function JobCreationFlow({
                     type="button"
                     className="ghost"
                     onClick={() => onSaveJob(true)}
-                    disabled={!canSaveJob || jobSaving}
+                    disabled={jobSaving}
+                    aria-disabled={!canSaveJob}
                   >
                     {jobSaving ? "Publishing..." : "Publish job"}
                   </button>
@@ -243,7 +258,8 @@ export function JobCreationFlow({
                     type="button"
                     className="cta primary"
                     onClick={() => onSaveJob(false)}
-                    disabled={!canSaveJob || jobSaving}
+                    disabled={jobSaving}
+                    aria-disabled={!canSaveJob}
                   >
                     {jobSaving ? "Saving..." : "Save job"}
                   </button>

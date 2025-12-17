@@ -439,6 +439,26 @@ p {
   background: #fff;
 }
 
+.field input.invalid,
+.field textarea.invalid,
+.field select.invalid {
+  border-color: #ef4444;
+  background: #fff5f5;
+}
+
+.field input.invalid:focus,
+.field textarea.invalid:focus,
+.field select.invalid:focus {
+  outline: 2px solid rgba(239, 68, 68, 0.35);
+  border-color: #ef4444;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .take-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

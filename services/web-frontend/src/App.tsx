@@ -76,6 +76,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [jobSaving, setJobSaving] = useState(false);
+  const [showDetailValidation, setShowDetailValidation] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
@@ -296,6 +297,12 @@ function App() {
   useEffect(() => {
     refreshJobs();
   }, [refreshJobs]);
+
+  useEffect(() => {
+    if (createStep !== 'details') {
+      setShowDetailValidation(false);
+    }
+  }, [createStep]);
 
   useEffect(() => {
     if (recordingState === 'idle' && playbackVideoRef.current && view === 'create' && createStep === 'record') {
@@ -662,6 +669,7 @@ function App() {
       startProcessingPoll(objectKey);
       setDraftingError(null);
       setTranscriptText('');
+      setShowDetailValidation(false);
       setCreateStep('details');
       void generateFromVideo(objectKey);
     } catch (err) {
@@ -682,15 +690,17 @@ function App() {
       return;
     }
 
-    if (!form.title || !form.location) {
+    if (!form.title.trim() || !form.location.trim()) {
       setError('Add a title and location first.');
       setCreateStep('details');
+      setShowDetailValidation(true);
       return;
     }
 
     if (!companyId && !form.companyName.trim()) {
       setError('Add a company name first.');
       setCreateStep('details');
+      setShowDetailValidation(true);
       return;
     }
 
@@ -762,6 +772,7 @@ function App() {
         },
         ...prev,
       ]);
+      setShowDetailValidation(false);
       setView('jobs');
     } catch (err) {
       console.error(err);
@@ -784,6 +795,7 @@ function App() {
     setView('welcome');
     setError(null);
     setCreateStep('record');
+    setShowDetailValidation(false);
   };
 
   const goToStep = (nextStep: CreateStep) => {
@@ -914,6 +926,7 @@ function App() {
         processingMessage={processingMessage}
         companyId={companyId}
         jobSaving={jobSaving}
+        showDetailValidation={showDetailValidation}
       />
 
       <JobSeekerFlow
