@@ -1,10 +1,9 @@
 import io
 import logging
 import os
-from typing import Dict, Optional
 
 import boto3
-from botocore.client import Config
+from botocore.client import BaseClient, Config
 from celery import Celery
 from openai import OpenAI
 
@@ -20,8 +19,8 @@ celery_app = Celery(
 celery_app.conf.task_default_queue = "transcription"
 
 # OpenAI + MinIO clients are created lazily to keep workers reusable.
-_openai_client: Optional[OpenAI] = None
-_s3_client = None
+_openai_client: OpenAI | None = None
+_s3_client: BaseClient | None = None
 
 
 def get_openai_client() -> OpenAI:
@@ -34,7 +33,7 @@ def get_openai_client() -> OpenAI:
     return _openai_client
 
 
-def get_s3_client():
+def get_s3_client() -> BaseClient:
     global _s3_client
     if _s3_client is None:
         endpoint = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
@@ -60,10 +59,10 @@ def fetch_media(bucket: str, key: str) -> io.BytesIO:
     return buf
 
 
-def call_whisper(file_obj: io.BytesIO, language: Optional[str] = None) -> str:
+def call_whisper(file_obj: io.BytesIO, language: str | None = None) -> str:
     client = get_openai_client()
     file_obj.seek(0)
-    kwargs: Dict[str, str] = {"model": "whisper-1"}
+    kwargs: dict[str, str] = {"model": "whisper-1"}
     if language:
         kwargs["language"] = language
     response = client.audio.transcriptions.create(file=file_obj, **kwargs)
@@ -71,15 +70,15 @@ def call_whisper(file_obj: io.BytesIO, language: Optional[str] = None) -> str:
 
 
 @celery_app.task(name="transcription.transcribe", bind=True, max_retries=3, default_retry_delay=15)
-def transcribe(self, object_key: str, bucket: Optional[str] = None, language: Optional[str] = None) -> dict:
+def transcribe(self, object_key: str, bucket: str | None = None, language: str | None = None) -> dict[str, object]:
     """
     Downloads media from MinIO and calls OpenAI Whisper API.
     TODO:
       - Persist transcript to Postgres and/or MinIO.
       - Publish NLP job with identifiers needed downstream.
     """
+    bucket_to_use = bucket or DEFAULT_MEDIA_BUCKET
     try:
-        bucket_to_use = bucket or DEFAULT_MEDIA_BUCKET
         media_file = fetch_media(bucket_to_use, object_key)
         transcript = call_whisper(media_file, language=language)
         logger.info("Transcribed %s bytes from %s/%s", media_file.getbuffer().nbytes, bucket_to_use, object_key)
@@ -90,5 +89,5 @@ def transcribe(self, object_key: str, bucket: Optional[str] = None, language: Op
             "transcript": transcript,
         }
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Transcription failed for %s/%s", bucket, object_key)
+        logger.exception("Transcription failed for %s/%s", bucket_to_use, object_key)
         raise self.retry(exc=exc)
