@@ -565,7 +565,7 @@ function App() {
 
     if (!selectedTake) {
       setError('Record or upload a video before saving.');
-      setCreateStep('record');
+      setCreateStep('select');
       return;
     }
 
@@ -609,7 +609,7 @@ function App() {
 
     if (!videoObjectKey) {
       setError('Save the video first.');
-      setCreateStep('record');
+      setCreateStep('select');
       return;
     }
 

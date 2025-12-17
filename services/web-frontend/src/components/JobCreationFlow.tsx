@@ -88,6 +88,17 @@ export function JobCreationFlow({
   const isSavingVideo = status === "presigning" || status === "uploading" || status === "confirming";
   const videoSaved = Boolean(videoObjectKey);
   const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
+  const hasTakes = recordedTakes.length > 0;
+  const hasTitle = Boolean(form.title.trim());
+  const hasLocation = Boolean(form.location.trim());
+  const hasCompany = Boolean(companyId || form.companyName.trim());
+  const canSaveJob = videoSaved && hasTitle && hasLocation && hasCompany;
+  const currentStepIndex = createStep === "record" ? 2 : createStep === "select" ? 3 : 4;
+  const stepClass = (index: number) => {
+    if (index === currentStepIndex) return "step active";
+    if (index < currentStepIndex) return "step complete";
+    return "step";
+  };
 
   return (
     <>
@@ -97,21 +108,25 @@ export function JobCreationFlow({
         <p className="tag">Zjobly</p>
         <h1>Post a role with a video intro</h1>
         <p className="lede">
-          Record a quick clip (hard stop at 3:00), review the drafted details, then choose to publish or save.
+          Record a quick clip (hard stop at 3:00), pick the take you want, save it, then review the auto-filled job details.
         </p>
 
         <div className="stepper">
-          <div className={`step ${createStep === "record" ? "active" : ""}`}>
+          <div className={stepClass(1)}>
             <span className="step-id">1</span>
-            <span>Video</span>
+            <span>Homepage</span>
           </div>
-          <div className={`step ${createStep === "details" ? "active" : ""}`}>
+          <div className={stepClass(2)}>
             <span className="step-id">2</span>
-            <span>Job details</span>
+            <span>Video recording</span>
           </div>
-          <div className={`step ${createStep === "publish" ? "active" : ""}`}>
+          <div className={stepClass(3)}>
             <span className="step-id">3</span>
-            <span>Publish</span>
+            <span>Pick + save</span>
+          </div>
+          <div className={stepClass(4)}>
+            <span className="step-id">4</span>
+            <span>Job detail (auto fill in)</span>
           </div>
         </div>
 
@@ -200,17 +215,27 @@ export function JobCreationFlow({
               {error && <div className="error">{error}</div>}
 
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                  Back to video
+                <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                  Back to saved video
                 </button>
-                <button
-                  type="button"
-                  className="cta primary"
-                  onClick={() => goToStep("publish")}
-                  disabled={!form.title || !form.location || (!companyId && !form.companyName) || !videoSaved}
-                >
-                  Continue to publish
-                </button>
+                <div className="panel-action-right">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => onSaveJob(false)}
+                    disabled={!canSaveJob || jobSaving}
+                  >
+                    {jobSaving ? "Saving..." : "Save draft"}
+                  </button>
+                  <button
+                    type="button"
+                    className="cta primary"
+                    onClick={() => onSaveJob(true)}
+                    disabled={!canSaveJob || jobSaving}
+                  >
+                    {jobSaving ? "Publishing..." : "Publish job"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -274,13 +299,62 @@ export function JobCreationFlow({
                   )}
                 </div>
 
+                <div className="panel record-panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Video recording</h2>
+                      <p className="hint">Record one or more takes. You&apos;ll pick the best one next.</p>
+                    </div>
+                    {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
+                  </div>
+
+                  {!hasTakes && <p className="hint">Record a take to continue, or move on to upload one.</p>}
+                  {error && <div className="error">{error}</div>}
+
+                  <div className="panel-actions">
+                    <button type="button" className="cta primary" onClick={() => goToStep("select")}>
+                      Pick + save video
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {createStep === "select" && (
+            <div className="fullscreen-recorder">
+              <div className="record-shell">
+                <div className="record-stage">
+                  <div className="record-screen">
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        ref={playbackVideoRef}
+                        src={videoUrl}
+                        className="live-video playback-video"
+                        controls
+                        playsInline
+                        autoPlay
+                        muted
+                      />
+                    ) : (
+                      <div className="record-placeholder">
+                        <p>Select a take to preview it here.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="panel">
                   <div className="panel-header">
                     <div>
-                      <h2>Save your video</h2>
-                      <p className="hint">Pick one of your takes or upload a file, then save it.</p>
+                      <h2>Pick your video + save</h2>
+                      <p className="hint">Choose a take or upload a file, then save it.</p>
+                      {videoSaved && <span className="pill">Video saved</span>}
                     </div>
-                    {videoSaved && <span className="pill">Video saved</span>}
+                    <button type="button" className="ghost" onClick={onBackToWelcome}>
+                      Cancel
+                    </button>
                   </div>
 
                   <div className="take-list">
@@ -335,16 +409,16 @@ export function JobCreationFlow({
                     </div>
                   )}
                   {status === "success" && (
-                    <div className="success">Video saved. You can continue to details while we transcribe.</div>
+                    <div className="success">Video saved. You can continue to job details while we transcribe.</div>
                   )}
 
                   <div className="panel-actions split">
-                    <button type="button" className="ghost" onClick={onBackToWelcome}>
-                      Cancel
+                    <button type="button" className="ghost" onClick={() => goToStep("record")}>
+                      Back to recording
                     </button>
                     <div className="panel-action-right">
                       <button type="button" className="ghost" onClick={() => goToStep("details")} disabled={!videoSaved}>
-                        Continue to details
+                        Continue to job details
                       </button>
                       <button type="button" className="cta primary" onClick={onSaveVideo} disabled={isSavingVideo || !selectedTake}>
                         {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
@@ -352,58 +426,6 @@ export function JobCreationFlow({
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {createStep === "publish" && (
-            <div className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Publish or save</h2>
-                  <p className="hint">Choose whether to publish now or keep this job as a draft.</p>
-                </div>
-                <button type="button" className="ghost" onClick={() => goToStep("details")}>
-                  Back to details
-                </button>
-              </div>
-
-              <div className="job-summary">
-                <div className="job-summary-row">
-                  <span className="job-summary-label">Title</span>
-                  <span>{form.title || "Untitled role"}</span>
-                </div>
-                <div className="job-summary-row">
-                  <span className="job-summary-label">Location</span>
-                  <span>{form.location || "Location TBD"}</span>
-                </div>
-                <div className="job-summary-row">
-                  <span className="job-summary-label">Company</span>
-                  <span>{form.companyName || "Existing company"}</span>
-                </div>
-                {form.description && (
-                  <div className="job-summary-row">
-                    <span className="job-summary-label">Description</span>
-                    <span>{form.description}</span>
-                  </div>
-                )}
-              </div>
-
-              {videoUrl && (
-                <div className="job-video-preview">
-                  <video className="job-detail-video" src={videoUrl} controls preload="metadata" />
-                </div>
-              )}
-
-              {error && <div className="error">{error}</div>}
-
-              <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => onSaveJob(false)} disabled={jobSaving}>
-                  {jobSaving ? "Saving..." : "Save draft"}
-                </button>
-                <button type="button" className="cta primary" onClick={() => onSaveJob(true)} disabled={jobSaving}>
-                  {jobSaving ? "Publishing..." : "Publish job"}
-                </button>
               </div>
             </div>
           )}
