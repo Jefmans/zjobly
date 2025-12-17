@@ -14,7 +14,7 @@ import {
   uploadFileToUrl,
 } from './api';
 import { formatDuration, makeTakeId } from './helpers';
-import { CreateStep, Job, PermissionState, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
+import { CreateStep, Job, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 
@@ -65,10 +65,8 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
-  const [, setPermissionState] = useState<PermissionState>('unknown');
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
-  const [, setLastUploadKey] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -234,7 +232,6 @@ function App() {
 
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
-    setLastUploadKey(objectKey);
     setStatus('processing');
     setProcessingMessage('Queued for transcription and processing...');
 
@@ -391,7 +388,6 @@ function App() {
     setStatus('idle');
     clearProcessingTimer();
     setProcessingMessage(null);
-    setLastUploadKey(null);
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -468,7 +464,6 @@ function App() {
           ? 'Camera/mic access is blocked on non-HTTPS pages. Open this site via https:// (or use localhost).'
           : 'Camera/mic not supported in this browser.',
       );
-      setPermissionState('denied');
       return null;
     }
 
@@ -481,11 +476,9 @@ function App() {
       if (!liveStreamRef.current || !liveStreamRef.current.active) {
         setLiveStream(stream);
       }
-      setPermissionState('granted');
       return stream;
     } catch (err) {
       console.error(err);
-      setPermissionState('denied');
       setError('Permission denied. Allow camera/mic to record a video.');
       return null;
     }
@@ -775,10 +768,6 @@ function App() {
     setCreateStep(nextStep);
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-  };
-
   const handleSearchSubmit = () => {
     runSearch(searchQuery);
   };
@@ -916,7 +905,7 @@ function App() {
         onCreateClick={() => setRoleAndView('employer')}
         setView={setView}
         searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
+        onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
         searchResults={searchResults}
         searchLoading={searchLoading}
