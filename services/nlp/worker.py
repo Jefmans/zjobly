@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Dict, Optional
 
 import httpx
 from celery import Celery
@@ -15,11 +14,11 @@ celery_app = Celery(
 # Listen on a dedicated queue to avoid consuming media/transcription messages.
 celery_app.conf.task_default_queue = "nlp"
 
-_openai_client: Optional[OpenAI] = None
+_openai_client: OpenAI | None = None
 
 
 @celery_app.task(name="nlp.process_document")
-def process_document(document_id: str, transcript: str, job_id: Optional[str] = None) -> dict:
+def process_document(document_id: str, transcript: str, job_id: str | None = None) -> dict[str, object]:
     """
     Generate a job draft (title/description/keywords) from a transcript.
     TODO:
@@ -47,7 +46,7 @@ def get_openai_client() -> OpenAI:
     return _openai_client
 
 
-def _normalize_keywords(raw_keywords) -> list[str]:
+def _normalize_keywords(raw_keywords: object) -> list[str]:
     if isinstance(raw_keywords, list):
         return [str(k).strip() for k in raw_keywords if str(k).strip()]
     if isinstance(raw_keywords, str):
@@ -55,7 +54,7 @@ def _normalize_keywords(raw_keywords) -> list[str]:
     return []
 
 
-def generate_job_draft(transcript: str) -> Dict[str, object]:
+def generate_job_draft(transcript: str) -> dict[str, object]:
     transcript_clean = (transcript or "").strip()
     if len(transcript_clean) < 30:
         raise ValueError("Transcript too short to generate a draft")
