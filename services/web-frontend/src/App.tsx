@@ -789,12 +789,6 @@ function App() {
   const goToStep = (nextStep: CreateStep) => {
     setError(null);
     setCreateStep(nextStep);
-    if (typeof window !== 'undefined') {
-      const nextHash = `#/create/${nextStep}`;
-      if (window.location.hash !== nextHash) {
-        window.location.hash = nextHash;
-      }
-    }
   };
 
   const handleSearchSubmit = () => {
