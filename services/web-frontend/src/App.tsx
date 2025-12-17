@@ -48,6 +48,7 @@ function App() {
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
   const [transcriptText, setTranscriptText] = useState('');
+  const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [draftingFromTranscript, setDraftingFromTranscript] = useState(false);
   const [draftingError, setDraftingError] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(() => {
@@ -353,10 +354,30 @@ function App() {
     setDraftingError(null);
   };
 
-  const applyDraft = (draft: { title?: string; description?: string; transcript?: string }) => {
+  const normalizeKeywords = (keywords?: string[]): string[] => {
+    const seen = new Set<string>();
+    return (keywords ?? [])
+      .map((kw) => (kw ?? '').toString().trim())
+      .filter(Boolean)
+      .filter((kw) => {
+        const key = kw.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 20);
+  };
+
+  const applyDraft = (draft: {
+    title?: string;
+    description?: string;
+    transcript?: string;
+    keywords?: string[];
+  }) => {
     if (draft.transcript) {
       setTranscriptText(draft.transcript);
     }
+    setDraftKeywords(normalizeKeywords(draft.keywords));
     setForm((prev) => ({
       ...prev,
       title: draft.title || prev.title,
@@ -409,6 +430,7 @@ function App() {
     setStatus('idle');
     clearProcessingTimer();
     setProcessingMessage(null);
+    setDraftKeywords([]);
   };
 
   const clearRecordedTakes = () => {
@@ -796,6 +818,7 @@ function App() {
     setError(null);
     setCreateStep('record');
     setShowDetailValidation(false);
+    setDraftKeywords([]);
   };
 
   const goToStep = (nextStep: CreateStep) => {
@@ -899,6 +922,7 @@ function App() {
         onGenerateFromTranscript={generateFromTranscript}
         draftingFromTranscript={draftingFromTranscript}
         draftingError={draftingError}
+        draftKeywords={draftKeywords}
         goToStep={goToStep}
         onSaveVideo={saveVideo}
         onSaveJob={saveJob}

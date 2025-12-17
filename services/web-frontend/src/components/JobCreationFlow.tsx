@@ -19,6 +19,7 @@ type Props = {
   onGenerateFromTranscript: () => void;
   draftingFromTranscript: boolean;
   draftingError: string | null;
+  draftKeywords: string[];
   goToStep: (step: CreateStep) => void;
   onSaveVideo: () => void;
   onSaveJob: (publish: boolean) => void;
@@ -60,6 +61,7 @@ export function JobCreationFlow({
   onGenerateFromTranscript,
   draftingFromTranscript,
   draftingError,
+  draftKeywords,
   goToStep,
   onSaveVideo,
   onSaveJob,
@@ -237,6 +239,20 @@ export function JobCreationFlow({
                   placeholder="Add a short pitch for the role. Generating from transcript will fill this in."
                 />
               </div>
+
+              {draftKeywords.length > 0 && (
+                <div className="field">
+                  <label>Extracted keywords</label>
+                  <div className="keyword-chips" role="list">
+                    {draftKeywords.map((keyword) => (
+                      <span key={keyword} className="keyword-chip" role="listitem">
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="hint">Auto-generated from your transcript or video.</p>
+                </div>
+              )}
 
               {error && <div className="error">{error}</div>}
 
