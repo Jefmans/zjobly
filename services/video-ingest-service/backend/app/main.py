@@ -5,7 +5,7 @@ from app.config import settings
 from app.routes import accounts
 from app.routes import media
 from app.routes import nlp
-from app.storage import ensure_bucket
+from app.storage import ensure_bucket, ensure_bucket_cors
 
 
 def create_app() -> FastAPI:
@@ -33,4 +33,9 @@ async def startup_event() -> None:
     # Make sure required buckets exist in MinIO.
     ensure_bucket(settings.S3_BUCKET_RAW)
     ensure_bucket(settings.S3_BUCKET_HLS)
+    try:
+        ensure_bucket_cors(settings.S3_BUCKET_RAW, settings.MEDIA_CORS_ALLOWED_ORIGINS)
+        ensure_bucket_cors(settings.S3_BUCKET_HLS, settings.MEDIA_CORS_ALLOWED_ORIGINS)
+    except Exception:
+        logging.exception("Failed to apply CORS configuration to MinIO buckets.")
     logging.info("Media API started")

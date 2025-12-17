@@ -13,6 +13,14 @@ class Settings:
     MEDIA_MAX_DURATION_SEC: int = int(os.getenv("MEDIA_MAX_DURATION_SEC", "180"))
     MEDIA_PRESIGN_EXPIRY_SEC: int = int(os.getenv("MEDIA_PRESIGN_EXPIRY_SEC", "3600"))
     MEDIA_PLAY_SIGN_EXPIRY_SEC: int = int(os.getenv("MEDIA_PLAY_SIGN_EXPIRY_SEC", "3600"))
+    MEDIA_CORS_ALLOWED_ORIGINS: list[str] = [
+        origin.strip()
+        for origin in os.getenv(
+            "MEDIA_CORS_ALLOWED_ORIGINS",
+            "https://zjobly.com,https://www.zjobly.com,http://localhost:5173,http://localhost",
+        ).split(",")
+        if origin.strip()
+    ]
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "whisper-1")
     API_BASE_PATH: str = os.getenv("API_BASE_PATH", "")
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")

@@ -2,7 +2,7 @@ export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'proce
 export type RecordingState = 'idle' | 'recording';
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 export type ViewMode = 'welcome' | 'create' | 'find' | 'jobs' | 'jobDetail';
-export type CreateStep = 'record' | 'details' | 'publish';
+export type CreateStep = 'record' | 'select' | 'details';
 export type UserRole = 'candidate' | 'employer';
 
 export type MembershipRole = 'admin' | 'recruiter' | 'viewer';
