@@ -5,6 +5,24 @@
   padding: 2rem;
 }
 
+.screen-label {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 60;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  pointer-events: none;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+}
+
 .top-nav {
   width: 100%;
   max-width: 780px;
@@ -504,6 +522,13 @@ p {
   width: 100%;
   border-radius: 10px;
   background: #000;
+}
+
+.video-preview-placeholder {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  text-align: center;
 }
 
 .error {

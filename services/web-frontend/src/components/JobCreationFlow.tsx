@@ -359,113 +359,108 @@ export function JobCreationFlow({
           )}
 
           {createStep === "select" && (
-            <div className="fullscreen-recorder">
-              <div className="record-shell">
-                <div className="record-stage">
-                  <div className="record-screen">
-                    {videoUrl ? (
-                      <video
-                        key={videoUrl}
-                        ref={playbackVideoRef}
-                        src={videoUrl}
-                        className="live-video playback-video"
-                        controls
-                        playsInline
-                        autoPlay
-                        muted
-                      />
-                    ) : (
-                      <div className="record-placeholder">
-                        <p>Select a take to preview it here.</p>
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Select your video</h2>
+                  <p className="hint">Choose a take or upload a file, then save it.</p>
+                  {videoSaved && <span className="pill">Video saved</span>}
+                </div>
+                <button type="button" className="ghost" onClick={onBackToWelcome}>
+                  Cancel
+                </button>
+              </div>
+
+              <div className="video-preview">
+                {videoUrl ? (
+                  <video
+                    key={videoUrl}
+                    ref={playbackVideoRef}
+                    src={videoUrl}
+                    className="playback-video"
+                    controls
+                    playsInline
+                    autoPlay
+                    muted
+                  />
+                ) : (
+                  <div className="video-preview-placeholder">
+                    <p className="hint">Select a take to preview it here.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="take-list">
+                {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
+                {recordedTakes.map((take) => (
+                  <label key={take.id} className={`take-card ${selectedTakeId === take.id ? "selected" : ""}`}>
+                    <div className="take-card-top">
+                      <div className="take-label">
+                        <input
+                          type="radio"
+                          name="selectedTake"
+                          checked={selectedTakeId === take.id}
+                          onChange={() => selectTake(take.id)}
+                        />
+                        <span>{take.label}</span>
                       </div>
-                    )}
+                      <span className="take-duration">{formatDuration(take.duration) ?? "0:00"}</span>
+                    </div>
+                    <video src={take.url} controls preload="metadata" />
+                  </label>
+                ))}
+              </div>
+
+              <div className="field">
+                <label htmlFor="video">Upload instead (max 3:00)</label>
+                <div className="upload-box">
+                  <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
+                  <div className="upload-copy">
+                    <strong>Select a video file</strong>
+                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
                   </div>
                 </div>
+              </div>
 
-                <div className="panel">
-                  <div className="panel-header">
-                    <div>
-                      <h2>Select your video</h2>
-                      <p className="hint">Choose a take or upload a file, then save it.</p>
-                      {videoSaved && <span className="pill">Video saved</span>}
-                    </div>
-                    <button type="button" className="ghost" onClick={onBackToWelcome}>
-                      Cancel
-                    </button>
+              {error && <div className="error">{error}</div>}
+              {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
+              {status === "uploading" && (
+                <div className="upload-progress">
+                  <div className="upload-progress-top">
+                    <span>Uploading video...</span>
+                    <span>{uploadPercent !== null ? `${uploadPercent}%` : "..."}</span>
                   </div>
-
-                  <div className="take-list">
-                    {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
-                    {recordedTakes.map((take) => (
-                      <label key={take.id} className={`take-card ${selectedTakeId === take.id ? "selected" : ""}`}>
-                        <div className="take-card-top">
-                          <div className="take-label">
-                            <input
-                              type="radio"
-                              name="selectedTake"
-                              checked={selectedTakeId === take.id}
-                              onChange={() => selectTake(take.id)}
-                            />
-                            <span>{take.label}</span>
-                          </div>
-                          <span className="take-duration">{formatDuration(take.duration) ?? "0:00"}</span>
-                        </div>
-                        <video src={take.url} controls preload="metadata" />
-                      </label>
-                    ))}
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: `${uploadPercent ?? 5}%` }} />
                   </div>
+                </div>
+              )}
+              {status === "confirming" && <div className="notice">Confirming your upload...</div>}
+              {status === "processing" && (
+                <div className="notice">
+                  {processingMessage || "Processing your video (transcription/indexing) ..."}
+                </div>
+              )}
+              {status === "success" && (
+                <div className="success">Video saved. You can continue to job details while we transcribe.</div>
+              )}
 
-                  <div className="field">
-                    <label htmlFor="video">Upload instead (max 3:00)</label>
-                    <div className="upload-box">
-                      <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
-                      <div className="upload-copy">
-                        <strong>Select a video file</strong>
-                        <span>MP4, MOV, WEBM - up to 3 minutes</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {error && <div className="error">{error}</div>}
-                  {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
-                  {status === "uploading" && (
-                    <div className="upload-progress">
-                      <div className="upload-progress-top">
-                        <span>Uploading video...</span>
-                        <span>{uploadPercent !== null ? `${uploadPercent}%` : "..."}</span>
-                      </div>
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill" style={{ width: `${uploadPercent ?? 5}%` }} />
-                      </div>
-                    </div>
-                  )}
-                  {status === "confirming" && <div className="notice">Confirming your upload...</div>}
-                  {status === "processing" && (
-                    <div className="notice">
-                      {processingMessage || "Processing your video (transcription/indexing) ..."}
-                    </div>
-                  )}
-                  {status === "success" && (
-                    <div className="success">Video saved. You can continue to job details while we transcribe.</div>
-                  )}
-
-                  <div className="panel-actions split">
-                    <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                      Back to recording
-                    </button>
-                    <div className="panel-action-right">
-                      <button type="button" className="ghost" onClick={() => goToStep("details")} disabled={!videoSaved}>
-                        Continue to job details
-                      </button>
-                      <button type="button" className="cta primary" onClick={onSaveVideo} disabled={isSavingVideo || !selectedTake}>
-                        {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
-                      </button>
-                    </div>
-                  </div>
+              <div className="panel-actions split">
+                <button type="button" className="ghost" onClick={() => goToStep("record")}>
+                  Back to recording
+                </button>
+                <div className="panel-action-right">
+                  <button type="button" className="ghost" onClick={() => goToStep("details")} disabled={!videoSaved}>
+                    Continue to job details
+                  </button>
+                  <button type="button" className="cta primary" onClick={onSaveVideo} disabled={isSavingVideo || !selectedTake}>
+                    {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
+                  </button>
                 </div>
               </div>
             </div>
           )}
+
         </form>
       </section>
     </>

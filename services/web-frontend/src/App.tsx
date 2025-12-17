@@ -2,6 +2,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
+import { ScreenLabel } from './components/ScreenLabel';
 import {
   confirmUpload,
   createCompany,
@@ -17,6 +18,19 @@ import { formatDuration, makeTakeId } from './helpers';
 import { CreateStep, Job, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
+
+const getScreenLabel = (view: ViewMode, step: CreateStep): string => {
+  if (view === 'welcome') return 'Screen:Welcome';
+  if (view === 'find') return 'Screen:FindZjob/Search';
+  if (view === 'jobs') return 'Screen:MyJobs/List';
+  if (view === 'jobDetail') return 'Screen:MyJobs/Detail';
+  if (view === 'create') {
+    if (step === 'record') return 'Screen:CreateZjob/RecordVideo';
+    if (step === 'select') return 'Screen:CreateZjob/SelectVideo';
+    return 'Screen:CreateZjob/JobDetails';
+  }
+  return 'Screen:Unknown';
+};
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
@@ -760,6 +774,7 @@ function App() {
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
+  const screenLabel = getScreenLabel(view, createStep);
 
   const backToWelcome = () => {
     clearVideoSelection();
@@ -847,6 +862,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <ScreenLabel label={screenLabel} />
       {view === 'welcome' && (
         <>
           {renderSwitcher()}
