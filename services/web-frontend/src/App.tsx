@@ -161,6 +161,11 @@ function App() {
     setJobsError(null);
     try {
       const fetched = await listCompanyJobs(companyId);
+      if (!Array.isArray(fetched)) {
+        setJobs([]);
+        setJobsError('Could not load jobs.');
+        return;
+      }
       setJobs(
         fetched.map((job) => ({
           ...job,
