@@ -10,16 +10,17 @@
   max-width: 780px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
 .nav-actions {
+  margin-left: auto;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .nav-btn {
@@ -311,6 +312,18 @@ p {
 .cta.primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 35px rgba(99, 102, 241, 0.4);
+}
+
+.cta.secondary {
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+.cta.secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
 }
 
 .upload-form {

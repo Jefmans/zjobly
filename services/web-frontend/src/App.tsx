@@ -744,14 +744,18 @@ function App() {
   const renderSwitcher = () => {
     const showEmployerNav = role !== 'candidate';
     const showCandidateNav = role !== 'employer';
+    const showBack = view !== 'welcome';
+    const showMainNav = view !== 'welcome';
 
     return (
       <div className="top-nav">
-        <button type="button" className="link-btn" onClick={backToWelcome}>
-          Back
-        </button>
+        {showBack && (
+          <button type="button" className="link-btn" onClick={backToWelcome}>
+            Back
+          </button>
+        )}
         <div className="nav-actions">
-          {showEmployerNav && (
+          {showMainNav && showEmployerNav && (
             <button
               type="button"
               className={`nav-btn ${view === 'create' ? 'active' : ''}`}
@@ -760,7 +764,7 @@ function App() {
               Create Zjob
             </button>
           )}
-          {showCandidateNav && (
+          {showMainNav && showCandidateNav && (
             <button
               type="button"
               className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
@@ -769,15 +773,13 @@ function App() {
               Find Zjob
             </button>
           )}
-          {showEmployerNav && (
-            <button
-              type="button"
-              className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
-              onClick={() => setRoleAndView('employer', 'jobs')}
-            >
-              My Jobs
-            </button>
-          )}
+          <button
+            type="button"
+            className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
+            onClick={() => setRoleAndView('employer', 'jobs')}
+          >
+            Job list
+          </button>
           {renderRoleSelect('nav')}
         </div>
       </div>
@@ -787,22 +789,22 @@ function App() {
   return (
     <main className="app-shell">
       {view === 'welcome' && (
-        <section className="hero welcome">
-          <p className="tag">Zjobly</p>
-          <h1>Choose your role</h1>
-          <p className="lede">Pick a role to enter the matching flow. You can switch later.</p>
-          <div className="welcome-actions role-actions">
-            {renderRoleSelect('welcome')}
-            <button
-              type="button"
-              className="cta primary"
-              onClick={() => role && setRoleAndView(role)}
-              disabled={!role}
-            >
-              Continue
-            </button>
-          </div>
-        </section>
+        <>
+          {renderSwitcher()}
+          <section className="hero welcome">
+            <p className="tag">Zjobly</p>
+            <h1>Choose your next step</h1>
+            <p className="lede">Start by finding a Zjob or creating one with a short video.</p>
+            <div className="welcome-actions">
+              <button type="button" className="cta primary" onClick={() => setRoleAndView('candidate')}>
+                Find Zjob
+              </button>
+              <button type="button" className="cta secondary" onClick={() => setRoleAndView('employer')}>
+                Create Zjob
+              </button>
+            </div>
+          </section>
+        </>
       )}
 
       <JobCreationFlow
