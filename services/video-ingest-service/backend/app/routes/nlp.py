@@ -1,5 +1,7 @@
-import io
 import json
+import os
+import subprocess
+import tempfile
 from typing import List
 
 import httpx
@@ -13,6 +15,8 @@ from app.schemas_nlp import JobDraftFromVideoRequest, JobDraftRequest, JobDraftR
 router = APIRouter(prefix="/nlp", tags=["nlp"])
 
 _openai_client: OpenAI | None = None
+
+OPENAI_MAX_BYTES = 25 * 1024 * 1024
 
 
 def get_openai_client() -> OpenAI:
@@ -42,30 +46,66 @@ def _normalize_keywords(raw_keywords) -> List[str]:
         return [k.strip() for k in raw_keywords.split(",") if k.strip()]
     return []
 
-def _fetch_media(object_key: str) -> io.BytesIO:
+def _download_object(object_key: str, dest_path: str) -> None:
     s3 = storage.get_s3_client()
     try:
-        resp = s3.get_object(Bucket=settings.S3_BUCKET_RAW, Key=object_key)
+        with open(dest_path, "wb") as file_obj:
+            s3.download_fileobj(settings.S3_BUCKET_RAW, object_key, file_obj)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=404, detail="Video not found in storage") from exc
-    data = resp["Body"].read()
-    buf = io.BytesIO(data)
-    buf.name = object_key.split("/")[-1] or "upload.bin"
-    return buf
+
+
+def _transcode_to_audio(input_path: str, output_path: str) -> None:
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_path,
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-b:a",
+        "64k",
+        output_path,
+    ]
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail="Failed to extract audio for transcription.")
 
 
 def _transcribe_object(object_key: str) -> str:
     client = get_openai_client()
-    file_obj = _fetch_media(object_key)
-    file_obj.seek(0)
     model = settings.WHISPER_MODEL or "whisper-1"
     if model.lower() == "small":
         model = "whisper-1"
-    try:
-        response = client.audio.transcriptions.create(model=model, file=file_obj)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail="Could not transcribe the video") from exc
-    return response.text
+    with tempfile.TemporaryDirectory() as temp_dir:
+        _, ext = os.path.splitext(object_key)
+        input_path = os.path.join(temp_dir, f"input-media{ext or '.bin'}")
+        _download_object(object_key, input_path)
+
+        transcription_path = input_path
+        if os.path.getsize(input_path) > OPENAI_MAX_BYTES:
+            audio_path = os.path.join(temp_dir, "audio.mp3")
+            _transcode_to_audio(input_path, audio_path)
+            transcription_path = audio_path
+
+        if os.path.getsize(transcription_path) > OPENAI_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Transcription file exceeds OpenAI upload limit.")
+
+        try:
+            with open(transcription_path, "rb") as file_obj:
+                response = client.audio.transcriptions.create(model=model, file=file_obj)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail="Could not transcribe the video") from exc
+        return response.text
 
 
 def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftResponse:
