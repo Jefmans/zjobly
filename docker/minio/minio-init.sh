@@ -6,13 +6,28 @@ MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-minioadmin}"
 S3_BUCKET_RAW="${S3_BUCKET_RAW:-videos-raw}"
 S3_BUCKET_HLS="${S3_BUCKET_HLS:-videos-hls}"
+RETRY_COUNT="${RETRY_COUNT:-60}"
+RETRY_DELAY_SEC="${RETRY_DELAY_SEC:-2}"
 
-until mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"; do
-  echo "Waiting for MinIO..."
-  sleep 2
-done
+retry() {
+  desc="$1"
+  shift
+  attempt=1
+  until "$@"; do
+    if [ "$attempt" -ge "$RETRY_COUNT" ]; then
+      echo "ERROR: $desc failed after $attempt attempts."
+      return 1
+    fi
+    echo "Waiting for $desc..."
+    attempt=$((attempt + 1))
+    sleep "$RETRY_DELAY_SEC"
+  done
+}
 
-mc mb --ignore-existing "local/${S3_BUCKET_RAW}"
-mc mb --ignore-existing "local/${S3_BUCKET_HLS}"
-mc cors set "local/${S3_BUCKET_RAW}" /config/cors.json
-mc cors set "local/${S3_BUCKET_HLS}" /config/cors.json
+retry "MinIO" mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
+
+retry "bucket ${S3_BUCKET_RAW}" mc mb --ignore-existing "local/${S3_BUCKET_RAW}"
+retry "bucket ${S3_BUCKET_HLS}" mc mb --ignore-existing "local/${S3_BUCKET_HLS}"
+
+retry "CORS for ${S3_BUCKET_RAW}" mc cors set "local/${S3_BUCKET_RAW}" /config/cors.json
+retry "CORS for ${S3_BUCKET_HLS}" mc cors set "local/${S3_BUCKET_HLS}" /config/cors.json
