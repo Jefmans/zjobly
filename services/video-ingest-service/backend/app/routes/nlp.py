@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 import tempfile
-from typing import List
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -39,12 +38,13 @@ SYSTEM_PROMPT = (
 )
 
 
-def _normalize_keywords(raw_keywords) -> List[str]:
+def _normalize_keywords(raw_keywords: object) -> list[str]:
     if isinstance(raw_keywords, list):
         return [str(k).strip() for k in raw_keywords if str(k).strip()]
     if isinstance(raw_keywords, str):
         return [k.strip() for k in raw_keywords.split(",") if k.strip()]
     return []
+
 
 def _download_object(object_key: str, dest_path: str) -> None:
     s3 = storage.get_s3_client()
