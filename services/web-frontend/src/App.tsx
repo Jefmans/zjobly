@@ -101,6 +101,37 @@ function App() {
     setView(nextView ?? (nextRole === 'employer' ? 'create' : 'find'));
   };
 
+  const handleRoleSelection = (value: string, navigate: boolean) => {
+    if (value !== 'candidate' && value !== 'employer') return;
+    if (navigate) {
+      setRoleAndView(value);
+      return;
+    }
+    persistRole(value);
+  };
+
+  const renderRoleSelect = (variant: 'nav' | 'welcome') => {
+    const selectId = variant === 'welcome' ? 'welcome-role' : 'nav-role';
+    const navigateOnChange = variant === 'nav';
+
+    return (
+      <div className={variant === 'welcome' ? 'role-switcher welcome' : 'role-switcher'}>
+        <label htmlFor={selectId}>Role</label>
+        <select
+          id={selectId}
+          value={role ?? ''}
+          onChange={(event) => handleRoleSelection(event.target.value, navigateOnChange)}
+        >
+          <option value="" disabled>
+            Choose a role
+          </option>
+          <option value="employer">Employer</option>
+          <option value="candidate">Candidate</option>
+        </select>
+      </div>
+    );
+  };
+
   const stopStreamTracks = (stream: MediaStream | null) => {
     if (!stream) return;
     stream.getTracks().forEach((t) => t.stop());
@@ -742,6 +773,7 @@ function App() {
               My Jobs
             </button>
           )}
+          {renderRoleSelect('nav')}
         </div>
       </div>
     );
@@ -754,16 +786,15 @@ function App() {
           <p className="tag">Zjobly</p>
           <h1>Choose your role</h1>
           <p className="lede">Pick a role to enter the matching flow. You can switch later.</p>
-          <div className="welcome-actions">
+          <div className="welcome-actions role-actions">
+            {renderRoleSelect('welcome')}
             <button
               type="button"
               className="cta primary"
-              onClick={() => setRoleAndView('employer')}
+              onClick={() => role && setRoleAndView(role)}
+              disabled={!role}
             >
-              I&apos;m an employer
-            </button>
-            <button type="button" className="cta ghost" onClick={() => setRoleAndView('candidate')}>
-              I&apos;m a candidate
+              Continue
             </button>
           </div>
         </section>
@@ -818,8 +849,6 @@ function App() {
         onSelectJob={setSelectedJobId}
         onBackToWelcome={backToWelcome}
         onCreateClick={() => setRoleAndView('employer')}
-        userRole={role}
-        onSwitchRole={(nextRole) => setRoleAndView(nextRole)}
         setView={setView}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
