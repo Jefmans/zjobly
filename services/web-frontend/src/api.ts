@@ -23,6 +23,7 @@ export type JobDraft = {
   title: string;
   description: string;
   keywords?: string[];
+  transcript?: string;
 };
 
 const LOCAL_USER_KEY = "zjobly-user-id";
@@ -114,6 +115,13 @@ export async function generateJobDraftFromTranscript(transcript: string): Promis
   return requestJson<JobDraft>("/nlp/job-draft", {
     method: "POST",
     body: JSON.stringify({ transcript }),
+  });
+}
+
+export async function generateJobDraftFromVideo(objectKey: string): Promise<JobDraft> {
+  return requestJson<JobDraft>("/nlp/job-draft-from-video", {
+    method: "POST",
+    body: JSON.stringify({ object_key: objectKey }),
   });
 }
 

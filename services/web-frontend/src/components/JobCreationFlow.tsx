@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, RefObject } from "react";
+import { ChangeEvent, RefObject } from "react";
 import {
   CreateStep,
   RecordedTake,
@@ -20,10 +20,13 @@ type Props = {
   draftingFromTranscript: boolean;
   draftingError: string | null;
   goToStep: (step: CreateStep) => void;
-  handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onSaveVideo: () => void;
+  onSaveJob: (publish: boolean) => void;
+  onBackToWelcome: () => void;
   recorderOpen: boolean;
   recordingState: RecordingState;
   videoUrl: string | null;
+  videoObjectKey: string | null;
   liveVideoRef: RefObject<HTMLVideoElement>;
   playbackVideoRef: RefObject<HTMLVideoElement>;
   recordLabel: string | null;
@@ -40,6 +43,7 @@ type Props = {
   uploadProgress: number | null;
   processingMessage: string | null;
   companyId: string | null;
+  jobSaving: boolean;
 };
 
 export function JobCreationFlow({
@@ -54,10 +58,13 @@ export function JobCreationFlow({
   draftingFromTranscript,
   draftingError,
   goToStep,
-  handleSubmit,
+  onSaveVideo,
+  onSaveJob,
+  onBackToWelcome,
   recorderOpen,
   recordingState,
   videoUrl,
+  videoObjectKey,
   liveVideoRef,
   playbackVideoRef,
   recordLabel,
@@ -74,10 +81,12 @@ export function JobCreationFlow({
   uploadProgress,
   processingMessage,
   companyId,
+  jobSaving,
 }: Props) {
   if (view !== "create") return null;
 
-  const isSubmitting = status === "presigning" || status === "uploading" || status === "confirming" || status === "processing";
+  const isSavingVideo = status === "presigning" || status === "uploading" || status === "confirming";
+  const videoSaved = Boolean(videoObjectKey);
   const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
 
   return (
@@ -88,25 +97,25 @@ export function JobCreationFlow({
         <p className="tag">Zjobly</p>
         <h1>Post a role with a video intro</h1>
         <p className="lede">
-          Follow the steps: add the role, record a quick clip (hard stop at 3:00), then choose the video to publish.
+          Record a quick clip (hard stop at 3:00), review the drafted details, then choose to publish or save.
         </p>
 
         <div className="stepper">
-          <div className={`step ${createStep === "details" ? "active" : ""}`}>
-            <span className="step-id">1</span>
-            <span>Role details</span>
-          </div>
           <div className={`step ${createStep === "record" ? "active" : ""}`}>
-            <span className="step-id">2</span>
-            <span>Record</span>
+            <span className="step-id">1</span>
+            <span>Video</span>
           </div>
-          <div className={`step ${createStep === "select" ? "active" : ""}`}>
+          <div className={`step ${createStep === "details" ? "active" : ""}`}>
+            <span className="step-id">2</span>
+            <span>Job details</span>
+          </div>
+          <div className={`step ${createStep === "publish" ? "active" : ""}`}>
             <span className="step-id">3</span>
-            <span>Choose video & publish</span>
+            <span>Publish</span>
           </div>
         </div>
 
-        <form className="upload-form" onSubmit={handleSubmit}>
+        <form className="upload-form" onSubmit={(event) => event.preventDefault()}>
           {createStep === "details" && (
             <div className="panel">
               <div className="field">
@@ -158,11 +167,11 @@ export function JobCreationFlow({
                   value={transcriptText}
                   onChange={onTranscriptChange}
                   rows={5}
-                  placeholder="Paste the spoken transcript to auto-generate the title and description."
+                  placeholder="Paste the spoken transcript (or wait for auto-fill) to generate the title and description."
                 />
                 <div className="panel-actions split">
                   <p className="hint">
-                    We&apos;ll send this text to the AI model to draft the posting. You can edit the result anytime.
+                    We&apos;ll draft the posting once the transcript is ready. Paste it now to speed things up.
                   </p>
                   <button
                     type="button"
@@ -188,14 +197,19 @@ export function JobCreationFlow({
                 />
               </div>
 
-              <div className="panel-actions">
+              {error && <div className="error">{error}</div>}
+
+              <div className="panel-actions split">
+                <button type="button" className="ghost" onClick={() => goToStep("record")}>
+                  Back to video
+                </button>
                 <button
                   type="button"
                   className="cta primary"
-                  onClick={() => goToStep("record")}
-                  disabled={!form.title || !form.location || (!companyId && !form.companyName)}
+                  onClick={() => goToStep("publish")}
+                  disabled={!form.title || !form.location || (!companyId && !form.companyName) || !videoSaved}
                 >
-                  Continue to recording
+                  Continue to publish
                 </button>
               </div>
             </div>
@@ -237,16 +251,11 @@ export function JobCreationFlow({
                         </div>
                         <div className="overlay-bottom">
                           <div className="overlay-actions-left">
-                            <button type="button" className="ghost dark" onClick={() => goToStep("details")}>
-                              Back
+                            <button type="button" className="ghost dark" onClick={onBackToWelcome}>
+                              Cancel
                             </button>
                           </div>
                           <div className="overlay-actions-right">
-                            {recordingState !== "recording" && selectedTake && (
-                              <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                                Continue
-                              </button>
-                            )}
                             <button
                               type="button"
                               className={`record-btn ${recordingState === "recording" ? "stop" : "start"}`}
@@ -265,94 +274,135 @@ export function JobCreationFlow({
                   )}
                 </div>
 
-                {error && <div className="error floating">{error}</div>}
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Save your video</h2>
+                      <p className="hint">Pick one of your takes or upload a file, then save it.</p>
+                    </div>
+                    {videoSaved && <span className="pill">Video saved</span>}
+                  </div>
+
+                  <div className="take-list">
+                    {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
+                    {recordedTakes.map((take) => (
+                      <label key={take.id} className={`take-card ${selectedTakeId === take.id ? "selected" : ""}`}>
+                        <div className="take-card-top">
+                          <div className="take-label">
+                            <input
+                              type="radio"
+                              name="selectedTake"
+                              checked={selectedTakeId === take.id}
+                              onChange={() => selectTake(take.id)}
+                            />
+                            <span>{take.label}</span>
+                          </div>
+                          <span className="take-duration">{formatDuration(take.duration) ?? "0:00"}</span>
+                        </div>
+                        <video src={take.url} controls preload="metadata" />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="video">Upload instead (max 3:00)</label>
+                    <div className="upload-box">
+                      <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
+                      <div className="upload-copy">
+                        <strong>Select a video file</strong>
+                        <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && <div className="error">{error}</div>}
+                  {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
+                  {status === "uploading" && (
+                    <div className="upload-progress">
+                      <div className="upload-progress-top">
+                        <span>Uploading video...</span>
+                        <span>{uploadPercent !== null ? `${uploadPercent}%` : "..."}</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill" style={{ width: `${uploadPercent ?? 5}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {status === "confirming" && <div className="notice">Confirming your upload...</div>}
+                  {status === "processing" && (
+                    <div className="notice">
+                      {processingMessage || "Processing your video (transcription/indexing) ..."}
+                    </div>
+                  )}
+                  {status === "success" && (
+                    <div className="success">Video saved. You can continue to details while we transcribe.</div>
+                  )}
+
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={onBackToWelcome}>
+                      Cancel
+                    </button>
+                    <div className="panel-action-right">
+                      <button type="button" className="ghost" onClick={() => goToStep("details")} disabled={!videoSaved}>
+                        Continue to details
+                      </button>
+                      <button type="button" className="cta primary" onClick={onSaveVideo} disabled={isSavingVideo || !selectedTake}>
+                        {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {createStep === "select" && (
+          {createStep === "publish" && (
             <div className="panel">
               <div className="panel-header">
                 <div>
-                  <h2>Choose a video for publication</h2>
-                  <p className="hint">Pick one of your takes. We'll add multi-take editing next.</p>
+                  <h2>Publish or save</h2>
+                  <p className="hint">Choose whether to publish now or keep this job as a draft.</p>
                 </div>
-                <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                  Back to record
+                <button type="button" className="ghost" onClick={() => goToStep("details")}>
+                  Back to details
                 </button>
               </div>
 
-              <div className="take-list">
-                {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
-                {recordedTakes.map((take) => (
-                  <label key={take.id} className={`take-card ${selectedTakeId === take.id ? "selected" : ""}`}>
-                    <div className="take-card-top">
-                      <div className="take-label">
-                        <input
-                          type="radio"
-                          name="selectedTake"
-                          checked={selectedTakeId === take.id}
-                          onChange={() => selectTake(take.id)}
-                        />
-                        <span>{take.label}</span>
-                      </div>
-                      <span className="take-duration">{formatDuration(take.duration) ?? "0:00"}</span>
-                    </div>
-                    <video src={take.url} controls preload="metadata" />
-                  </label>
-                ))}
+              <div className="job-summary">
+                <div className="job-summary-row">
+                  <span className="job-summary-label">Title</span>
+                  <span>{form.title || "Untitled role"}</span>
+                </div>
+                <div className="job-summary-row">
+                  <span className="job-summary-label">Location</span>
+                  <span>{form.location || "Location TBD"}</span>
+                </div>
+                <div className="job-summary-row">
+                  <span className="job-summary-label">Company</span>
+                  <span>{form.companyName || "Existing company"}</span>
+                </div>
+                {form.description && (
+                  <div className="job-summary-row">
+                    <span className="job-summary-label">Description</span>
+                    <span>{form.description}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="field">
-                <label htmlFor="video">Upload instead (max 3:00)</label>
-                <div className="upload-box">
-                  <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
-                  <div className="upload-copy">
-                    <strong>Select a video file</strong>
-                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
-                  </div>
+              {videoUrl && (
+                <div className="job-video-preview">
+                  <video className="job-detail-video" src={videoUrl} controls preload="metadata" />
                 </div>
-              </div>
+              )}
 
               {error && <div className="error">{error}</div>}
-              {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
-              {status === "uploading" && (
-                <div className="upload-progress">
-                  <div className="upload-progress-top">
-                    <span>Uploading video...</span>
-                    <span>{uploadPercent !== null ? `${uploadPercent}%` : "..."}</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div className="progress-bar-fill" style={{ width: `${uploadPercent ?? 5}%` }} />
-                  </div>
-                </div>
-              )}
-              {status === "confirming" && <div className="notice">Confirming your upload...</div>}
-              {status === "processing" && (
-                <div className="notice">
-                  {processingMessage || "Processing your video (transcription/indexing) ..."}
-                </div>
-              )}
-              {status === "success" && (
-                <div className="success">Upload queued! We&apos;ll transcribe and process the video next.</div>
-              )}
 
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => goToStep("record")} disabled={isSubmitting}>
-                  Back
+                <button type="button" className="ghost" onClick={() => onSaveJob(false)} disabled={jobSaving}>
+                  {jobSaving ? "Saving..." : "Save draft"}
                 </button>
-                <button type="submit" disabled={isSubmitting || !selectedTake}>
-                  {status === "presigning"
-                    ? "Requesting upload..."
-                    : status === "uploading"
-                      ? `Uploading${uploadPercent !== null ? ` ${uploadPercent}%` : "..."}`
-                      : status === "confirming"
-                        ? "Confirming..."
-                        : status === "processing"
-                          ? "Processing..."
-                          : status === "success"
-                            ? "Published"
-                            : "Publish job"}
+                <button type="button" className="cta primary" onClick={() => onSaveJob(true)} disabled={jobSaving}>
+                  {jobSaving ? "Publishing..." : "Publish job"}
                 </button>
               </div>
             </div>

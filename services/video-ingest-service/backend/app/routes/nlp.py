@@ -1,3 +1,4 @@
+import io
 import json
 from typing import List
 
@@ -5,8 +6,9 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from openai import OpenAI
 
+from app import storage
 from app.config import settings
-from app.schemas_nlp import JobDraftRequest, JobDraftResponse
+from app.schemas_nlp import JobDraftFromVideoRequest, JobDraftRequest, JobDraftResponse
 
 router = APIRouter(prefix="/nlp", tags=["nlp"])
 
@@ -40,18 +42,38 @@ def _normalize_keywords(raw_keywords) -> List[str]:
         return [k.strip() for k in raw_keywords.split(",") if k.strip()]
     return []
 
+def _fetch_media(object_key: str) -> io.BytesIO:
+    s3 = storage.get_s3_client()
+    try:
+        resp = s3.get_object(Bucket=settings.S3_BUCKET_RAW, Key=object_key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=404, detail="Video not found in storage") from exc
+    data = resp["Body"].read()
+    buf = io.BytesIO(data)
+    buf.name = object_key.split("/")[-1] or "upload.bin"
+    return buf
 
-@router.post("/job-draft", response_model=JobDraftResponse)
-def generate_job_draft(payload: JobDraftRequest) -> JobDraftResponse:
-    transcript = payload.transcript.strip()
-    if len(transcript) < 30:
-        raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
 
+def _transcribe_object(object_key: str) -> str:
+    client = get_openai_client()
+    file_obj = _fetch_media(object_key)
+    file_obj.seek(0)
+    model = settings.WHISPER_MODEL or "whisper-1"
+    if model.lower() == "small":
+        model = "whisper-1"
+    try:
+        response = client.audio.transcriptions.create(model=model, file=file_obj)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not transcribe the video") from exc
+    return response.text
+
+
+def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftResponse:
     client = get_openai_client()
     model = settings.LLM_MODEL or "gpt-4o-mini"
     system_prompt = SYSTEM_PROMPT
-    if payload.language:
-        system_prompt = f"{SYSTEM_PROMPT} Respond in {payload.language}."
+    if language:
+        system_prompt = f"{SYSTEM_PROMPT} Respond in {language}."
 
     try:
         completion = client.chat.completions.create(
@@ -84,3 +106,27 @@ def generate_job_draft(payload: JobDraftRequest) -> JobDraftResponse:
         raise HTTPException(status_code=500, detail="Missing title or description in the generated draft")
 
     return JobDraftResponse(title=title, description=description, keywords=keywords)
+
+
+@router.post("/job-draft", response_model=JobDraftResponse)
+def generate_job_draft(payload: JobDraftRequest) -> JobDraftResponse:
+    transcript = payload.transcript.strip()
+    if len(transcript) < 30:
+        raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
+
+    return _draft_from_transcript(transcript, payload.language)
+
+
+@router.post("/job-draft-from-video", response_model=JobDraftResponse)
+def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraftResponse:
+    object_key = payload.object_key.strip()
+    if not object_key:
+        raise HTTPException(status_code=400, detail="Missing object key")
+
+    transcript = _transcribe_object(object_key).strip()
+    if len(transcript) < 30:
+        raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
+
+    draft = _draft_from_transcript(transcript, payload.language)
+    draft.transcript = transcript
+    return draft

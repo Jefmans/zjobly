@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
@@ -8,6 +8,7 @@ import {
   createJob,
   createUploadUrl,
   generateJobDraftFromTranscript,
+  generateJobDraftFromVideo,
   listCompanyJobs,
   searchPublicJobs,
   uploadFileToUrl,
@@ -19,7 +20,7 @@ const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
-  const [createStep, setCreateStep] = useState<CreateStep>('details');
+  const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
   const [transcriptText, setTranscriptText] = useState('');
   const [draftingFromTranscript, setDraftingFromTranscript] = useState(false);
@@ -44,10 +45,12 @@ function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [videoObjectKey, setVideoObjectKey] = useState<string | null>(null);
   const [recordedTakes, setRecordedTakes] = useState<RecordedTake[]>([]);
   const [selectedTakeId, setSelectedTakeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
+  const [jobSaving, setJobSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [recordDuration, setRecordDuration] = useState<number>(0);
@@ -141,7 +144,7 @@ function App() {
       // Stubbed status: after a few ticks, mark as ready. Replace with a real status endpoint.
       if (attempts >= 3) {
         clearProcessingTimer();
-        setProcessingMessage('Processing complete (stub). Ready to publish.');
+        setProcessingMessage('Processing complete (stub). Ready for job details.');
         setStatus('success');
       } else {
         setProcessingMessage('Processing your video (stub status)...');
@@ -203,6 +206,16 @@ function App() {
     }
   }, [createStep, recorderOpen]);
 
+  useEffect(() => {
+    if (createStep === 'record') return;
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    stopStreamTracks(liveStreamRef.current);
+    setLiveStream(null);
+    setRecorderOpen(false);
+  }, [createStep]);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -214,6 +227,17 @@ function App() {
   const handleTranscriptChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setTranscriptText(e.target.value);
     setDraftingError(null);
+  };
+
+  const applyDraft = (draft: { title?: string; description?: string; transcript?: string }) => {
+    if (draft.transcript) {
+      setTranscriptText(draft.transcript);
+    }
+    setForm((prev) => ({
+      ...prev,
+      title: draft.title || prev.title,
+      description: draft.description || prev.description,
+    }));
   };
 
   const generateFromTranscript = async () => {
@@ -228,14 +252,24 @@ function App() {
     setDraftingError(null);
     try {
       const draft = await generateJobDraftFromTranscript(text);
-      setForm((prev) => ({
-        ...prev,
-        title: draft.title || prev.title,
-        description: draft.description || prev.description,
-      }));
+      applyDraft(draft);
     } catch (err) {
       console.error(err);
       setDraftingError(err instanceof Error ? err.message : 'Could not generate a draft from the transcript.');
+    } finally {
+      setDraftingFromTranscript(false);
+    }
+  };
+
+  const generateFromVideo = async (objectKey: string) => {
+    setDraftingFromTranscript(true);
+    setDraftingError(null);
+    try {
+      const draft = await generateJobDraftFromVideo(objectKey);
+      applyDraft(draft);
+    } catch (err) {
+      console.error(err);
+      setDraftingError(err instanceof Error ? err.message : 'Could not generate a draft from the video.');
     } finally {
       setDraftingFromTranscript(false);
     }
@@ -245,6 +279,7 @@ function App() {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
     setVideoDuration(null);
+    setVideoObjectKey(null);
     setSelectedTakeId(null);
     setUploadProgress(null);
     setStatus('idle');
@@ -259,6 +294,9 @@ function App() {
     setStatus('idle');
     setUploadProgress(null);
     setVideoDuration(null);
+    setVideoObjectKey(null);
+    clearProcessingTimer();
+    setProcessingMessage(null);
 
     if (!file) return;
 
@@ -413,6 +451,7 @@ function App() {
         takeUrlsRef.current.add(objectUrl);
         setRecordedTakes((prev) => [take, ...prev]);
         setSelectedTakeId(take.id);
+        setVideoObjectKey(null);
         setVideoDuration(latestElapsed);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
@@ -448,27 +487,15 @@ function App() {
     setRecordingState('idle');
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const saveVideo = async () => {
     setError(null);
     setUploadProgress(null);
     clearProcessingTimer();
     setProcessingMessage(null);
-
-    if (!form.title || !form.location) {
-      setError('Add a title and location first.');
-      setCreateStep('details');
-      return;
-    }
-
-    if (!companyId && !form.companyName.trim()) {
-      setError('Add a company name first.');
-      setCreateStep('details');
-      return;
-    }
+    setVideoObjectKey(null);
 
     if (!selectedTake) {
-      setError('Record or upload a video before publishing.');
+      setError('Record or upload a video before saving.');
       setCreateStep('record');
       return;
     }
@@ -492,11 +519,48 @@ function App() {
       });
       setUploadProgress(100);
 
+      const objectKey = confirmed.object_key || presign.object_key;
+      setVideoObjectKey(objectKey);
+      startProcessingPoll(objectKey);
+      setDraftingError(null);
+      setTranscriptText('');
+      setCreateStep('details');
+      void generateFromVideo(objectKey);
+    } catch (err) {
+      console.error(err);
+      clearProcessingTimer();
+      setProcessingMessage(null);
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    }
+  };
+
+  const saveJob = async (publish: boolean) => {
+    setError(null);
+
+    if (!videoObjectKey) {
+      setError('Save the video first.');
+      setCreateStep('record');
+      return;
+    }
+
+    if (!form.title || !form.location) {
+      setError('Add a title and location first.');
+      setCreateStep('details');
+      return;
+    }
+
+    if (!companyId && !form.companyName.trim()) {
+      setError('Add a company name first.');
+      setCreateStep('details');
+      return;
+    }
+
+    setJobSaving(true);
+    try {
       let resolvedCompanyId = companyId;
       if (!resolvedCompanyId) {
         try {
-          setStatus('processing');
-          setProcessingMessage('Creating your company...');
           const company = await createCompany({ name: form.companyName.trim() });
           resolvedCompanyId = company.id;
           setCompanyId(company.id);
@@ -507,58 +571,55 @@ function App() {
           }
         } catch (companyErr) {
           console.error(companyErr);
-          setStatus('error');
-          setProcessingMessage(null);
-          setError(companyErr instanceof Error ? companyErr.message : 'Upload succeeded, but creating the company failed.');
+          setError(companyErr instanceof Error ? companyErr.message : 'Creating the company failed.');
           return;
         }
       }
 
-      let savedJob: Job | null = null;
-      if (resolvedCompanyId) {
-        try {
-          setStatus('processing');
-          setProcessingMessage('Saving your job...');
-          savedJob = await createJob({
-            company_id: resolvedCompanyId,
-            title: form.title,
-            description: form.description || null,
-            location: form.location,
-            status: 'open',
-            visibility: 'public',
-            video_object_key: confirmed.object_key || presign.object_key,
-          });
-          void refreshJobs();
-        } catch (jobErr) {
-          console.error(jobErr);
-          setStatus('error');
-          setProcessingMessage(null);
-          setError(jobErr instanceof Error ? jobErr.message : 'Upload succeeded, but saving the job failed.');
-          return;
-        }
+      if (!resolvedCompanyId) {
+        setError('Could not resolve a company for this job.');
+        return;
       }
 
-      startProcessingPoll(confirmed.object_key || presign.object_key);
-      const jobToDisplay: Job =
-        savedJob ||
-        {
-          id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
-          company_id: resolvedCompanyId ?? undefined,
-          title: form.title,
-          location: form.location,
-          description: form.description || null,
-          status: 'open',
-          visibility: 'public',
-          video_object_key: confirmed.object_key || presign.object_key,
-        };
+      const jobStatus = publish ? 'open' : 'draft';
+      const jobVisibility = publish ? 'public' : 'private';
 
-      const playbackUrl = savedJob?.playback_url ?? jobVideoUrlsRef.current[jobToDisplay.id];
-      jobVideoUrlsRef.current[jobToDisplay.id] = playbackUrl || selectedTake.url;
+      const savedJob = await createJob({
+        company_id: resolvedCompanyId,
+        title: form.title,
+        description: form.description || null,
+        location: form.location,
+        status: jobStatus,
+        visibility: jobVisibility,
+        video_object_key: videoObjectKey,
+      });
+      void refreshJobs();
+
+      const nowIso = new Date().toISOString();
+      const jobToDisplay: Job = savedJob || {
+        id: `job-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
+        company_id: resolvedCompanyId ?? undefined,
+        title: form.title,
+        location: form.location,
+        description: form.description || null,
+        status: jobStatus,
+        visibility: jobVisibility,
+        video_object_key: videoObjectKey,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const fallbackVideoUrl = selectedTake?.url || null;
+      const playbackUrl = savedJob?.playback_url ?? fallbackVideoUrl ?? undefined;
+      if (playbackUrl) {
+        jobVideoUrlsRef.current[jobToDisplay.id] = playbackUrl;
+      }
+
       setJobs((prev) => [
         {
           ...jobToDisplay,
-          videoLabel: selectedTake.label,
-          videoUrl: savedJob?.playback_url || selectedTake.url,
+          videoLabel: selectedTake?.label || 'Video',
+          videoUrl: playbackUrl || undefined,
           playback_url: savedJob?.playback_url ?? null,
         },
         ...prev,
@@ -566,10 +627,9 @@ function App() {
       setView('jobs');
     } catch (err) {
       console.error(err);
-      clearProcessingTimer();
-      setProcessingMessage(null);
-      setStatus('error');
-      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Saving the job failed. Please try again.');
+    } finally {
+      setJobSaving(false);
     }
   };
 
@@ -582,7 +642,7 @@ function App() {
     setStatus('idle');
     setUploadProgress(null);
     setError(null);
-    setCreateStep('details');
+    setCreateStep('record');
   };
 
   const goToStep = (nextStep: CreateStep) => {
@@ -604,9 +664,12 @@ function App() {
     setSelectedTakeId(id);
     setVideoUrl(take.url);
     setVideoDuration(take.duration);
+    setVideoObjectKey(null);
     setUploadProgress(null);
     setStatus('idle');
     setError(null);
+    clearProcessingTimer();
+    setProcessingMessage(null);
   };
 
   const renderSwitcher = () => (
@@ -618,7 +681,10 @@ function App() {
         <button
           type="button"
           className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-          onClick={() => setView('create')}
+          onClick={() => {
+            setView('create');
+            setCreateStep('record');
+          }}
         >
           Create Zjob
         </button>
@@ -651,7 +717,14 @@ function App() {
           <h1>Welcome to Zjobly</h1>
           <p className="lede">Pick where you want to start.</p>
           <div className="welcome-actions">
-            <button type="button" className="cta primary" onClick={() => setView('create')}>
+            <button
+              type="button"
+              className="cta primary"
+              onClick={() => {
+                setView('create');
+                setCreateStep('record');
+              }}
+            >
               Create Zjob
             </button>
             <button type="button" className="cta ghost" onClick={() => setView('find')}>
@@ -673,10 +746,13 @@ function App() {
         draftingFromTranscript={draftingFromTranscript}
         draftingError={draftingError}
         goToStep={goToStep}
-        handleSubmit={handleSubmit}
+        onSaveVideo={saveVideo}
+        onSaveJob={saveJob}
+        onBackToWelcome={backToWelcome}
         recorderOpen={recorderOpen}
         recordingState={recordingState}
         videoUrl={videoUrl}
+        videoObjectKey={videoObjectKey}
         liveVideoRef={liveVideoRef}
         playbackVideoRef={playbackVideoRef}
         recordLabel={recordLabel}
@@ -693,6 +769,7 @@ function App() {
         uploadProgress={uploadProgress}
         processingMessage={processingMessage}
         companyId={companyId}
+        jobSaving={jobSaving}
       />
 
       <JobSeekerFlow
@@ -705,7 +782,10 @@ function App() {
       selectedJobId={selectedJobId}
       onSelectJob={setSelectedJobId}
       onBackToWelcome={backToWelcome}
-      onCreateClick={() => setView('create')}
+      onCreateClick={() => {
+        setView('create');
+        setCreateStep('record');
+      }}
       setView={setView}
       searchQuery={searchQuery}
       onSearchChange={handleSearchChange}

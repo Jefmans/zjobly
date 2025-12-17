@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -68,6 +69,8 @@ class JobOut(BaseModel):
     visibility: JobVisibility
     video_object_key: Optional[str] = None
     playback_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True

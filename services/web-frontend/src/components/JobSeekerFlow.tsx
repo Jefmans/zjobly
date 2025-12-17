@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Job, ViewMode } from "../types";
 
 type Props = {
@@ -40,6 +40,44 @@ export function JobSeekerFlow({
   searchLoading,
   searchError,
 }: Props) {
+  const [sortBy, setSortBy] = useState("created_desc");
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  };
+
+  const sortedJobs = useMemo(() => {
+    const items = [...jobs];
+    const dateValue = (value?: string | null) => {
+      if (!value) return 0;
+      const ts = new Date(value).getTime();
+      return Number.isNaN(ts) ? 0 : ts;
+    };
+    const statusRank: Record<Job["status"], number> = {
+      draft: 2,
+      open: 0,
+      closed: 3,
+      published: 1,
+    };
+    const getPublishedTime = (job: Job) => (job.status === "open" || job.status === "published" ? dateValue(job.created_at) : 0);
+
+    switch (sortBy) {
+      case "created_asc":
+        return items.sort((a, b) => dateValue(a.created_at) - dateValue(b.created_at));
+      case "published_desc":
+        return items.sort((a, b) => getPublishedTime(b) - getPublishedTime(a));
+      case "location_asc":
+        return items.sort((a, b) => (a.location || "").localeCompare(b.location || "", undefined, { sensitivity: "base" }));
+      case "status":
+        return items.sort((a, b) => (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99));
+      case "created_desc":
+      default:
+        return items.sort((a, b) => dateValue(b.created_at) - dateValue(a.created_at));
+    }
+  }, [jobs, sortBy]);
   const getStatusMeta = (status: Job["status"]) => {
     if (status === "draft") return { label: "Draft", className: "draft" };
     if (status === "closed") return { label: "Closed", className: "closed" };
@@ -121,6 +159,18 @@ export function JobSeekerFlow({
           <p className="tag">Zjobly</p>
           <h1>Your jobs</h1>
           <p className="lede">Click a job to see its details.</p>
+          <div className="jobs-toolbar">
+            <div className="field">
+              <label htmlFor="jobSort">Sort by</label>
+              <select id="jobSort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="created_desc">Date created (newest)</option>
+                <option value="created_asc">Date created (oldest)</option>
+                <option value="published_desc">Date published (newest)</option>
+                <option value="location_asc">Location (A-Z)</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
+          </div>
           {!companyId && <p className="hint">Set VITE_COMPANY_ID in your .env to load jobs from the API.</p>}
           {jobsError && <p className="error">{jobsError}</p>}
           {jobsLoading && <p className="hint">Loading jobs...</p>}
@@ -128,7 +178,7 @@ export function JobSeekerFlow({
             <p className="hint">No jobs yet. Publish one to see it here.</p>
           )}
           <div className="jobs-list">
-            {jobs.map((job) => (
+            {sortedJobs.map((job) => (
               <button
                 key={job.id}
                 type="button"
@@ -138,14 +188,23 @@ export function JobSeekerFlow({
                   setView("jobDetail");
                 }}
               >
-                <div>
+                <div className="job-card-left">
                   <div className="job-title">{job.title}</div>
-                  <div className="job-meta">{job.location}</div>
+                  <div className="job-meta">{job.location || "Location TBD"}</div>
+                  <div className="job-meta-row">
+                    <span>Created: {formatDate(job.created_at)}</span>
+                    <span>
+                      Published: {job.status === "open" || job.status === "published" ? formatDate(job.created_at) : "Not published"}
+                    </span>
+                  </div>
                 </div>
-                {(() => {
-                  const status = getStatusMeta(job.status);
-                  return <div className={`job-status ${status.className}`}>{status.label}</div>;
-                })()}
+                <div className="job-card-right">
+                  {(() => {
+                    const status = getStatusMeta(job.status);
+                    return <div className={`job-status ${status.className}`}>{status.label}</div>;
+                  })()}
+                  {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
+                </div>
               </button>
             ))}
           </div>

@@ -2,7 +2,7 @@ export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'proce
 export type RecordingState = 'idle' | 'recording';
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 export type ViewMode = 'welcome' | 'create' | 'find' | 'jobs' | 'jobDetail';
-export type CreateStep = 'details' | 'record' | 'select';
+export type CreateStep = 'record' | 'details' | 'publish';
 
 export type MembershipRole = 'admin' | 'recruiter' | 'viewer';
 
@@ -62,4 +62,6 @@ export type Job = {
   videoUrl?: string;
   video_object_key?: string | null;
   playback_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };

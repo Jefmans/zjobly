@@ -130,6 +130,8 @@ def _build_job_out(job: models.Job) -> JobOut:
         visibility=job.visibility,
         video_object_key=job.video_object_key,
         playback_url=playback_url,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
     )
 
 
