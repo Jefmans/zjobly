@@ -298,13 +298,13 @@ function App() {
   }, [refreshJobs]);
 
   useEffect(() => {
-    if (recordingState === 'idle' && playbackVideoRef.current) {
+    if (recordingState === 'idle' && playbackVideoRef.current && view === 'create' && createStep === 'record') {
       const player = playbackVideoRef.current;
       player.pause();
       player.currentTime = 0;
       player.play().catch(() => undefined);
     }
-  }, [videoUrl, recordingState]);
+  }, [videoUrl, recordingState, view, createStep]);
 
   useEffect(() => {
     if (recordingState !== 'idle' && liveVideoRef.current && liveStreamRef.current) {
