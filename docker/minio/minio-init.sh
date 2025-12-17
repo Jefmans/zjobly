@@ -13,12 +13,15 @@ retry() {
   desc="$1"
   shift
   attempt=1
-  until "$@"; do
-    if [ "$attempt" -ge "$RETRY_COUNT" ]; then
+  while [ "$attempt" -le "$RETRY_COUNT" ]; do
+    if "$@"; then
+      return 0
+    fi
+    if [ "$attempt" -eq "$RETRY_COUNT" ]; then
       echo "ERROR: $desc failed after $attempt attempts."
       return 1
     fi
-    echo "Waiting for $desc..."
+    echo "Waiting for $desc... ($attempt/$RETRY_COUNT)"
     attempt=$((attempt + 1))
     sleep "$RETRY_DELAY_SEC"
   done
@@ -28,12 +31,15 @@ retry_optional() {
   desc="$1"
   shift
   attempt=1
-  until "$@"; do
-    if [ "$attempt" -ge "$RETRY_COUNT" ]; then
+  while [ "$attempt" -le "$RETRY_COUNT" ]; do
+    if "$@"; then
+      return 0
+    fi
+    if [ "$attempt" -eq "$RETRY_COUNT" ]; then
       echo "WARN: $desc failed after $attempt attempts; continuing."
       return 0
     fi
-    echo "Waiting for $desc..."
+    echo "Waiting for $desc... ($attempt/$RETRY_COUNT)"
     attempt=$((attempt + 1))
     sleep "$RETRY_DELAY_SEC"
   done
@@ -46,3 +52,5 @@ retry "bucket ${S3_BUCKET_HLS}" mc mb --ignore-existing "local/${S3_BUCKET_HLS}"
 
 retry_optional "CORS for ${S3_BUCKET_RAW}" mc cors set "local/${S3_BUCKET_RAW}" /config/cors.json
 retry_optional "CORS for ${S3_BUCKET_HLS}" mc cors set "local/${S3_BUCKET_HLS}" /config/cors.json
+
+echo "MinIO init complete"
