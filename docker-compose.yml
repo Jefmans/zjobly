@@ -84,16 +84,8 @@ services:
       S3_BUCKET_HLS: ${S3_BUCKET_HLS:-videos-hls}
     volumes:
       - ./docker/minio/cors.json:/config/cors.json:ro
-    entrypoint: /bin/sh -c
-    command: >
-      until mc alias set local $${MINIO_ENDPOINT} $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
-        echo 'Waiting for MinIO...';
-        sleep 2;
-      done;
-      mc mb --ignore-existing local/$${S3_BUCKET_RAW};
-      mc mb --ignore-existing local/$${S3_BUCKET_HLS};
-      mc cors set local/$${S3_BUCKET_RAW} /config/cors.json;
-      mc cors set local/$${S3_BUCKET_HLS} /config/cors.json;
+      - ./docker/minio/minio-init.sh:/config/minio-init.sh:ro
+    entrypoint: ["/bin/sh", "/config/minio-init.sh"]
     restart: "no"
 
   elasticsearch:
