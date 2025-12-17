@@ -301,10 +301,10 @@ function App() {
   }, [recordingState]);
 
   useEffect(() => {
-    if (createStep === 'record' && !recorderOpen) {
+    if (view === 'create' && createStep === 'record' && !recorderOpen) {
       openRecorder();
     }
-  }, [createStep, recorderOpen]);
+  }, [view, createStep, recorderOpen]);
 
   useEffect(() => {
     if (createStep === 'record') return;
