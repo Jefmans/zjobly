@@ -1,14 +1,16 @@
-[
-  {
-    "AllowedOrigins": [
-      "https://zjobly.com",
-      "https://www.zjobly.com",
-      "http://localhost:5173",
-      "http://localhost"
-    ],
-    "AllowedMethods": ["GET", "PUT", "POST", "HEAD", "DELETE"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag", "x-amz-request-id", "x-amz-id-2"],
-    "MaxAgeSeconds": 3000
-  }
-]
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": [
+        "https://zjobly.com",
+        "https://www.zjobly.com",
+        "http://localhost:5173",
+        "http://localhost"
+      ],
+      "AllowedMethods": ["GET", "PUT", "POST", "HEAD", "DELETE"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag", "x-amz-request-id", "x-amz-id-2"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
