@@ -723,6 +723,11 @@ button[type='submit']:disabled {
   box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.18);
 }
 
+.status-pill.paused::before {
+  background: #f59e0b;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.18);
+}
+
 .record-screen .record-timer {
   color: #e2e8f0;
 }
@@ -737,30 +742,96 @@ button[type='submit']:disabled {
   flex-wrap: wrap;
 }
 
-.record-btn {
-  border: none;
+.record-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.record-control {
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  padding: 0.6rem 0.95rem;
   border-radius: 999px;
-  padding: 0.75rem 1.4rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  color: #0b1224;
-  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.25);
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.2);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease;
 }
 
-.record-btn:hover {
+.record-control:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.3);
 }
 
-.record-btn.start {
-  background: linear-gradient(120deg, #4ade80, #22d3ee);
+.record-control:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-.record-btn.stop {
-  background: linear-gradient(120deg, #f97316, #ef4444);
-  color: #fff;
+.record-control.record {
+  border-color: rgba(239, 68, 68, 0.7);
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.record-control.pause {
+  border-color: rgba(251, 191, 36, 0.6);
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.record-control.stop {
+  border-color: rgba(248, 113, 113, 0.75);
+  background: rgba(239, 68, 68, 0.24);
+}
+
+.record-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  position: relative;
+  flex: 0 0 14px;
+}
+
+.record-icon--record {
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+}
+
+.record-icon--pause::before,
+.record-icon--pause::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 4px;
+  background: #f8fafc;
+  border-radius: 2px;
+}
+
+.record-icon--pause::before {
+  left: 1px;
+}
+
+.record-icon--pause::after {
+  right: 1px;
+}
+
+.record-icon--stop {
+  background: #f8fafc;
+  border-radius: 2px;
+}
+
+.record-label {
+  font-size: 0.9rem;
 }
 
 .jobs-list {

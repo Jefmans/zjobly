@@ -33,6 +33,8 @@ type Props = {
   durationLabel: string | null;
   selectedTake: RecordedTake | null;
   startRecording: () => void;
+  pauseRecording: () => void;
+  resumeRecording: () => void;
   stopRecording: () => void;
   error: string | null;
   recordedTakes: RecordedTake[];
@@ -71,6 +73,8 @@ export function JobCreationFlow({
   durationLabel,
   selectedTake,
   startRecording,
+  pauseRecording,
+  resumeRecording,
   stopRecording,
   error,
   recordedTakes,
@@ -99,6 +103,14 @@ export function JobCreationFlow({
     if (index < currentStepIndex) return "step complete";
     return "step";
   };
+  const isRecording = recordingState === "recording";
+  const isPaused = recordingState === "paused";
+  const isActiveRecording = isRecording || isPaused;
+  const canRecord = recordingState === "idle" || recordingState === "paused";
+  const canPause = recordingState === "recording";
+  const canStop = recordingState === "recording" || recordingState === "paused";
+  const recordActionLabel = isPaused ? "Resume" : "Start";
+  const recordAction = isPaused ? resumeRecording : startRecording;
 
   return (
     <>
@@ -245,8 +257,8 @@ export function JobCreationFlow({
               <div className="record-shell">
                 <div className="record-stage">
                   {recorderOpen ? (
-                    <div className={`record-screen ${recordingState !== "recording" && videoUrl ? "playback" : ""}`}>
-                      {recordingState !== "recording" && videoUrl ? (
+                    <div className={`record-screen ${!isActiveRecording && videoUrl ? "playback" : ""}`}>
+                      {!isActiveRecording && videoUrl ? (
                         <video
                           key={videoUrl}
                           ref={playbackVideoRef}
@@ -262,14 +274,14 @@ export function JobCreationFlow({
                       )}
                       <div className="record-screen-overlay">
                         <div className="overlay-top">
-                          <span className={`status-pill ${recordingState === "recording" ? "live" : "idle"}`}>
-                            {recordingState === "recording" ? "Recording" : "Camera ready"}
+                          <span
+                            className={`status-pill ${isRecording ? "live" : isPaused ? "paused" : "idle"}`}
+                          >
+                            {isRecording ? "Recording" : isPaused ? "Paused" : "Camera ready"}
                           </span>
                           <div className="record-timer">
                             <span>
-                              {recordingState === "recording"
-                                ? recordLabel ?? "0:00"
-                                : durationLabel ?? recordLabel ?? "0:00"}
+                              {isActiveRecording ? recordLabel ?? "0:00" : durationLabel ?? recordLabel ?? "0:00"}
                             </span>
                             <span className="record-max">/ 3:00</span>
                           </div>
@@ -281,13 +293,38 @@ export function JobCreationFlow({
                             </button>
                           </div>
                           <div className="overlay-actions-right">
-                            <button
-                              type="button"
-                              className={`record-btn ${recordingState === "recording" ? "stop" : "start"}`}
-                              onClick={recordingState === "recording" ? stopRecording : startRecording}
-                            >
-                              {recordingState === "recording" ? "Stop recording" : "Start recording"}
-                            </button>
+                            <div className="record-controls">
+                              <button
+                                type="button"
+                                className="record-control record"
+                                onClick={recordAction}
+                                disabled={!canRecord}
+                                aria-label={recordActionLabel}
+                              >
+                                <span className="record-icon record-icon--record" aria-hidden="true" />
+                                <span className="record-label">{recordActionLabel}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="record-control pause"
+                                onClick={pauseRecording}
+                                disabled={!canPause}
+                                aria-label="Pause"
+                              >
+                                <span className="record-icon record-icon--pause" aria-hidden="true" />
+                                <span className="record-label">Pause</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="record-control stop"
+                                onClick={stopRecording}
+                                disabled={!canStop}
+                                aria-label="Stop"
+                              >
+                                <span className="record-icon record-icon--stop" aria-hidden="true" />
+                                <span className="record-label">Stop</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>

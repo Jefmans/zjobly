@@ -73,6 +73,8 @@ function App() {
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
+  const recordStartedAtRef = useRef<number | null>(null);
+  const recordElapsedRef = useRef<number>(0);
   const processingTimerRef = useRef<number | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
@@ -142,6 +144,35 @@ function App() {
       window.clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
     }
+  };
+
+  const syncRecordElapsed = () => {
+    if (recordStartedAtRef.current !== null) {
+      recordElapsedRef.current += (Date.now() - recordStartedAtRef.current) / 1000;
+      recordStartedAtRef.current = null;
+    }
+    clearRecordTimer();
+    setRecordDuration(recordElapsedRef.current);
+  };
+
+  const resetRecordTimer = () => {
+    clearRecordTimer();
+    recordStartedAtRef.current = null;
+    recordElapsedRef.current = 0;
+    setRecordDuration(0);
+  };
+
+  const startRecordTimer = () => {
+    recordStartedAtRef.current = Date.now();
+    clearRecordTimer();
+    recordTimerRef.current = window.setInterval(() => {
+      if (recordStartedAtRef.current === null) return;
+      const elapsed = recordElapsedRef.current + (Date.now() - recordStartedAtRef.current) / 1000;
+      setRecordDuration(elapsed);
+      if (elapsed >= MAX_VIDEO_SECONDS) {
+        stopRecording();
+      }
+    }, 250);
   };
 
   const clearProcessingTimer = () => {
@@ -239,7 +270,10 @@ function App() {
   useEffect(() => {
     return () => {
       clearRecordTimer();
-      if (mediaRecorderRef.current?.state === 'recording') {
+      if (
+        mediaRecorderRef.current?.state === 'recording' ||
+        mediaRecorderRef.current?.state === 'paused'
+      ) {
         mediaRecorderRef.current.stop();
       }
       stopStreamTracks(liveStreamRef.current);
@@ -253,7 +287,7 @@ function App() {
   }, [refreshJobs]);
 
   useEffect(() => {
-    if (recordingState !== 'recording' && playbackVideoRef.current) {
+    if (recordingState === 'idle' && playbackVideoRef.current) {
       const player = playbackVideoRef.current;
       player.pause();
       player.currentTime = 0;
@@ -262,7 +296,7 @@ function App() {
   }, [videoUrl, recordingState]);
 
   useEffect(() => {
-    if (recordingState === 'recording' && liveVideoRef.current && liveStreamRef.current) {
+    if (recordingState !== 'idle' && liveVideoRef.current && liveStreamRef.current) {
       const videoEl = liveVideoRef.current;
       videoEl.srcObject = liveStreamRef.current;
       videoEl.play().catch(() => undefined);
@@ -277,8 +311,11 @@ function App() {
 
   useEffect(() => {
     if (createStep === 'record') return;
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
+    if (
+      mediaRecorderRef.current?.state === 'recording' ||
+      mediaRecorderRef.current?.state === 'paused'
+    ) {
+      stopRecording();
     }
     stopStreamTracks(liveStreamRef.current);
     setLiveStream(null);
@@ -456,7 +493,7 @@ function App() {
 
   const openRecorder = async () => {
     setError(null);
-    setRecordDuration(0);
+    resetRecordTimer();
     setRecordingState('idle');
     const stream = await acquireStream();
     if (stream) {
@@ -467,7 +504,7 @@ function App() {
   const startRecording = async () => {
     setError(null);
     setStatus('idle');
-    setRecordDuration(0);
+    resetRecordTimer();
 
     const stream = await acquireStream();
     if (!stream) return;
@@ -494,14 +531,13 @@ function App() {
         ? new MediaRecorder(stream, { mimeType: chosenMime })
         : new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      let latestElapsed = 0;
 
       recorder.ondataavailable = (ev) => {
         if (ev.data.size > 0) chunks.push(ev.data);
       };
 
       recorder.onstop = () => {
-        clearRecordTimer();
+        syncRecordElapsed();
         const blobType = chosenMime || 'video/webm';
         const containerType = blobType.split(';')[0] || blobType;
         const blob = new Blob(chunks, { type: containerType });
@@ -509,11 +545,12 @@ function App() {
         const file = new File([blob], `capture.${extension}`, { type: containerType });
         const objectUrl = URL.createObjectURL(blob);
         const takeIndex = recordedTakes.filter((t) => t.source === 'recording').length + 1;
+        const finalDuration = recordElapsedRef.current;
         const take: RecordedTake = {
           id: makeTakeId('rec'),
           file,
           url: objectUrl,
-          duration: latestElapsed,
+          duration: finalDuration,
           label: `Take ${takeIndex}`,
           source: 'recording',
         };
@@ -521,7 +558,7 @@ function App() {
         setRecordedTakes((prev) => [take, ...prev]);
         setSelectedTakeId(take.id);
         setVideoObjectKey(null);
-        setVideoDuration(latestElapsed);
+        setVideoDuration(finalDuration);
         setVideoUrl(objectUrl);
         setRecordingState('idle');
       };
@@ -530,17 +567,7 @@ function App() {
       recorder.start();
       setRecordingState('recording');
       setLiveStream(stream);
-
-      const startedAt = Date.now();
-      clearRecordTimer();
-      recordTimerRef.current = window.setInterval(() => {
-        const elapsed = (Date.now() - startedAt) / 1000;
-        latestElapsed = elapsed;
-        setRecordDuration(elapsed);
-        if (elapsed >= MAX_VIDEO_SECONDS) {
-          stopRecording();
-        }
-      }, 500);
+      startRecordTimer();
     } catch (err) {
       console.error(err);
       setError('Could not access camera/microphone. Check permissions.');
@@ -548,9 +575,38 @@ function App() {
     }
   };
 
+  const pauseRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return;
+    try {
+      mediaRecorderRef.current.pause();
+      syncRecordElapsed();
+      setRecordingState('paused');
+    } catch (err) {
+      console.error(err);
+      setError('Could not pause the recording. Try again.');
+    }
+  };
+
+  const resumeRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'paused') return;
+    try {
+      mediaRecorderRef.current.resume();
+      setRecordingState('recording');
+      startRecordTimer();
+    } catch (err) {
+      console.error(err);
+      setError('Could not resume the recording. Try again.');
+    }
+  };
+
   const stopRecording = () => {
-    clearRecordTimer();
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (!mediaRecorderRef.current) {
+      clearRecordTimer();
+      setRecordingState('idle');
+      return;
+    }
+    if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+      syncRecordElapsed();
       mediaRecorderRef.current.stop();
     }
     setRecordingState('idle');
@@ -832,6 +888,8 @@ function App() {
         durationLabel={durationLabel}
         selectedTake={selectedTake}
         startRecording={startRecording}
+        pauseRecording={pauseRecording}
+        resumeRecording={resumeRecording}
         stopRecording={stopRecording}
         error={error}
         recordedTakes={recordedTakes}

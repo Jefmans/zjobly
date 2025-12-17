@@ -1,5 +1,5 @@
 export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'processing' | 'success' | 'error';
-export type RecordingState = 'idle' | 'recording';
+export type RecordingState = 'idle' | 'recording' | 'paused';
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 export type ViewMode = 'welcome' | 'create' | 'find' | 'jobs' | 'jobDetail';
 export type CreateStep = 'record' | 'select' | 'details';
