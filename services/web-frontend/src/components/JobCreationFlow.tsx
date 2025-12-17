@@ -371,6 +371,16 @@ export function JobCreationFlow({
                 </button>
               </div>
 
+              <div className="video-preview">
+                {videoUrl ? (
+                  <video key={videoUrl} ref={playbackVideoRef} src={videoUrl} className="playback-video" controls playsInline />
+                ) : (
+                  <div className="video-preview-placeholder">
+                    <p className="hint">Select a take to preview it here.</p>
+                  </div>
+                )}
+              </div>
+
               <div className="take-list">
                 {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
                 {recordedTakes.map((take) => (
