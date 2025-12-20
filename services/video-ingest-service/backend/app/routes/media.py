@@ -100,6 +100,18 @@ async def create_audio_chunk_url(payload: AudioChunkUrlRequest) -> AudioChunkUrl
 @router.post("/audio-chunk-confirm", response_model=AudioChunkConfirmResponse)
 async def confirm_audio_chunk(payload: AudioChunkConfirmRequest) -> AudioChunkConfirmResponse:
     try:
+        # Validate the chunk exists and is non-empty before queuing transcription.
+        s3 = storage.get_s3_client()
+        try:
+            head = s3.head_object(Bucket=settings.S3_BUCKET_RAW, Key=payload.object_key)
+            size = head.get("ContentLength") or 0
+            if size <= 0:
+                raise HTTPException(status_code=400, detail="Uploaded audio chunk is empty.")
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail="Uploaded audio chunk not found.") from exc
+
         celery_app.send_task(
             "media.process_audio_chunk",
             args=[payload.session_id, payload.chunk_index, payload.object_key],
