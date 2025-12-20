@@ -1362,6 +1362,8 @@ function App() {
         status={status}
         uploadProgress={uploadProgress}
         processingMessage={processingMessage}
+        audioSessionTranscripts={audioSessionTranscripts}
+        audioSessionStatuses={audioSessionStatuses}
         onSaveVideo={saveCandidateVideo}
         profile={candidateProfile}
         onProfileChange={handleCandidateProfileChange}

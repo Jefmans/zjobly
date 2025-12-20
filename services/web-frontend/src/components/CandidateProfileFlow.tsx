@@ -28,6 +28,8 @@ type Props = {
   status: Status;
   uploadProgress: number | null;
   processingMessage: string | null;
+  audioSessionTranscripts: Record<string, string>;
+  audioSessionStatuses: Record<string, "pending" | "partial" | "final">;
   onSaveVideo: () => void;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -63,6 +65,8 @@ export function CandidateProfileFlow({
   status,
   uploadProgress,
   processingMessage,
+  audioSessionTranscripts,
+  audioSessionStatuses,
   onSaveVideo,
   profile,
   onProfileChange,
@@ -84,6 +88,9 @@ export function CandidateProfileFlow({
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
+  const transcriptSessionId = selectedTake?.audioSessionId;
+  const transcript = transcriptSessionId ? audioSessionTranscripts[transcriptSessionId] : "";
+  const transcriptStatus = transcriptSessionId ? audioSessionStatuses[transcriptSessionId] : undefined;
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
   const currentStepIndex = candidateStep === "record" ? 2 : candidateStep === "select" ? 3 : 4;
@@ -184,7 +191,7 @@ export function CandidateProfileFlow({
               </div>
 
               <div className="field checkbox-field">
-                <label htmlFor="discoverable" className="checkbox">
+                <label htmlFor="discoverable" className="toggle">
                   <input
                     id="discoverable"
                     name="discoverable"
@@ -192,8 +199,28 @@ export function CandidateProfileFlow({
                     checked={Boolean(profile.discoverable)}
                     onChange={onProfileChange}
                   />
-                  <span>Make my profile discoverable to employers</span>
+                  <span className="toggle-track" aria-hidden="true">
+                    <span className="toggle-thumb" />
+                  </span>
+                  <span className="toggle-copy">
+                    <span className="toggle-title">Make my profile discoverable to employers</span>
+                    <span className="toggle-sub">Let teams browse and reach out when you match a new Zjob.</span>
+                  </span>
                 </label>
+              </div>
+
+              <div className="field">
+                <label>Transcript</label>
+                {transcript ? (
+                  <textarea value={transcript} readOnly rows={5} />
+                ) : (
+                  <div className="transcript-placeholder" aria-live="polite">
+                    {transcriptStatus === "pending" || transcriptStatus === "partial"
+                      ? "Transcribing your intro... hang tight."
+                      : "Transcript will appear here after we process your audio."}
+                  </div>
+                )}
+                <p className="hint">Auto-transcribed from your intro video.</p>
               </div>
 
               {error && <div className="error">{error}</div>}
