@@ -76,8 +76,8 @@ services:
       - traefik.http.middlewares.minio-buffering.buffering.memRequestBodyBytes=0
       - traefik.http.routers.minio.middlewares=minio-buffering
       - traefik.http.services.minio.loadbalancer.serversTransport=minio-transport
-      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.readTimeout=900s
-      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.idleTimeout=900s
+      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.responseHeaderTimeout=900s
+      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.idleConnTimeout=900s
 
 
   minio_init:
