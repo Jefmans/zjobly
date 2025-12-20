@@ -81,6 +81,14 @@ services:
       - traefik.http.serversTransports.minio-transport.forwardingTimeouts.idleTimeout=300s
 
 
+      - traefik.http.middlewares.minio-buffering.buffering.maxRequestBodyBytes=0
+      - traefik.http.middlewares.minio-buffering.buffering.memRequestBodyBytes=0
+      - traefik.http.routers.minio.middlewares=minio-buffering
+      - traefik.http.services.minio.loadbalancer.serversTransport=minio-transport
+      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.readTimeout=600s
+      - traefik.http.serversTransports.minio-transport.forwardingTimeouts.idleTimeout=600s
+
+
   minio_init:
     image: minio/mc:latest
     depends_on:
