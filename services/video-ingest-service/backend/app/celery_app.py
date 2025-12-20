@@ -138,3 +138,98 @@ def process_upload(
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to process upload %s from bucket %s", object_key, bucket)
         raise self.retry(exc=exc)
+
+
+@celery_app.task(name="media.process_audio_chunk", bind=True, max_retries=3, default_retry_delay=15)
+def process_audio_chunk(
+    self,
+    session_id: str,
+    chunk_index: int,
+    object_key: str,
+    bucket: str | None = None,
+):
+    """
+    Transcribe a single audio chunk uploaded during recording and store the partial transcript.
+    """
+    bucket_to_use = bucket or settings.S3_BUCKET_RAW
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, ext = os.path.splitext(object_key)
+            input_path = os.path.join(temp_dir, f"chunk{ext or '.bin'}")
+            download_object_to_path(bucket_to_use, object_key, input_path)
+
+            transcription_path = input_path
+            if os.path.getsize(input_path) > OPENAI_MAX_BYTES:
+                audio_path = os.path.join(temp_dir, "audio.mp3")
+                transcode_to_audio(input_path, audio_path)
+                transcription_path = audio_path
+            if os.path.getsize(transcription_path) > OPENAI_MAX_BYTES:
+                raise ValueError("Audio chunk exceeds OpenAI upload limit.")
+
+            transcript = call_whisper(transcription_path)
+
+        transcript_key = storage.build_audio_transcript_object_key(session_id, chunk_index)
+        storage.put_text_object(bucket_to_use, transcript_key, transcript)
+
+        logger.info(
+            "Transcribed audio chunk session=%s index=%s -> %s chars",
+            session_id,
+            chunk_index,
+            len(transcript),
+        )
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "chunk_index": chunk_index,
+            "object_key": object_key,
+            "transcript_length": len(transcript),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to transcribe audio chunk %s index=%s", session_id, chunk_index)
+        raise self.retry(exc=exc)
+
+
+@celery_app.task(name="media.finalize_audio_session", bind=True, max_retries=6, default_retry_delay=10)
+def finalize_audio_session(
+    self,
+    session_id: str,
+    total_chunks: int,
+    bucket: str | None = None,
+):
+    """
+    Assemble all chunk transcripts for a session into a final transcript object.
+    """
+    bucket_to_use = bucket or settings.S3_BUCKET_RAW
+    transcripts: list[str] = []
+    missing: list[int] = []
+
+    for idx in range(total_chunks):
+        key = storage.build_audio_transcript_object_key(session_id, idx)
+        try:
+            text = storage.get_text_object(bucket_to_use, key)
+        except FileNotFoundError:
+            missing.append(idx)
+            continue
+        transcripts.append(text.strip())
+
+    if missing:
+        raise self.retry(exc=RuntimeError(f"Missing transcript chunks: {missing}"))
+
+    final_text = "\n".join(t for t in transcripts if t)
+    final_key = storage.build_audio_final_transcript_key(session_id)
+    storage.put_text_object(bucket_to_use, final_key, final_text)
+
+    logger.info(
+        "Finalized audio session %s with %s chunks (%s chars)",
+        session_id,
+        total_chunks,
+        len(final_text),
+    )
+
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "total_chunks": total_chunks,
+        "final_transcript_key": final_key,
+        "transcript_length": len(final_text),
+    }

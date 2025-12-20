@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+SANITIZE_ALLOWED = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
 
 DEFAULT_CORS_ALLOWED_METHODS = ["GET", "PUT", "POST", "HEAD", "DELETE"]
 DEFAULT_CORS_ALLOWED_HEADERS = ["*"]
@@ -115,3 +116,71 @@ def ensure_bucket_cors(bucket: str, origins: Optional[list[str]] = None) -> None
             ]
         },
     )
+
+
+def sanitize_token(value: str) -> str:
+    """
+    Keep a small set of characters to avoid unsafe S3 object keys derived from user input.
+    """
+    return "".join(ch for ch in value if ch in SANITIZE_ALLOWED)
+
+
+def put_text_object(bucket: str, object_key: str, text: str) -> None:
+    client = get_s3_client()
+    client.put_object(
+        Bucket=bucket,
+        Key=object_key,
+        Body=(text or "").encode("utf-8"),
+        ContentType="text/plain; charset=utf-8",
+    )
+
+
+def get_text_object(bucket: str, object_key: str) -> str:
+    client = get_s3_client()
+    try:
+        response = client.get_object(Bucket=bucket, Key=object_key)
+    except ClientError as exc:  # noqa: BLE001
+        code = exc.response.get("Error", {}).get("Code")
+        if code in ("NoSuchKey", "404", "NotFound"):
+            raise FileNotFoundError(object_key) from exc
+        raise
+    body = response.get("Body")
+    if not body:
+        raise FileNotFoundError(object_key)
+    return body.read().decode("utf-8")
+
+
+def list_objects(bucket: str, prefix: str) -> list[str]:
+    """
+    List object keys under a prefix. Returns an empty list when no keys exist.
+    """
+    client = get_s3_client()
+    keys: list[str] = []
+    continuation_token = None
+    while True:
+        kwargs = {"Bucket": bucket, "Prefix": prefix}
+        if continuation_token:
+            kwargs["ContinuationToken"] = continuation_token
+        response = client.list_objects_v2(**kwargs)
+        contents = response.get("Contents") or []
+        keys.extend([item["Key"] for item in contents if "Key" in item])
+        if not response.get("IsTruncated"):
+            break
+        continuation_token = response.get("NextContinuationToken")
+    return keys
+
+
+def build_audio_chunk_object_key(session_id: str, chunk_index: int, file_name: Optional[str] = None) -> str:
+    safe_session = sanitize_token(session_id) or "session"
+    suffix = file_name or f"chunk-{chunk_index:06d}.webm"
+    return f"audio-sessions/{safe_session}/chunks/{suffix}"
+
+
+def build_audio_transcript_object_key(session_id: str, chunk_index: int) -> str:
+    safe_session = sanitize_token(session_id) or "session"
+    return f"audio-sessions/{safe_session}/transcripts/chunk-{chunk_index:06d}.txt"
+
+
+def build_audio_final_transcript_key(session_id: str) -> str:
+    safe_session = sanitize_token(session_id) or "session"
+    return f"audio-sessions/{safe_session}/transcripts/final.txt"

@@ -5,11 +5,15 @@ import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { ScreenLabel } from './components/ScreenLabel';
 import {
   confirmUpload,
+  confirmAudioChunk,
   createCompany,
   createJob,
+  createAudioChunkUrl,
   createUploadUrl,
   generateJobDraftFromTranscript,
   generateJobDraftFromVideo,
+  finalizeAudioSession,
+  getAudioSessionTranscript,
   listCompanyJobs,
   searchPublicJobs,
   uploadFileToUrl,
@@ -18,6 +22,9 @@ import { formatDuration, makeTakeId } from './helpers';
 import { CreateStep, Job, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
+const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
+const AUDIO_TRANSCRIPT_POLL_MS = 3000;
+const MIN_TRANSCRIPT_FOR_DRAFT = 30;
 
 const getScreenLabel = (view: ViewMode, step: CreateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
@@ -84,8 +91,19 @@ function App() {
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
+  const [audioSessionTranscripts, setAudioSessionTranscripts] = useState<Record<string, string>>({});
+  const [audioSessionStatuses, setAudioSessionStatuses] = useState<Record<string, 'pending' | 'partial' | 'final'>>({});
+  const [pendingDraftSessionId, setPendingDraftSessionId] = useState<string | null>(null);
+  const [autoTranscriptSessionId, setAutoTranscriptSessionId] = useState<string | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioSessionIdRef = useRef<string | null>(null);
+  const audioChunkIndexRef = useRef<number>(0);
+  const audioUploadChainRef = useRef<Promise<void>>(Promise.resolve());
+  const audioTranscriptPollersRef = useRef<Record<string, number>>({});
+  const draftedSessionsRef = useRef<Set<string>>(new Set());
+  const pendingDraftSessionRef = useRef<string | null>(null);
   const recordTimerRef = useRef<number | null>(null);
   const recordStartedAtRef = useRef<number | null>(null);
   const recordElapsedRef = useRef<number>(0);
@@ -196,6 +214,114 @@ function App() {
     }
   };
 
+  const makeAudioSessionId = () =>
+    (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `audio-${Date.now()}`).replace(
+      /[^a-zA-Z0-9-_]/g,
+      '',
+    );
+
+  const pickAudioMimeType = () => {
+    const preferredAudioMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    return (
+      preferredAudioMime.find(
+        (opt) =>
+          typeof MediaRecorder !== 'undefined' &&
+          typeof MediaRecorder.isTypeSupported === 'function' &&
+          MediaRecorder.isTypeSupported(opt),
+      ) || ''
+    );
+  };
+
+  const audioExtensionFromMime = (mime: string) => {
+    if (mime.includes('ogg')) return 'ogg';
+    if (mime.includes('wav')) return 'wav';
+    if (mime.includes('mp4') || mime.includes('aac')) return 'm4a';
+    return 'webm';
+  };
+
+  const stopTranscriptPolling = (sessionId: string) => {
+    const timerId = audioTranscriptPollersRef.current[sessionId];
+    if (timerId) {
+      window.clearInterval(timerId);
+      delete audioTranscriptPollersRef.current[sessionId];
+    }
+  };
+
+  const startTranscriptPolling = (sessionId: string) => {
+    if (!sessionId) return;
+    if (audioTranscriptPollersRef.current[sessionId]) return;
+
+    const poll = async () => {
+      try {
+        const res = await getAudioSessionTranscript(sessionId);
+        setAudioSessionStatuses((prev) => ({ ...prev, [sessionId]: res.status }));
+        if (res.transcript) {
+          setAudioSessionTranscripts((prev) => ({ ...prev, [sessionId]: res.transcript }));
+        }
+        const canDraft =
+          pendingDraftSessionRef.current === sessionId &&
+          res.transcript &&
+          res.transcript.trim().length >= MIN_TRANSCRIPT_FOR_DRAFT &&
+          !draftedSessionsRef.current.has(sessionId);
+        if (canDraft) {
+          draftedSessionsRef.current.add(sessionId);
+          setPendingDraftSessionId(null);
+          pendingDraftSessionRef.current = null;
+          setTranscriptText(res.transcript);
+          setAutoTranscriptSessionId(sessionId);
+          void generateFromTranscript(res.transcript);
+        }
+        if (res.status === 'final') {
+          stopTranscriptPolling(sessionId);
+        }
+      } catch (err) {
+        console.error('Transcript poll failed', err);
+      }
+    };
+
+    poll();
+    audioTranscriptPollersRef.current[sessionId] = window.setInterval(poll, AUDIO_TRANSCRIPT_POLL_MS);
+  };
+
+  const queueAudioChunkUpload = (sessionId: string, chunkIndex: number, blob: Blob, mimeType: string) => {
+    const ext = audioExtensionFromMime(mimeType || blob.type || 'audio/webm');
+    const fileName = `chunk-${chunkIndex.toString().padStart(6, '0')}.${ext}`;
+    const chunkFile = new File([blob], fileName, { type: mimeType || blob.type || 'audio/webm' });
+
+    audioUploadChainRef.current = audioUploadChainRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const presign = await createAudioChunkUrl({
+          session_id: sessionId,
+          chunk_index: chunkIndex,
+          content_type: chunkFile.type,
+          file_name: chunkFile.name,
+        });
+        await uploadFileToUrl(presign.upload_url, chunkFile);
+        await confirmAudioChunk({
+          session_id: sessionId,
+          chunk_index: chunkIndex,
+          object_key: presign.object_key,
+        });
+      })
+      .catch((err) => {
+        console.error('Audio chunk upload failed', err);
+      });
+  };
+
+  const finalizeAudioSessionIfNeeded = async () => {
+    const sessionId = audioSessionIdRef.current;
+    if (!sessionId) return;
+    const totalChunks = audioChunkIndexRef.current;
+    try {
+      await audioUploadChainRef.current;
+      await finalizeAudioSession({ session_id: sessionId, total_chunks: totalChunks });
+      startTranscriptPolling(sessionId);
+    } catch (err) {
+      console.error('Finalize audio session failed', err);
+    }
+  };
+
   const refreshJobs = useCallback(async () => {
     if (!companyId) {
       setJobs([]);
@@ -267,6 +393,10 @@ function App() {
   };
 
   useEffect(() => {
+    pendingDraftSessionRef.current = pendingDraftSessionId;
+  }, [pendingDraftSessionId]);
+
+  useEffect(() => {
     liveStreamRef.current = liveStream;
     const videoElement = liveVideoRef.current;
     if (!videoElement) return;
@@ -289,6 +419,15 @@ function App() {
       ) {
         mediaRecorderRef.current.stop();
       }
+      if (
+        audioRecorderRef.current?.state === 'recording' ||
+        audioRecorderRef.current?.state === 'paused'
+      ) {
+        audioRecorderRef.current.stop();
+      }
+      Object.keys(audioTranscriptPollersRef.current).forEach((sessionId) => {
+        stopTranscriptPolling(sessionId);
+      });
       stopStreamTracks(liveStreamRef.current);
       takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       clearProcessingTimer();
@@ -352,6 +491,7 @@ function App() {
   const handleTranscriptChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setTranscriptText(e.target.value);
     setDraftingError(null);
+    setAutoTranscriptSessionId(null);
   };
 
   const normalizeKeywords = (keywords?: string[]): string[] => {
@@ -385,8 +525,8 @@ function App() {
     }));
   };
 
-  const generateFromTranscript = async () => {
-    const text = transcriptText.trim();
+  async function generateFromTranscript(overrideText?: string) {
+    const text = (overrideText ?? transcriptText).trim();
     setError(null);
     if (!text) {
       setDraftingError('Paste a transcript to generate a draft.');
@@ -404,7 +544,7 @@ function App() {
     } finally {
       setDraftingFromTranscript(false);
     }
-  };
+  }
 
   const generateFromVideo = async (objectKey: string) => {
     setDraftingFromTranscript(true);
@@ -437,6 +577,12 @@ function App() {
     takeUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     takeUrlsRef.current.clear();
     setRecordedTakes([]);
+    setAudioSessionTranscripts({});
+    setAudioSessionStatuses({});
+    setAutoTranscriptSessionId(null);
+    setPendingDraftSessionId(null);
+    pendingDraftSessionRef.current = null;
+    draftedSessionsRef.current.clear();
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -552,6 +698,20 @@ function App() {
     if (!stream) return;
 
     try {
+      // Prep audio streaming for faster transcripts
+      const audioTracks = stream.getAudioTracks();
+      const audioMime = pickAudioMimeType();
+      const sessionId = audioTracks.length ? makeAudioSessionId() : null;
+      if (sessionId) {
+        audioSessionIdRef.current = sessionId;
+        audioChunkIndexRef.current = 0;
+        audioUploadChainRef.current = Promise.resolve();
+        setAudioSessionStatuses((prev) => ({ ...prev, [sessionId]: 'pending' }));
+        startTranscriptPolling(sessionId);
+      } else {
+        audioSessionIdRef.current = null;
+      }
+
       const preferredMimeOptions = [
         'video/mp4',
         'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
@@ -595,6 +755,7 @@ function App() {
           duration: finalDuration,
           label: `Take ${takeIndex}`,
           source: 'recording',
+          audioSessionId: audioSessionIdRef.current || undefined,
         };
         takeUrlsRef.current.add(objectUrl);
         setRecordedTakes((prev) => [take, ...prev]);
@@ -604,6 +765,27 @@ function App() {
         setVideoUrl(objectUrl);
         setRecordingState('idle');
       };
+
+      if (sessionId && audioTracks.length) {
+        try {
+          const audioStream = new MediaStream(audioTracks);
+          const audioRecorder = audioMime ? new MediaRecorder(audioStream, { mimeType: audioMime }) : new MediaRecorder(audioStream);
+          audioRecorder.ondataavailable = (ev) => {
+            if (!ev.data || ev.data.size === 0) return;
+            const nextIndex = audioChunkIndexRef.current;
+            audioChunkIndexRef.current += 1;
+            queueAudioChunkUpload(sessionId, nextIndex, ev.data, audioMime || ev.data.type || 'audio/webm');
+          };
+          audioRecorder.onstop = () => {
+            void finalizeAudioSessionIfNeeded();
+          };
+          audioRecorderRef.current = audioRecorder;
+          audioRecorder.start(AUDIO_CHUNK_MS);
+        } catch (audioErr) {
+          console.error('Audio recorder failed', audioErr);
+          audioSessionIdRef.current = null;
+        }
+      }
 
       mediaRecorderRef.current = recorder;
       recorder.start();
@@ -621,6 +803,9 @@ function App() {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return;
     try {
       mediaRecorderRef.current.pause();
+      if (audioRecorderRef.current && audioRecorderRef.current.state === 'recording') {
+        audioRecorderRef.current.pause();
+      }
       syncRecordElapsed();
       setRecordingState('paused');
     } catch (err) {
@@ -633,6 +818,9 @@ function App() {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'paused') return;
     try {
       mediaRecorderRef.current.resume();
+      if (audioRecorderRef.current && audioRecorderRef.current.state === 'paused') {
+        audioRecorderRef.current.resume();
+      }
       setRecordingState('recording');
       startRecordTimer();
     } catch (err) {
@@ -642,14 +830,18 @@ function App() {
   };
 
   const stopRecording = () => {
-    if (!mediaRecorderRef.current) {
+    const hasVideoRecorder = Boolean(mediaRecorderRef.current);
+    if (!hasVideoRecorder && !audioRecorderRef.current) {
       clearRecordTimer();
       setRecordingState('idle');
       return;
     }
-    if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+    if (mediaRecorderRef.current && (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')) {
       syncRecordElapsed();
       mediaRecorderRef.current.stop();
+    }
+    if (audioRecorderRef.current && (audioRecorderRef.current.state === 'recording' || audioRecorderRef.current.state === 'paused')) {
+      audioRecorderRef.current.stop();
     }
     setRecordingState('idle');
   };
@@ -690,10 +882,24 @@ function App() {
       setVideoObjectKey(objectKey);
       startProcessingPoll(objectKey);
       setDraftingError(null);
-      setTranscriptText('');
+      const sessionId = selectedTake.audioSessionId;
+      const sessionTranscript = sessionId ? audioSessionTranscripts[sessionId] : '';
+      if (sessionId) {
+        startTranscriptPolling(sessionId);
+        if (sessionTranscript && sessionTranscript.trim().length >= MIN_TRANSCRIPT_FOR_DRAFT) {
+          setTranscriptText(sessionTranscript);
+          setAutoTranscriptSessionId(sessionId);
+          void generateFromTranscript(sessionTranscript);
+        } else {
+          pendingDraftSessionRef.current = sessionId;
+          setPendingDraftSessionId(sessionId);
+        }
+      } else {
+        setTranscriptText('');
+        void generateFromVideo(objectKey);
+      }
       setShowDetailValidation(false);
       setCreateStep('details');
-      void generateFromVideo(objectKey);
     } catch (err) {
       console.error(err);
       clearProcessingTimer();
@@ -805,6 +1011,25 @@ function App() {
   };
 
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
+
+  useEffect(() => {
+    if (selectedTake?.audioSessionId) {
+      startTranscriptPolling(selectedTake.audioSessionId);
+    }
+  }, [selectedTake?.audioSessionId]);
+
+  useEffect(() => {
+    const sessionId = selectedTake?.audioSessionId;
+    if (!sessionId) return;
+    const transcript = audioSessionTranscripts[sessionId];
+    if (!transcript) return;
+    const shouldApply = !transcriptText.trim() || autoTranscriptSessionId === sessionId;
+    if (shouldApply) {
+      setTranscriptText(transcript);
+      setAutoTranscriptSessionId(sessionId);
+    }
+  }, [selectedTake?.audioSessionId, audioSessionTranscripts, transcriptText, autoTranscriptSessionId]);
+
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep);

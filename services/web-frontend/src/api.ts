@@ -19,6 +19,20 @@ type ConfirmUploadPayload = {
   source: "recording" | "upload";
 };
 
+type AudioChunkUrlResponse = {
+  upload_url: string;
+  object_key: string;
+  expires_in: number;
+};
+
+export type AudioTranscriptStatus = "pending" | "partial" | "final";
+
+type AudioSessionTranscriptResponse = {
+  status: AudioTranscriptStatus;
+  transcript: string;
+  chunk_count: number;
+};
+
 export type JobDraft = {
   title: string;
   description: string;
@@ -108,6 +122,42 @@ export async function confirmUpload(payload: ConfirmUploadPayload) {
   return requestJson<{ status: string; object_key: string }>("/confirm-upload", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function createAudioChunkUrl(payload: {
+  session_id: string;
+  chunk_index: number;
+  content_type?: string;
+  file_name?: string;
+}): Promise<AudioChunkUrlResponse> {
+  return requestJson<AudioChunkUrlResponse>("/audio-chunk-url", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmAudioChunk(payload: {
+  session_id: string;
+  chunk_index: number;
+  object_key: string;
+}) {
+  return requestJson<{ status: string; object_key: string }>("/audio-chunk-confirm", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function finalizeAudioSession(payload: { session_id: string; total_chunks: number }) {
+  return requestJson<{ status: string }>("/audio-session/finalize", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAudioSessionTranscript(sessionId: string): Promise<AudioSessionTranscriptResponse> {
+  return requestJson<AudioSessionTranscriptResponse>(`/audio-session/${encodeURIComponent(sessionId)}/transcript`, {
+    method: "GET",
   });
 }
 

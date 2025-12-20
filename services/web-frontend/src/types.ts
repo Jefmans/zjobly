@@ -16,6 +16,7 @@ export type User = {
 export type RecordedTake = {
   id: string;
   file: File;
+  audioSessionId?: string;
   url: string;
   duration: number;
   label: string;
