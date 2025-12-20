@@ -53,18 +53,26 @@ async def confirm_upload(payload: ConfirmUploadRequest) -> ConfirmUploadResponse
 
 
 def _pick_chunk_filename(chunk_index: int, file_name: str | None, content_type: str | None) -> str:
+    """
+    Always include the chunk index in the filename so each upload key is unique.
+    We keep the best guess at the extension from the provided name or content type.
+    """
+    ext: str | None = None
     if file_name:
         base = os.path.basename(file_name)
-        if base:
-            return base
-    if content_type and "ogg" in content_type:
-        ext = "ogg"
-    elif content_type and "wav" in content_type:
-        ext = "wav"
-    elif content_type and "mp4" in content_type or (content_type and "aac" in content_type):
-        ext = "m4a"
-    else:
-        ext = "webm"
+        _, ext_with_dot = os.path.splitext(base)
+        ext = ext_with_dot.lstrip(".") or None
+
+    if not ext:
+        if content_type and "ogg" in content_type:
+            ext = "ogg"
+        elif content_type and "wav" in content_type:
+            ext = "wav"
+        elif content_type and "mp4" in content_type or (content_type and "aac" in content_type):
+            ext = "m4a"
+        else:
+            ext = "webm"
+
     return f"chunk-{chunk_index:06d}.{ext}"
 
 

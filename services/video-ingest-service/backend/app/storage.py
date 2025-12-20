@@ -176,7 +176,13 @@ def list_objects(bucket: str, prefix: str) -> list[str]:
 
 def build_audio_chunk_object_key(session_id: str, chunk_index: int, file_name: Optional[str] = None) -> str:
     safe_session = sanitize_token(session_id) or "session"
-    suffix = file_name or f"chunk-{chunk_index:06d}.webm"
+    # Always incorporate the chunk index to avoid overwriting prior chunks, even if the client supplies a name.
+    if file_name:
+        base = file_name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        name, ext = base.rsplit(".", 1) if "." in base else (base, "webm")
+        suffix = f"chunk-{chunk_index:06d}.{ext}"
+    else:
+        suffix = f"chunk-{chunk_index:06d}.webm"
     return f"audio-sessions/{safe_session}/chunks/{suffix}"
 
 
