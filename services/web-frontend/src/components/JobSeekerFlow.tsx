@@ -10,15 +10,7 @@ type Props = {
   companyId: string | null;
   selectedJobId: string | null;
   onSelectJob: (id: string) => void;
-  onBackToWelcome: () => void;
-  onCreateClick: () => void;
   setView: (v: ViewMode) => void;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  onSearchSubmit: () => void;
-  searchResults: Job[];
-  searchLoading: boolean;
-  searchError: string | null;
 };
 
 export function JobSeekerFlow({
@@ -30,15 +22,7 @@ export function JobSeekerFlow({
   companyId,
   selectedJobId,
   onSelectJob,
-  onBackToWelcome,
-  onCreateClick,
   setView,
-  searchQuery,
-  onSearchChange,
-  onSearchSubmit,
-  searchResults,
-  searchLoading,
-  searchError,
 }: Props) {
   const [sortBy, setSortBy] = useState("created_desc");
 
@@ -84,71 +68,6 @@ export function JobSeekerFlow({
     if (status === "open") return { label: "Open", className: "open" };
     return { label: "Published", className: "published" };
   };
-
-  if (view === "find") {
-    return (
-      <>
-        {nav}
-        <section className="hero">
-          <div className="view-pill">Find Zjob</div>
-          <p className="tag">Zjobly</p>
-          <h1>Discover an open Zjob</h1>
-          <p className="lede">
-            Search for roles shared with you. We'll add richer search soon - start with a keyword or a Zjob link.
-          </p>
-          <div className="search-card">
-            <label className="field-label" htmlFor="search">
-              Enter a keyword or Zjob link
-            </label>
-            <div className="search-row">
-              <input
-                id="search"
-                name="search"
-                placeholder="e.g., frontend, data, or https://zjob.ly/123"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-              />
-              <button type="button" className="cta primary" onClick={onSearchSubmit} disabled={searchLoading}>
-                {searchLoading ? "Searching..." : "Search"}
-              </button>
-            </div>
-          </div>
-          {searchError && <p className="error">{searchError}</p>}
-          {searchLoading && <p className="hint">Searching jobs...</p>}
-          {!searchLoading && searchResults.length > 0 && (
-            <div className="jobs-list">
-              {searchResults.map((job) => (
-                <div key={job.id} className="job-card">
-                  <div>
-                    <div className="job-title">{job.title}</div>
-                    <div className="job-meta">{job.location || "Location TBD"}</div>
-                  </div>
-                  {(() => {
-                    const status = getStatusMeta(job.status);
-                    return <div className={`job-status ${status.className}`}>{status.label}</div>;
-                  })()}
-                </div>
-              ))}
-            </div>
-          )}
-          {!searchLoading && !searchError && searchResults.length === 0 && searchQuery && (
-            <p className="hint">No matching jobs yet. Try another keyword.</p>
-          )}
-          {!searchQuery && !searchResults.length && !searchLoading && (
-            <p className="hint">Start with a keyword to search public job videos.</p>
-          )}
-          <div className="welcome-actions">
-            <button type="button" className="ghost" onClick={onBackToWelcome}>
-              Back to welcome
-            </button>
-            <button type="button" className="cta primary" onClick={onCreateClick}>
-              Create a Zjob instead
-            </button>
-          </div>
-        </section>
-      </>
-    );
-  }
 
   if (view === "jobs") {
     return (

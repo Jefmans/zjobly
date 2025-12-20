@@ -1,6 +1,7 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
+import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { ScreenLabel } from './components/ScreenLabel';
 import {
@@ -15,21 +16,41 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
-  searchPublicJobs,
+  upsertCandidateProfile,
   uploadFileToUrl,
 } from './api';
 import { formatDuration, makeTakeId } from './helpers';
-import { CreateStep, Job, RecordedTake, RecordingState, Status, UserRole, ViewMode } from './types';
+import {
+  CandidateStep,
+  CandidateProfileInput,
+  CreateStep,
+  Job,
+  RecordedTake,
+  RecordingState,
+  Status,
+  UserRole,
+  ViewMode,
+} from './types';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
 const AUDIO_TRANSCRIPT_POLL_MS = 3000;
 const MIN_TRANSCRIPT_FOR_DRAFT = 30;
 const INITIAL_FORM_STATE = { title: '', location: '', description: '', companyName: '' };
+const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
+  headline: '',
+  location: '',
+  summary: '',
+  discoverable: true,
+};
 
-const getScreenLabel = (view: ViewMode, step: CreateStep): string => {
+const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
-  if (view === 'find') return 'Screen:FindZjob/Search';
+  if (view === 'find') {
+    if (candidateStep === 'record') return 'Screen:FindZjob/RecordVideo';
+    if (candidateStep === 'select') return 'Screen:FindZjob/SelectVideo';
+    return 'Screen:FindZjob/ProfileDetail';
+  }
   if (view === 'jobs') return 'Screen:MyJobs/List';
   if (view === 'jobDetail') return 'Screen:MyJobs/Detail';
   if (view === 'create') {
@@ -54,6 +75,7 @@ function App() {
     return null;
   });
   const [createStep, setCreateStep] = useState<CreateStep>('record');
+  const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
   const [transcriptText, setTranscriptText] = useState('');
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
@@ -72,11 +94,9 @@ function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobsError, setJobsError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Job[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
+  const [candidateVideoObjectKey, setCandidateVideoObjectKey] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoObjectKey, setVideoObjectKey] = useState<string | null>(null);
@@ -85,6 +105,9 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [jobSaving, setJobSaving] = useState(false);
+  const [candidateProfileSaving, setCandidateProfileSaving] = useState(false);
+  const [candidateProfileSaved, setCandidateProfileSaved] = useState(false);
+  const [candidateValidation, setCandidateValidation] = useState(false);
   const [showDetailValidation, setShowDetailValidation] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -127,11 +150,31 @@ function App() {
     }
   };
 
+  const resetCandidateFlow = () => {
+    clearVideoSelection();
+    clearRecordedTakes();
+    resetRecordTimer();
+    setRecordingState('idle');
+    setCandidateStep('record');
+    setCandidateProfile({ ...INITIAL_CANDIDATE_PROFILE });
+    setCandidateVideoObjectKey(null);
+    setCandidateProfileSaving(false);
+    setCandidateProfileSaved(false);
+    setCandidateValidation(false);
+    setStatus('idle');
+    setUploadProgress(null);
+    setProcessingMessage(null);
+    setError(null);
+  };
+
   const setRoleAndView = (nextRole: UserRole, nextView?: ViewMode) => {
     persistRole(nextRole);
     setSelectedJobId(null);
     if (nextRole === 'employer') {
       setCreateStep('record');
+      setShowDetailValidation(false);
+    } else {
+      resetCandidateFlow();
     }
     setView(nextView ?? (nextRole === 'employer' ? 'create' : 'find'));
   };
@@ -321,27 +364,6 @@ function App() {
     }
   }, [companyId]);
 
-  const runSearch = async (query: string) => {
-    const trimmed = query.trim();
-    setSearchQuery(trimmed);
-    if (!trimmed) {
-      setSearchResults([]);
-      setSearchError(null);
-      return;
-    }
-    setSearchLoading(true);
-    setSearchError(null);
-    try {
-      const results = await searchPublicJobs(trimmed);
-      setSearchResults(results);
-    } catch (err) {
-      console.error(err);
-      setSearchError(err instanceof Error ? err.message : 'Search failed. Please try again.');
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
     setStatus('processing');
@@ -415,13 +437,15 @@ function App() {
   }, [createStep]);
 
   useEffect(() => {
-    if (recordingState === 'idle' && playbackVideoRef.current && view === 'create' && createStep === 'record') {
+    const onRecordStep =
+      (view === 'create' && createStep === 'record') || (view === 'find' && candidateStep === 'record');
+    if (recordingState === 'idle' && playbackVideoRef.current && onRecordStep) {
       const player = playbackVideoRef.current;
       player.pause();
       player.currentTime = 0;
       player.play().catch(() => undefined);
     }
-  }, [videoUrl, recordingState, view, createStep]);
+  }, [videoUrl, recordingState, view, createStep, candidateStep]);
 
   useEffect(() => {
     if (recordingState !== 'idle' && liveVideoRef.current && liveStreamRef.current) {
@@ -432,13 +456,17 @@ function App() {
   }, [recordingState]);
 
   useEffect(() => {
-    if (view === 'create' && createStep === 'record' && !recorderOpen) {
+    const onRecordStep =
+      (view === 'create' && createStep === 'record') || (view === 'find' && candidateStep === 'record');
+    if (onRecordStep && !recorderOpen) {
       openRecorder();
     }
-  }, [view, createStep, recorderOpen]);
+  }, [view, createStep, candidateStep, recorderOpen]);
 
   useEffect(() => {
-    if (createStep === 'record') return;
+    const onRecordStep =
+      (view === 'create' && createStep === 'record') || (view === 'find' && candidateStep === 'record');
+    if (onRecordStep) return;
     if (
       mediaRecorderRef.current?.state === 'recording' ||
       mediaRecorderRef.current?.state === 'paused'
@@ -448,7 +476,7 @@ function App() {
     stopStreamTracks(liveStreamRef.current);
     setLiveStream(null);
     setRecorderOpen(false);
-  }, [createStep]);
+  }, [view, createStep, candidateStep]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -462,6 +490,19 @@ function App() {
     setTranscriptText(e.target.value);
     setDraftingError(null);
     setAutoTranscriptSessionId(null);
+  };
+
+  const handleCandidateProfileChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const isCheckbox = e.target instanceof HTMLInputElement && e.target.type === 'checkbox';
+    const nextValue = isCheckbox ? e.target.checked : value;
+    setCandidateProfile((prev) => ({
+      ...prev,
+      [name]: nextValue,
+    }));
+    setCandidateValidation(false);
+    setCandidateProfileSaved(false);
+    setError(null);
   };
 
   const normalizeKeywords = (keywords?: string[]): string[] => {
@@ -535,12 +576,15 @@ function App() {
     setVideoUrl(null);
     setVideoDuration(null);
     setVideoObjectKey(null);
+    setCandidateVideoObjectKey(null);
     setSelectedTakeId(null);
     setUploadProgress(null);
     setStatus('idle');
     clearProcessingTimer();
     setProcessingMessage(null);
     setDraftKeywords([]);
+    setCandidateValidation(false);
+    setCandidateProfileSaved(false);
   };
 
   const clearRecordedTakes = () => {
@@ -582,13 +626,17 @@ function App() {
     setRoleAndView('employer');
   };
 
+  const startCandidateFlow = () => {
+    setRoleAndView('candidate');
+  };
+
   const handleRoleSelection = (value: string, navigate: boolean) => {
     if (value !== 'candidate' && value !== 'employer') return;
     if (navigate) {
       if (value === 'employer') {
         startCreateFlow();
       } else {
-        setRoleAndView(value);
+        startCandidateFlow();
       }
       return;
     }
@@ -941,6 +989,88 @@ function App() {
     }
   };
 
+  const saveCandidateVideo = async () => {
+    setError(null);
+    setUploadProgress(null);
+    clearProcessingTimer();
+    setProcessingMessage(null);
+    setCandidateVideoObjectKey(null);
+    setCandidateProfileSaved(false);
+
+    if (!selectedTake) {
+      setError('Record or upload a video before saving.');
+      setCandidateStep('select');
+      return;
+    }
+
+    if ((selectedTake.duration ?? videoDuration ?? 0) > MAX_VIDEO_SECONDS) {
+      setError('Video must be 3 minutes or less.');
+      return;
+    }
+
+    try {
+      setStatus('presigning');
+      const presign = await createUploadUrl(selectedTake.file);
+      setStatus('uploading');
+      setUploadProgress(0);
+      await uploadFileToUrl(presign.upload_url, selectedTake.file, (percent) => setUploadProgress(percent));
+      setStatus('confirming');
+      const confirmed = await confirmUpload({
+        object_key: presign.object_key,
+        duration_seconds: selectedTake.duration ?? videoDuration ?? null,
+        source: selectedTake.source,
+      });
+      setUploadProgress(100);
+
+      const objectKey = confirmed.object_key || presign.object_key;
+      setCandidateVideoObjectKey(objectKey);
+      startProcessingPoll(objectKey);
+      setCandidateValidation(false);
+      setCandidateStep('profile');
+    } catch (err) {
+      console.error(err);
+      clearProcessingTimer();
+      setProcessingMessage(null);
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    }
+  };
+
+  const saveCandidateProfile = async () => {
+    setError(null);
+    setCandidateProfileSaved(false);
+
+    const headline = (candidateProfile.headline ?? '').toString().trim();
+    const location = (candidateProfile.location ?? '').toString().trim();
+    const summary = (candidateProfile.summary ?? '').toString().trim();
+    const hasVideo = Boolean(candidateVideoObjectKey);
+
+    if (!headline || !location || !summary || !hasVideo) {
+      setCandidateValidation(true);
+      if (!hasVideo) {
+        setError('Save your video before completing your profile.');
+      }
+      return;
+    }
+
+    setCandidateProfileSaving(true);
+    try {
+      await upsertCandidateProfile({
+        headline,
+        location,
+        summary,
+        discoverable: Boolean(candidateProfile.discoverable),
+      });
+      setCandidateProfileSaved(true);
+      setCandidateValidation(false);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Could not save your profile.');
+    } finally {
+      setCandidateProfileSaving(false);
+    }
+  };
+
   const saveJob = async (publish: boolean) => {
     setError(null);
 
@@ -1065,10 +1195,11 @@ function App() {
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const screenLabel = getScreenLabel(view, createStep);
+  const screenLabel = getScreenLabel(view, createStep, candidateStep);
 
   const backToWelcome = () => {
     resetCreateState();
+    resetCandidateFlow();
     setView('welcome');
   };
 
@@ -1077,8 +1208,9 @@ function App() {
     setCreateStep(nextStep);
   };
 
-  const handleSearchSubmit = () => {
-    runSearch(searchQuery);
+  const goToCandidateStep = (nextStep: CandidateStep) => {
+    setError(null);
+    setCandidateStep(nextStep);
   };
 
   const selectTake = (id: string) => {
@@ -1122,7 +1254,7 @@ function App() {
             <button
               type="button"
               className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
-              onClick={() => setRoleAndView('candidate')}
+              onClick={startCandidateFlow}
             >
               Find Zjob
             </button>
@@ -1151,7 +1283,7 @@ function App() {
             <h1>Choose your next step</h1>
             <p className="lede">Start by finding a Zjob or creating one with a short video.</p>
             <div className="welcome-actions">
-              <button type="button" className="cta primary" onClick={() => setRoleAndView('candidate')}>
+              <button type="button" className="cta primary" onClick={startCandidateFlow}>
                 Find Zjob
               </button>
               <button type="button" className="cta secondary" onClick={startCreateFlow}>
@@ -1204,6 +1336,41 @@ function App() {
         showDetailValidation={showDetailValidation}
       />
 
+      <CandidateProfileFlow
+        view={view}
+        nav={renderSwitcher()}
+        candidateStep={candidateStep}
+        goToStep={goToCandidateStep}
+        onBackToWelcome={backToWelcome}
+        recorderOpen={recorderOpen}
+        recordingState={recordingState}
+        videoUrl={videoUrl}
+        candidateVideoObjectKey={candidateVideoObjectKey}
+        liveVideoRef={liveVideoRef}
+        playbackVideoRef={playbackVideoRef}
+        recordLabel={recordLabel}
+        durationLabel={durationLabel}
+        startRecording={startRecording}
+        pauseRecording={pauseRecording}
+        resumeRecording={resumeRecording}
+        stopRecording={stopRecording}
+        error={error}
+        recordedTakes={recordedTakes}
+        selectedTakeId={selectedTakeId}
+        selectTake={selectTake}
+        handleVideoChange={handleVideoChange}
+        status={status}
+        uploadProgress={uploadProgress}
+        processingMessage={processingMessage}
+        onSaveVideo={saveCandidateVideo}
+        profile={candidateProfile}
+        onProfileChange={handleCandidateProfileChange}
+        onSaveProfile={saveCandidateProfile}
+        profileSaving={candidateProfileSaving}
+        profileSaved={candidateProfileSaved}
+        showValidation={candidateValidation}
+      />
+
       <JobSeekerFlow
         view={view}
         nav={renderSwitcher()}
@@ -1213,15 +1380,7 @@ function App() {
         companyId={companyId}
         selectedJobId={selectedJobId}
         onSelectJob={setSelectedJobId}
-        onBackToWelcome={backToWelcome}
-        onCreateClick={startCreateFlow}
         setView={setView}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSearchSubmit={handleSearchSubmit}
-        searchResults={searchResults}
-        searchLoading={searchLoading}
-        searchError={searchError}
       />
     </main>
   );
