@@ -25,6 +25,7 @@ const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
 const AUDIO_TRANSCRIPT_POLL_MS = 3000;
 const MIN_TRANSCRIPT_FOR_DRAFT = 30;
+const INITIAL_FORM_STATE = { title: '', location: '', description: '', companyName: '' };
 
 const getScreenLabel = (view: ViewMode, step: CreateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
@@ -53,7 +54,7 @@ function App() {
     return null;
   });
   const [createStep, setCreateStep] = useState<CreateStep>('record');
-  const [form, setForm] = useState({ title: '', location: '', description: '', companyName: '' });
+  const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
   const [transcriptText, setTranscriptText] = useState('');
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
   const [draftingFromTranscript, setDraftingFromTranscript] = useState(false);
@@ -133,37 +134,6 @@ function App() {
       setCreateStep('record');
     }
     setView(nextView ?? (nextRole === 'employer' ? 'create' : 'find'));
-  };
-
-  const handleRoleSelection = (value: string, navigate: boolean) => {
-    if (value !== 'candidate' && value !== 'employer') return;
-    if (navigate) {
-      setRoleAndView(value);
-      return;
-    }
-    persistRole(value);
-  };
-
-  const renderRoleSelect = (variant: 'nav' | 'welcome') => {
-    const selectId = variant === 'welcome' ? 'welcome-role' : 'nav-role';
-    const navigateOnChange = variant === 'nav';
-
-    return (
-      <div className={variant === 'welcome' ? 'role-switcher welcome' : 'role-switcher'}>
-        <label htmlFor={selectId}>Role</label>
-        <select
-          id={selectId}
-          value={role ?? ''}
-          onChange={(event) => handleRoleSelection(event.target.value, navigateOnChange)}
-        >
-          <option value="" disabled>
-            Choose a role
-          </option>
-          <option value="employer">Employer</option>
-          <option value="candidate">Candidate</option>
-        </select>
-      </div>
-    );
   };
 
   const stopStreamTracks = (stream: MediaStream | null) => {
@@ -585,6 +555,68 @@ function App() {
     draftedSessionsRef.current.clear();
   };
 
+  const resetCreateState = () => {
+    clearVideoSelection();
+    clearRecordedTakes();
+    resetRecordTimer();
+    setRecordingState('idle');
+    setForm(() => ({ ...INITIAL_FORM_STATE }));
+    setTranscriptText('');
+    setDraftKeywords([]);
+    setDraftingError(null);
+    setDraftingFromTranscript(false);
+    setAutoTranscriptSessionId(null);
+    setPendingDraftSessionId(null);
+    pendingDraftSessionRef.current = null;
+    setShowDetailValidation(false);
+    setStatus('idle');
+    setUploadProgress(null);
+    setProcessingMessage(null);
+    setError(null);
+    setJobSaving(false);
+    setCreateStep('record');
+  };
+
+  const startCreateFlow = () => {
+    resetCreateState();
+    setRoleAndView('employer');
+  };
+
+  const handleRoleSelection = (value: string, navigate: boolean) => {
+    if (value !== 'candidate' && value !== 'employer') return;
+    if (navigate) {
+      if (value === 'employer') {
+        startCreateFlow();
+      } else {
+        setRoleAndView(value);
+      }
+      return;
+    }
+    persistRole(value);
+  };
+
+  const renderRoleSelect = (variant: 'nav' | 'welcome') => {
+    const selectId = variant === 'welcome' ? 'welcome-role' : 'nav-role';
+    const navigateOnChange = variant === 'nav';
+
+    return (
+      <div className={variant === 'welcome' ? 'role-switcher welcome' : 'role-switcher'}>
+        <label htmlFor={selectId}>Role</label>
+        <select
+          id={selectId}
+          value={role ?? ''}
+          onChange={(event) => handleRoleSelection(event.target.value, navigateOnChange)}
+        >
+          <option value="" disabled>
+            Choose a role
+          </option>
+          <option value="employer">Employer</option>
+          <option value="candidate">Candidate</option>
+        </select>
+      </div>
+    );
+  };
+
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setError(null);
@@ -1001,6 +1033,7 @@ function App() {
         ...prev,
       ]);
       setShowDetailValidation(false);
+      resetCreateState();
       setView('jobs');
     } catch (err) {
       console.error(err);
@@ -1035,15 +1068,8 @@ function App() {
   const screenLabel = getScreenLabel(view, createStep);
 
   const backToWelcome = () => {
-    clearVideoSelection();
-    clearRecordedTakes();
-    resetRecordTimer();
-    setRecordingState('idle');
+    resetCreateState();
     setView('welcome');
-    setError(null);
-    setCreateStep('record');
-    setShowDetailValidation(false);
-    setDraftKeywords([]);
   };
 
   const goToStep = (nextStep: CreateStep) => {
@@ -1087,7 +1113,7 @@ function App() {
             <button
               type="button"
               className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-              onClick={() => setRoleAndView('employer')}
+              onClick={startCreateFlow}
             >
               Create Zjob
             </button>
@@ -1128,7 +1154,7 @@ function App() {
               <button type="button" className="cta primary" onClick={() => setRoleAndView('candidate')}>
                 Find Zjob
               </button>
-              <button type="button" className="cta secondary" onClick={() => setRoleAndView('employer')}>
+              <button type="button" className="cta secondary" onClick={startCreateFlow}>
                 Create Zjob
               </button>
             </div>
@@ -1188,7 +1214,7 @@ function App() {
         selectedJobId={selectedJobId}
         onSelectJob={setSelectedJobId}
         onBackToWelcome={backToWelcome}
-        onCreateClick={() => setRoleAndView('employer')}
+        onCreateClick={startCreateFlow}
         setView={setView}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
