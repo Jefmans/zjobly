@@ -55,7 +55,8 @@ async def confirm_upload(payload: ConfirmUploadRequest) -> ConfirmUploadResponse
 def _pick_chunk_filename(chunk_index: int, file_name: str | None, content_type: str | None) -> str:
     """
     Always include the chunk index in the filename so each upload key is unique.
-    We keep the best guess at the extension from the provided name or content type.
+    The caller still sends a filename to S3 for ContentType inference, but the object key will
+    be derived from the chunk index server-side.
     """
     ext: str | None = None
     if file_name:

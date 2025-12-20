@@ -157,13 +157,17 @@ def process_audio_chunk(
             _, ext = os.path.splitext(object_key)
             input_path = os.path.join(temp_dir, f"chunk{ext or '.bin'}")
             download_object_to_path(bucket_to_use, object_key, input_path)
+            size_bytes = os.path.getsize(input_path)
+            if size_bytes == 0:
+                raise ValueError("Audio chunk is empty after download.")
 
             transcription_path = input_path
-            if os.path.getsize(input_path) > OPENAI_MAX_BYTES:
+            if size_bytes > OPENAI_MAX_BYTES:
                 audio_path = os.path.join(temp_dir, "audio.mp3")
                 transcode_to_audio(input_path, audio_path)
                 transcription_path = audio_path
-            if os.path.getsize(transcription_path) > OPENAI_MAX_BYTES:
+                size_bytes = os.path.getsize(transcription_path)
+            if size_bytes > OPENAI_MAX_BYTES:
                 raise ValueError("Audio chunk exceeds OpenAI upload limit.")
 
             transcript = call_whisper(transcription_path)
