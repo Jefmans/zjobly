@@ -83,6 +83,7 @@ export function CandidateProfileFlow({
   const canRecord = recordingState === "idle" || recordingState === "paused";
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
+  const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
   const currentStepIndex = candidateStep === "record" ? 2 : candidateStep === "select" ? 3 : 4;
