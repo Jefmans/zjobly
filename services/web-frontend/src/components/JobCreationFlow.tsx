@@ -48,6 +48,8 @@ type Props = {
   companyId: string | null;
   jobSaving: boolean;
   showDetailValidation: boolean;
+  audioTranscript?: string;
+  audioTranscriptStatus?: "pending" | "partial" | "final";
 };
 
 export function JobCreationFlow({
@@ -90,6 +92,8 @@ export function JobCreationFlow({
   companyId,
   jobSaving,
   showDetailValidation,
+  audioTranscript,
+  audioTranscriptStatus,
 }: Props) {
   if (view !== "create") return null;
 
@@ -226,6 +230,26 @@ export function JobCreationFlow({
                   </button>
                 </div>
                 {draftingError && <div className="error">{draftingError}</div>}
+              </div>
+
+              <div className="field">
+                <label>Auto transcript</label>
+                {audioTranscript ? (
+                  <textarea value={audioTranscript} readOnly rows={6} />
+                ) : (
+                  <div className="transcript-placeholder" aria-live="polite">
+                    {audioTranscriptStatus === "pending" || audioTranscriptStatus === "partial"
+                      ? "Transcribing your audio... the full text will appear here soon."
+                      : "Record with audio to see the transcript here."}
+                  </div>
+                )}
+                <p className="hint">
+                  {audioTranscriptStatus === "final"
+                    ? "Transcript is final."
+                    : audioTranscriptStatus === "partial"
+                    ? "Partial transcript shown; it will refresh when processing finishes."
+                    : "Transcript ready or still processing audio chunks."}
+                </p>
               </div>
 
               <div className="field">

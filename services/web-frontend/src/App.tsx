@@ -1174,6 +1174,11 @@ function App() {
   };
 
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
+  const selectedAudioSessionId = selectedTake?.audioSessionId || null;
+  const selectedAudioTranscript = selectedAudioSessionId ? audioSessionTranscripts[selectedAudioSessionId] : "";
+  const selectedAudioTranscriptStatus = selectedAudioSessionId
+    ? audioSessionStatuses[selectedAudioSessionId]
+    : undefined;
 
   useEffect(() => {
     if (selectedTake?.audioSessionId) {
@@ -1334,6 +1339,8 @@ function App() {
         companyId={companyId}
         jobSaving={jobSaving}
         showDetailValidation={showDetailValidation}
+        audioTranscript={selectedAudioTranscript}
+        audioTranscriptStatus={selectedAudioTranscriptStatus}
       />
 
       <CandidateProfileFlow

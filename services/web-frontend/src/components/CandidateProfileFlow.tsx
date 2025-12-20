@@ -91,6 +91,18 @@ export function CandidateProfileFlow({
   const transcriptSessionId = selectedTake?.audioSessionId;
   const transcript = transcriptSessionId ? audioSessionTranscripts[transcriptSessionId] : "";
   const transcriptStatus = transcriptSessionId ? audioSessionStatuses[transcriptSessionId] : undefined;
+  const transcriptPlaceholder =
+    transcriptStatus === "pending" || transcriptStatus === "partial"
+      ? "Transcribing your intro... hang tight."
+      : "Transcript will appear here after we process your audio.";
+  const transcriptStatusHint =
+    transcriptStatus === "final"
+      ? "Transcript is final."
+      : transcriptStatus === "partial"
+      ? "Partial transcript shown; it will update once processing finishes."
+      : transcriptStatus === "pending"
+      ? "Transcribing your intro..."
+      : "Transcript ready.";
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
   const currentStepIndex = candidateStep === "record" ? 2 : candidateStep === "select" ? 3 : 4;
@@ -212,15 +224,13 @@ export function CandidateProfileFlow({
               <div className="field">
                 <label>Transcript</label>
                 {transcript ? (
-                  <textarea value={transcript} readOnly rows={5} />
+                  <textarea value={transcript} readOnly rows={7} />
                 ) : (
                   <div className="transcript-placeholder" aria-live="polite">
-                    {transcriptStatus === "pending" || transcriptStatus === "partial"
-                      ? "Transcribing your intro... hang tight."
-                      : "Transcript will appear here after we process your audio."}
+                    {transcriptPlaceholder}
                   </div>
                 )}
-                <p className="hint">Auto-transcribed from your intro video.</p>
+                <p className="hint">{transcriptStatusHint} Auto-transcribed from your intro video.</p>
               </div>
 
               {error && <div className="error">{error}</div>}
