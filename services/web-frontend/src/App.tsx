@@ -267,6 +267,9 @@ function App() {
     const poll = async () => {
       try {
         const res = await getAudioSessionTranscript(sessionId);
+        if (!res || typeof res.status !== 'string') {
+          return;
+        }
         setAudioSessionStatuses((prev) => ({ ...prev, [sessionId]: res.status }));
         if (res.transcript) {
           setAudioSessionTranscripts((prev) => ({ ...prev, [sessionId]: res.transcript }));
