@@ -60,15 +60,51 @@ def _clean_location(text: str) -> str:
     return " ".join(text.split()).strip(",. ")
 
 
-def _extract_location_spacy(text: str) -> str | None:
+def _extract_location_components_spacy(text: str) -> dict[str, str | None]:
+    """
+    Use spaCy entities to extract a best-effort location plus components.
+    We stay offline: no geocoding lookups, only text-based heuristics.
+    """
+    parts: dict[str, str | None] = {
+        "location": None,
+        "city": None,
+        "region": None,
+        "country": None,
+        "postal_code": None,
+    }
+
     nlp = get_spacy_nlp()
     doc = nlp(text)
+    entities: list[str] = []
     for ent in doc.ents:
         if ent.label_ in ("GPE", "LOC"):
             guess = _clean_location(ent.text)
-            if 2 <= len(guess) <= 60:
-                return guess
-    return None
+            if 2 <= len(guess) <= 80:
+                entities.append(guess)
+
+    # Deduplicate preserving order
+    seen = set()
+    deduped = []
+    for ent in entities:
+        if ent.lower() in seen:
+            continue
+        seen.add(ent.lower())
+        deduped.append(ent)
+
+    if deduped:
+        parts["location"] = ", ".join(deduped)
+        parts["city"] = deduped[0]
+        if len(deduped) >= 2:
+            parts["country"] = deduped[-1]
+        if len(deduped) >= 3:
+            parts["region"] = deduped[-2]
+
+    # Find a postal/zip-like token (4–6 digits) in the raw text
+    postal = re.search(r"\b\d{4,6}\b", text)
+    if postal:
+        parts["postal_code"] = postal.group(0)
+
+    return parts
 
 
 def _split_location_parts(location: str) -> dict[str, str | None]:
@@ -240,7 +276,20 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
 
-    components = _split_location_parts(location) if location else {"location": None}
+    components_spacy = _extract_location_components_spacy(transcript_snippet)
+    location = components_spacy.get("location")
+    # If spaCy only yielded a single string, try to split it further
+    components_split = _split_location_parts(location) if location else {"location": None}
+
+    # Prefer spaCy-derived components; fall back to split heuristics
+    components = {
+        "location": location,
+        "city": components_spacy.get("city") or components_split.get("city"),
+        "region": components_spacy.get("region") or components_split.get("region"),
+        "country": components_spacy.get("country") or components_split.get("country"),
+        "postal_code": components_spacy.get("postal_code") or components_split.get("postal_code"),
+    }
+
     return LocationFromTranscriptResponse(
         location=location,
         city=components.get("city"),
