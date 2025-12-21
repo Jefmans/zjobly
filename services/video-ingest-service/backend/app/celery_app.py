@@ -206,6 +206,7 @@ def process_audio_chunk(
                 ext_part = (ext or "").lstrip(".") or "webm"
                 first_key = f"{dir_part}/chunk-000000.{ext_part}"
                 first_path = os.path.join(temp_dir, f"chunk0.{ext_part}")
+                merged_path: str | None = None
                 try:
                     download_object_to_path(bucket_to_use, first_key, first_path)
                     first_size = os.path.getsize(first_path)
@@ -219,9 +220,10 @@ def process_audio_chunk(
                     skip_seconds = probe_duration_seconds(first_path) if first_size else 0.0
                     if skip_seconds <= 0:
                         skip_seconds = DEFAULT_CHUNK_SECONDS
-                    candidate_paths.append((merged_path, skip_seconds))
-                    # As a last resort, try the merged file without seeking, in case timing metadata is off.
-                    candidate_paths.append((merged_path, None))
+                    if merged_path:
+                        candidate_paths.append((merged_path, skip_seconds))
+                        # As a last resort, try the merged file without seeking, in case timing metadata is off.
+                        candidate_paths.append((merged_path, None))
                 except Exception:
                     # If we can't read the first chunk, we'll proceed with the original chunk only.
                     pass

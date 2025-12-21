@@ -42,7 +42,9 @@ def get_s3_client():
 
 def build_object_key(file_name: Optional[str]) -> str:
     suffix = file_name or "upload.bin"
-    return f"uploads/{uuid4().hex}/{suffix}"
+    base = (suffix or "upload.bin").rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    safe_base = "".join(ch for ch in base if ch in SANITIZE_ALLOWED or ch == ".").strip(".") or "upload.bin"
+    return f"uploads/{uuid4().hex}/{safe_base}"
 
 
 def presign_put_object(
