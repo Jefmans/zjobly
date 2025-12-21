@@ -5,10 +5,12 @@ import os
 import boto3
 from botocore.client import BaseClient, Config
 from celery import Celery
+import httpx
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 DEFAULT_MEDIA_BUCKET = os.getenv("MINIO_BUCKET", "media")
+OPENAI_MAX_BYTES = 25 * 1024 * 1024
 
 celery_app = Celery(
     "transcription",
@@ -29,7 +31,7 @@ def get_openai_client() -> OpenAI:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required for transcription")
-        _openai_client = OpenAI(api_key=api_key)
+        _openai_client = OpenAI(api_key=api_key, http_client=httpx.Client(timeout=60, trust_env=False))
     return _openai_client
 
 
@@ -52,6 +54,11 @@ def get_s3_client() -> BaseClient:
 def fetch_media(bucket: str, key: str) -> io.BytesIO:
     s3 = get_s3_client()
     resp = s3.get_object(Bucket=bucket, Key=key)
+    size_bytes = resp.get("ContentLength") or 0
+    if size_bytes <= 0:
+        raise RuntimeError("Object is empty")
+    if size_bytes > OPENAI_MAX_BYTES:
+        raise RuntimeError("Object exceeds OpenAI upload limit")
     body = resp["Body"].read()
     buf = io.BytesIO(body)
     # OpenAI client expects a file-like with a name attribute
@@ -73,9 +80,6 @@ def call_whisper(file_obj: io.BytesIO, language: str | None = None) -> str:
 def transcribe(self, object_key: str, bucket: str | None = None, language: str | None = None) -> dict[str, object]:
     """
     Downloads media from MinIO and calls OpenAI Whisper API.
-    TODO:
-      - Persist transcript to Postgres and/or MinIO.
-      - Publish NLP job with identifiers needed downstream.
     """
     bucket_to_use = bucket or DEFAULT_MEDIA_BUCKET
     try:
