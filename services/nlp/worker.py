@@ -21,10 +21,6 @@ _openai_client: OpenAI | None = None
 def process_document(document_id: str, transcript: str, job_id: str | None = None) -> dict[str, object]:
     """
     Generate a job draft (title/description/keywords) from a transcript.
-    TODO:
-      - Call OpenAI embeddings (e.g., text-embedding-3-large) on transcript.
-      - Upsert dense vector + metadata into Elasticsearch.
-      - Persist generated fields to Postgres as needed.
     """
     draft = generate_job_draft(transcript)
     return {
@@ -41,7 +37,7 @@ def get_openai_client() -> OpenAI:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required for NLP generation")
-        http_client = httpx.Client(trust_env=False)
+        http_client = httpx.Client(timeout=60, trust_env=False)
         _openai_client = OpenAI(api_key=api_key, http_client=http_client)
     return _openai_client
 
