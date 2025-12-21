@@ -42,6 +42,10 @@ export type JobDraft = {
 
 export type LocationSuggestion = {
   location: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  postal_code?: string | null;
 };
 
 const LOCAL_USER_KEY = "zjobly-user-id";

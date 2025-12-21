@@ -55,6 +55,14 @@ const pruneLocationPhrase = (loc: string) => {
   return normalizeLocationText(trimmed.replace(/[;:.]+$/, ''));
 };
 
+const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
+  const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
+    .map((p) => (p || '').trim())
+    .filter(Boolean);
+  const combined = parts.length > 0 ? parts.join(', ') : suggestion.location || '';
+  return pruneLocationPhrase(combined || suggestion.location || '');
+};
+
 // Location is inferred server-side via spaCy; frontend only cleans the returned phrase.
 
 const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
@@ -155,6 +163,7 @@ function App() {
   const locationSuggestionAbortRef = useRef<AbortController | null>(null);
   const lastLocationQueryRef = useRef<string | null>(null);
   const locationSuggestionDisabledRef = useRef(false);
+  const [locationDetails, setLocationDetails] = useState<{ city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null } | null>(null);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -505,6 +514,7 @@ function App() {
     const { name, value } = e.target;
     if (name === 'location') {
       locationManuallySetRef.current = true;
+      setLocationDetails(null);
     }
     setForm((prev) => ({ ...prev, [name]: value }));
     setStatus('idle');
@@ -638,6 +648,7 @@ function App() {
     locationSuggestionAbortRef.current = null;
     lastLocationQueryRef.current = null;
     locationSuggestionDisabledRef.current = false;
+    setLocationDetails(null);
     setTranscriptText('');
     setDraftKeywords([]);
     setDraftingError(null);
@@ -1234,7 +1245,13 @@ function App() {
       try {
         const res = await getLocationFromTranscript(truncated, controller.signal);
         if (controller.signal.aborted) return;
-        const suggestion = pruneLocationPhrase((res?.location || '').trim());
+        const suggestion = formatLocationSuggestion(res || { location: null });
+        setLocationDetails({
+          city: res?.city,
+          region: res?.region,
+          country: res?.country,
+          postal_code: res?.postal_code,
+        });
         const latestLocation = form.location.trim();
         if (!suggestion) return;
         if (locationManuallySetRef.current) return;
