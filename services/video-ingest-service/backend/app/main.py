@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes import accounts
@@ -13,6 +14,15 @@ def create_app() -> FastAPI:
         title="Media API",
         version="0.1.0",
         root_path=settings.API_ROOT_PATH or None,
+    )
+
+    # Allow browser clients (zjobly.com) to call the API directly.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.MEDIA_CORS_ALLOWED_ORIGINS or ["https://zjobly.com", "https://www.zjobly.com"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     @app.get("/health", tags=["system"])
