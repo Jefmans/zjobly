@@ -4,6 +4,7 @@ import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { ScreenLabel } from './components/ScreenLabel';
+import { TopNav } from './components/TopNav';
 import {
   confirmUpload,
   confirmAudioChunk,
@@ -640,8 +641,7 @@ function App() {
     setRoleAndView('candidate');
   };
 
-  const handleRoleSelection = (value: string, navigate: boolean) => {
-    if (value !== 'candidate' && value !== 'employer') return;
+  const handleRoleSelection = (value: UserRole, navigate: boolean) => {
     if (navigate) {
       if (value === 'employer') {
         startCreateFlow();
@@ -651,28 +651,6 @@ function App() {
       return;
     }
     persistRole(value);
-  };
-
-  const renderRoleSelect = (variant: 'nav' | 'welcome') => {
-    const selectId = variant === 'welcome' ? 'welcome-role' : 'nav-role';
-    const navigateOnChange = variant === 'nav';
-
-    return (
-      <div className={variant === 'welcome' ? 'role-switcher welcome' : 'role-switcher'}>
-        <label htmlFor={selectId}>Role</label>
-        <select
-          id={selectId}
-          value={role ?? ''}
-          onChange={(event) => handleRoleSelection(event.target.value, navigateOnChange)}
-        >
-          <option value="" disabled>
-            Choose a role
-          </option>
-          <option value="employer">Employer</option>
-          <option value="candidate">Candidate</option>
-        </select>
-      </div>
-    );
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -940,6 +918,22 @@ function App() {
     setRecordingState('idle');
   };
 
+  const uploadTake = async (take: RecordedTake, fallbackDuration?: number | null) => {
+    setStatus('presigning');
+    const presign = await createUploadUrl(take.file);
+    setStatus('uploading');
+    setUploadProgress(0);
+    await uploadFileToUrl(presign.upload_url, take.file, (percent) => setUploadProgress(percent));
+    setStatus('confirming');
+    const confirmed = await confirmUpload({
+      object_key: presign.object_key,
+      duration_seconds: take.duration ?? fallbackDuration ?? null,
+      source: take.source,
+    });
+    setUploadProgress(100);
+    return { objectKey: confirmed.object_key || presign.object_key };
+  };
+
   const saveVideo = async () => {
     setError(null);
     setUploadProgress(null);
@@ -959,20 +953,7 @@ function App() {
     }
 
     try {
-      setStatus('presigning');
-      const presign = await createUploadUrl(selectedTake.file);
-      setStatus('uploading');
-      setUploadProgress(0);
-      await uploadFileToUrl(presign.upload_url, selectedTake.file, (percent) => setUploadProgress(percent));
-      setStatus('confirming');
-      const confirmed = await confirmUpload({
-        object_key: presign.object_key,
-        duration_seconds: selectedTake.duration ?? videoDuration ?? null,
-        source: selectedTake.source,
-      });
-      setUploadProgress(100);
-
-      const objectKey = confirmed.object_key || presign.object_key;
+      const { objectKey } = await uploadTake(selectedTake, videoDuration);
       setVideoObjectKey(objectKey);
       startProcessingPoll(objectKey);
       setDraftingError(null);
@@ -1023,20 +1004,7 @@ function App() {
     }
 
     try {
-      setStatus('presigning');
-      const presign = await createUploadUrl(selectedTake.file);
-      setStatus('uploading');
-      setUploadProgress(0);
-      await uploadFileToUrl(presign.upload_url, selectedTake.file, (percent) => setUploadProgress(percent));
-      setStatus('confirming');
-      const confirmed = await confirmUpload({
-        object_key: presign.object_key,
-        duration_seconds: selectedTake.duration ?? videoDuration ?? null,
-        source: selectedTake.source,
-      });
-      setUploadProgress(100);
-
-      const objectKey = confirmed.object_key || presign.object_key;
+      const { objectKey } = await uploadTake(selectedTake, videoDuration);
       setCandidateVideoObjectKey(objectKey);
       startProcessingPoll(objectKey);
       setCandidateTranscript('');
@@ -1260,57 +1228,24 @@ function App() {
     setProcessingMessage(null);
   };
 
-  const renderSwitcher = () => {
-    const showEmployerNav = role !== 'candidate';
-    const showCandidateNav = role !== 'employer';
-    const showBack = view !== 'welcome';
-    const showMainNav = view !== 'welcome';
-
-    return (
-      <div className="top-nav">
-        {showBack && (
-          <button type="button" className="link-btn" onClick={backToWelcome}>
-            Back
-          </button>
-        )}
-        <div className="nav-actions">
-          {showMainNav && showEmployerNav && (
-            <button
-              type="button"
-              className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-              onClick={startCreateFlow}
-            >
-              Create Zjob
-            </button>
-          )}
-          {showMainNav && showCandidateNav && (
-            <button
-              type="button"
-              className={`nav-btn ghost ${view === 'find' ? 'active' : ''}`}
-              onClick={startCandidateFlow}
-            >
-              Find Zjob
-            </button>
-          )}
-          <button
-            type="button"
-            className={`nav-btn ghost ${view === 'jobs' ? 'active' : ''}`}
-            onClick={() => setRoleAndView('employer', 'jobs')}
-          >
-            Job list
-          </button>
-          {renderRoleSelect('nav')}
-        </div>
-      </div>
-    );
-  };
+  const nav = (
+    <TopNav
+      view={view}
+      role={role}
+      onBack={backToWelcome}
+      onCreate={startCreateFlow}
+      onFind={startCandidateFlow}
+      onJobs={() => setRoleAndView('employer', 'jobs')}
+      onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
+    />
+  );
 
   return (
     <main className="app-shell">
       <ScreenLabel label={screenLabel} />
       {view === 'welcome' && (
         <>
-          {renderSwitcher()}
+          {nav}
           <section className="hero welcome">
             <p className="tag">Zjobly</p>
             <h1>Choose your next step</h1>
@@ -1329,7 +1264,7 @@ function App() {
 
       <JobCreationFlow
         view={view}
-        nav={renderSwitcher()}
+        nav={nav}
         createStep={createStep}
         form={form}
         transcriptText={transcriptText}
@@ -1373,7 +1308,7 @@ function App() {
 
       <CandidateProfileFlow
         view={view}
-        nav={renderSwitcher()}
+        nav={nav}
         candidateStep={candidateStep}
         goToStep={goToCandidateStep}
         onBackToWelcome={backToWelcome}
@@ -1412,7 +1347,7 @@ function App() {
 
       <JobSeekerFlow
         view={view}
-        nav={renderSwitcher()}
+        nav={nav}
         jobs={jobs}
         jobsLoading={jobsLoading}
         jobsError={jobsError}

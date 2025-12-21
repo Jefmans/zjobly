@@ -51,22 +51,23 @@ const apiBase = () => {
 };
 
 const normalizeUserId = (id: string) => {
-  const clean = id.replace(/[^a-zA-Z0-9]/g, '');
-  if (clean.length >= 32) return clean.slice(0, 32);
-  return (crypto.randomUUID?.().replace(/-/g, '') || `user${Date.now()}`).slice(0, 32);
+  const clean = id.replace(/[^a-zA-Z0-9]/g, "");
+  if (clean) return clean.slice(0, 32);
+  return (crypto.randomUUID?.().replace(/-/g, "") || `user${Date.now()}`).slice(0, 32);
 };
 
 const resolveUserId = (): string => {
-  const envId = (import.meta.env.VITE_USER_ID || '').toString().trim();
+  const envId = (import.meta.env.VITE_USER_ID || "").toString().trim();
   const normalizedEnv = envId ? normalizeUserId(envId) : null;
+  const generateId = () => normalizeUserId(crypto.randomUUID?.() || `user${Date.now()}`);
   try {
     const cached = localStorage.getItem(LOCAL_USER_KEY);
     if (cached) return normalizeUserId(cached);
-    const generated = normalizeUserId(normalizedEnv || crypto.randomUUID?.() || `user${Date.now()}`);
-    localStorage.setItem(LOCAL_USER_KEY, generated);
-    return generated;
+    const resolved = normalizedEnv || generateId();
+    localStorage.setItem(LOCAL_USER_KEY, resolved);
+    return resolved;
   } catch {
-    return normalizeUserId(normalizedEnv || crypto.randomUUID?.() || `user${Date.now()}`);
+    return normalizedEnv || generateId();
   }
 };
 
