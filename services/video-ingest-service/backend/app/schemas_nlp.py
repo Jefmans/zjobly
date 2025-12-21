@@ -22,3 +22,11 @@ class JobDraftFromVideoRequest(BaseModel):
     language: Optional[str] = Field(
         None, description="Optional language/locale hint for the output (e.g., 'en', 'nl-BE')."
     )
+
+
+class LocationFromTranscriptRequest(BaseModel):
+    transcript: str = Field(..., min_length=1, description="Transcript text to infer a location from.")
+
+
+class LocationFromTranscriptResponse(BaseModel):
+    location: Optional[str] = Field(None, description="Best-effort extracted location, or null if not found.")

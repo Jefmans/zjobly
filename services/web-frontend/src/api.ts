@@ -40,6 +40,10 @@ export type JobDraft = {
   transcript?: string;
 };
 
+export type LocationSuggestion = {
+  location: string | null;
+};
+
 const LOCAL_USER_KEY = "zjobly-user-id";
 
 const apiBase = () => {
@@ -173,6 +177,17 @@ export async function generateJobDraftFromVideo(objectKey: string): Promise<JobD
   return requestJson<JobDraft>("/nlp/job-draft-from-video", {
     method: "POST",
     body: JSON.stringify({ object_key: objectKey }),
+  });
+}
+
+export async function getLocationFromTranscript(
+  transcript: string,
+  signal?: AbortSignal,
+): Promise<LocationSuggestion> {
+  return requestJson<LocationSuggestion>("/nlp/location-from-transcript", {
+    method: "POST",
+    body: JSON.stringify({ transcript }),
+    signal,
   });
 }
 

@@ -14,6 +14,7 @@ import {
   createUploadUrl,
   generateJobDraftFromTranscript,
   generateJobDraftFromVideo,
+  getLocationFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
@@ -46,6 +47,40 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
 };
 // Disable chunked audio uploads; record/upload full files only.
 const ENABLE_AUDIO_CHUNKS = false;
+const normalizeLocationText = (loc: string) => loc.replace(/^[\s,]+|[\s,.]+$/g, '').replace(/\s+/g, ' ').trim();
+
+const guessLocationLocally = (text: string): string | null => {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+
+  const remoteMatch = normalized.match(
+    /\bremote\b(?:\s+(?:within|across|in)\s+(?<region>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)?))?/i,
+  );
+  if (remoteMatch) {
+    const region = remoteMatch.groups?.region ? normalizeLocationText(remoteMatch.groups.region) : null;
+    return region ? `Remote (${region})` : 'Remote';
+  }
+
+  const patterns = [
+    /\b(?:based|located|living|live|from|out of|working|work(?:ing)?|hiring|recruiting|role is|position is|job is|onsite|on-site|office|team|teams)\s+(?:in|near|around)\s+(?<loc>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)*)/i,
+    /\b(?:relocating|relocate)\s+to\s+(?<loc>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)*)/i,
+    /\b(?:in|around)\s+(?<loc>[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}),\s*(?<region>[A-Z]{2,}|[A-Z][a-z]+)\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(normalized);
+    if (match?.groups) {
+      const loc = normalizeLocationText(match.groups.loc || '');
+      const region = match.groups.region ? normalizeLocationText(match.groups.region) : '';
+      const combined = region ? `${loc}, ${region}` : loc;
+      if (combined && combined.length >= 3 && combined.length <= 60) {
+        return combined;
+      }
+    }
+  }
+
+  return null;
+};
 
 const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
@@ -141,6 +176,9 @@ function App() {
   const liveStreamRef = useRef<MediaStream | null>(null);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
   const takeUrlsRef = useRef<Set<string>>(new Set());
+  const locationManuallySetRef = useRef(false);
+  const locationSuggestionAbortRef = useRef<AbortController | null>(null);
+  const lastLocationQueryRef = useRef<string | null>(null);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -489,6 +527,9 @@ function App() {
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    if (name === 'location') {
+      locationManuallySetRef.current = true;
+    }
     setForm((prev) => ({ ...prev, [name]: value }));
     setStatus('idle');
     setUploadProgress(null);
@@ -616,6 +657,10 @@ function App() {
     resetRecordTimer();
     setRecordingState('idle');
     setForm(() => ({ ...INITIAL_FORM_STATE }));
+    locationManuallySetRef.current = false;
+    locationSuggestionAbortRef.current?.abort();
+    locationSuggestionAbortRef.current = null;
+    lastLocationQueryRef.current = null;
     setTranscriptText('');
     setDraftKeywords([]);
     setDraftingError(null);
@@ -1189,6 +1234,53 @@ function App() {
       setAutoTranscriptSessionId(sessionId);
     }
   }, [selectedTake?.audioSessionId, audioSessionTranscripts, transcriptText, autoTranscriptSessionId]);
+
+  useEffect(() => {
+    const guess = guessLocationLocally(transcriptText);
+    const currentLocation = form.location.trim();
+    if (!guess || !transcriptText.trim()) return;
+    if (locationManuallySetRef.current) return;
+    if (currentLocation && currentLocation.toLowerCase() === guess.toLowerCase()) return;
+    if (currentLocation) return;
+    setForm((prev) => ({ ...prev, location: guess }));
+  }, [transcriptText, form.location]);
+
+  useEffect(() => {
+    const text = transcriptText.trim();
+    const currentLocation = form.location.trim();
+    if (!text) {
+      locationSuggestionAbortRef.current?.abort();
+      lastLocationQueryRef.current = null;
+      return;
+    }
+    if (locationManuallySetRef.current) return;
+    const truncated = text.slice(0, 8000);
+    if (lastLocationQueryRef.current === truncated) return;
+
+    const controller = new AbortController();
+    locationSuggestionAbortRef.current?.abort();
+    locationSuggestionAbortRef.current = controller;
+    lastLocationQueryRef.current = truncated;
+
+    void (async () => {
+      try {
+        const res = await getLocationFromTranscript(truncated, controller.signal);
+        if (controller.signal.aborted) return;
+        const suggestion = (res?.location || '').trim();
+        const latestLocation = form.location.trim();
+        if (!suggestion) return;
+        if (locationManuallySetRef.current) return;
+        if (latestLocation && latestLocation.toLowerCase() === suggestion.toLowerCase()) return;
+        if (latestLocation) return;
+        setForm((prev) => ({ ...prev, location: suggestion }));
+      } catch (err) {
+        if ((err as any)?.name === 'AbortError') return;
+        console.error('Location suggestion failed', err);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [transcriptText, form.location]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);

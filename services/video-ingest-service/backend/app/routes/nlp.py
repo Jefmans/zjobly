@@ -9,11 +9,21 @@ from openai import OpenAI
 
 from app import storage
 from app.config import settings
-from app.schemas_nlp import JobDraftFromVideoRequest, JobDraftRequest, JobDraftResponse
+import spacy
+from spacy.language import Language
+
+from app.schemas_nlp import (
+    JobDraftFromVideoRequest,
+    JobDraftRequest,
+    JobDraftResponse,
+    LocationFromTranscriptRequest,
+    LocationFromTranscriptResponse,
+)
 
 router = APIRouter(prefix="/nlp", tags=["nlp"])
 
 _openai_client: OpenAI | None = None
+_spacy_nlp: Language | None = None
 
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
 
@@ -28,6 +38,36 @@ def get_openai_client() -> OpenAI:
         http_client = httpx.Client(trust_env=False)
         _openai_client = OpenAI(api_key=api_key, http_client=http_client)
     return _openai_client
+
+
+def get_spacy_nlp() -> Language:
+    global _spacy_nlp
+    if _spacy_nlp is not None:
+        return _spacy_nlp
+
+    model_name = settings.SPACY_MODEL or "en_core_web_sm"
+    try:
+        _spacy_nlp = spacy.load(model_name)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail="spaCy model not available. Check SPACY_MODEL and dependencies."
+        ) from exc
+    return _spacy_nlp
+
+
+def _clean_location(text: str) -> str:
+    return " ".join(text.split()).strip(",. ")
+
+
+def _extract_location_spacy(text: str) -> str | None:
+    nlp = get_spacy_nlp()
+    doc = nlp(text)
+    for ent in doc.ents:
+        if ent.label_ in ("GPE", "LOC"):
+            guess = _clean_location(ent.text)
+            if 2 <= len(guess) <= 60:
+                return guess
+    return None
 
 
 SYSTEM_PROMPT = (
@@ -146,6 +186,23 @@ def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftRes
         raise HTTPException(status_code=500, detail="Missing title or description in the generated draft")
 
     return JobDraftResponse(title=title, description=description, keywords=keywords)
+
+
+@router.post("/location-from-transcript", response_model=LocationFromTranscriptResponse)
+def location_from_transcript(payload: LocationFromTranscriptRequest) -> LocationFromTranscriptResponse:
+    text = (payload.transcript or "").strip()
+    if not text:
+        return LocationFromTranscriptResponse(location=None)
+
+    transcript_snippet = text[:8000]
+    try:
+        location = _extract_location_spacy(transcript_snippet)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
+
+    return LocationFromTranscriptResponse(location=location)
 
 
 @router.post("/job-draft", response_model=JobDraftResponse)
