@@ -276,14 +276,13 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
 
-    components = _split_location_parts(location) if location else {"location": None}
     geo = _geocode_location(location) if location else {"city": None, "region": None, "country": None, "postal_code": None}
     return LocationFromTranscriptResponse(
         location=location,
-        city=geo.get("city") or components.get("city"),
-        region=geo.get("region") or components.get("region"),
-        country=geo.get("country") or components.get("country"),
-        postal_code=geo.get("postal_code") or components.get("postal_code"),
+        city=geo.get("city"),
+        region=geo.get("region"),
+        country=geo.get("country"),
+        postal_code=geo.get("postal_code"),
     )
 
 
