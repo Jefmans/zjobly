@@ -214,8 +214,8 @@ def process_audio_chunk(
                         with open(merged_path, "wb") as merged, open(first_path, "rb") as head, open(
                             input_path, "rb"
                         ) as chunk:
-                        merged.write(head.read())
-                        merged.write(chunk.read())
+                            merged.write(head.read())
+                            merged.write(chunk.read())
                     skip_seconds = probe_duration_seconds(first_path) if first_size else 0.0
                     if skip_seconds <= 0:
                         skip_seconds = DEFAULT_CHUNK_SECONDS
