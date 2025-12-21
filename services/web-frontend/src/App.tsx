@@ -48,6 +48,12 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
 // Disable chunked audio uploads; record/upload full files only.
 const ENABLE_AUDIO_CHUNKS = false;
 const normalizeLocationText = (loc: string) => loc.replace(/^[\s,]+|[\s,.]+$/g, '').replace(/\s+/g, ' ').trim();
+const pruneLocationPhrase = (loc: string) => {
+  const stop = /\b(?:and|with|for|that|which|working|teams?|role|position|job|opening|openings|hiring|seeking|candidates?|opportunity|opportunities)\b/i;
+  const match = stop.exec(loc);
+  const trimmed = match && match.index > 2 ? loc.slice(0, match.index) : loc;
+  return normalizeLocationText(trimmed.replace(/[;:.]+$/, ''));
+};
 
 const guessLocationLocally = (text: string): string | null => {
   const normalized = text.replace(/\s+/g, ' ').trim();
@@ -58,7 +64,8 @@ const guessLocationLocally = (text: string): string | null => {
   );
   if (remoteMatch) {
     const region = remoteMatch.groups?.region ? normalizeLocationText(remoteMatch.groups.region) : null;
-    return region ? `Remote (${region})` : 'Remote';
+    const remoteLoc = region ? `Remote (${region})` : 'Remote';
+    return pruneLocationPhrase(remoteLoc) || remoteLoc;
   }
 
   const locPattern =
@@ -78,7 +85,7 @@ const guessLocationLocally = (text: string): string | null => {
     if (match?.groups) {
       const loc = normalizeLocationText(match.groups.loc || '');
       const region = match.groups.region ? normalizeLocationText(match.groups.region) : '';
-      const combined = region ? `${loc}, ${region}` : loc;
+      const combined = pruneLocationPhrase(region ? `${loc}, ${region}` : loc);
       if (combined && combined.length >= 3 && combined.length <= 60) {
         return combined;
       }
@@ -1275,7 +1282,7 @@ function App() {
       try {
         const res = await getLocationFromTranscript(truncated, controller.signal);
         if (controller.signal.aborted) return;
-        const suggestion = (res?.location || '').trim();
+        const suggestion = pruneLocationPhrase((res?.location || '').trim());
         const latestLocation = form.location.trim();
         if (!suggestion) return;
         if (locationManuallySetRef.current) return;
