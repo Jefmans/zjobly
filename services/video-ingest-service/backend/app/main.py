@@ -17,11 +17,12 @@ def create_app() -> FastAPI:
         root_path=settings.API_ROOT_PATH or None,
     )
 
-    # Allow browser clients (zjobly.com) to call the API directly.
+    # Allow browser clients to call the API directly (default to permissive CORS to avoid prod/preprod mismatches).
     allowed_origins = settings.MEDIA_CORS_ALLOWED_ORIGINS or ["*"]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
+        allow_origin_regex=".*",
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
@@ -35,9 +36,13 @@ def create_app() -> FastAPI:
         """
         response: Response = await call_next(request)
         origin = request.headers.get("origin")
-        if origin and ("*" in allowed_origins or origin in allowed_origins):
-            response.headers.setdefault("Access-Control-Allow-Origin", origin if origin != "*" else "*")
+        if origin:
+            response.headers.setdefault("Access-Control-Allow-Origin", origin)
             response.headers.setdefault("Vary", "Origin")
+            response.headers.setdefault("Access-Control-Allow-Headers", "*")
+            response.headers.setdefault("Access-Control-Allow-Methods", "*")
+        else:
+            response.headers.setdefault("Access-Control-Allow-Origin", "*")
             response.headers.setdefault("Access-Control-Allow-Headers", "*")
             response.headers.setdefault("Access-Control-Allow-Methods", "*")
         return response
