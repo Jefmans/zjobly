@@ -73,8 +73,11 @@ def _extract_location_components_spacy(text: str) -> dict[str, str | None]:
         "postal_code": None,
     }
 
-    nlp = get_spacy_nlp()
-    doc = nlp(text)
+    try:
+        nlp = get_spacy_nlp()
+        doc = nlp(text)
+    except Exception:
+        return parts
     entities: list[str] = []
     for ent in doc.ents:
         if ent.label_ in ("GPE", "LOC"):
@@ -269,19 +272,10 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
         return LocationFromTranscriptResponse(location=None)
 
     transcript_snippet = text[:8000]
-    try:
-        location = _extract_location_spacy(transcript_snippet)
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
-
     components_spacy = _extract_location_components_spacy(transcript_snippet)
     location = components_spacy.get("location")
-    # If spaCy only yielded a single string, try to split it further
     components_split = _split_location_parts(location) if location else {"location": None}
 
-    # Prefer spaCy-derived components; fall back to split heuristics
     components = {
         "location": location,
         "city": components_spacy.get("city") or components_split.get("city"),
