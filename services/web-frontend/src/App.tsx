@@ -43,6 +43,7 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   summary: '',
   discoverable: true,
 };
+const ENABLE_AUDIO_CHUNKS = false;
 
 const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
@@ -300,6 +301,7 @@ function App() {
   };
 
   const queueAudioChunkUpload = (sessionId: string, chunkIndex: number, blob: Blob, mimeType: string) => {
+    if (!ENABLE_AUDIO_CHUNKS) return;
     const ext = audioExtensionFromMime(mimeType || blob.type || 'audio/webm');
     const fileName = `chunk-${chunkIndex.toString().padStart(6, '0')}.${ext}`;
     const chunkFile = new File([blob], fileName, { type: mimeType || blob.type || 'audio/webm' });
@@ -781,10 +783,10 @@ function App() {
     if (!stream) return;
 
     try {
-      // Prep audio streaming for faster transcripts
+      // Prep audio streaming (disabled when chunking is off)
       const audioTracks = stream.getAudioTracks();
       const audioMime = pickAudioMimeType();
-      const sessionId = audioTracks.length ? makeAudioSessionId() : null;
+      const sessionId = ENABLE_AUDIO_CHUNKS && audioTracks.length ? makeAudioSessionId() : null;
       if (sessionId) {
         audioSessionIdRef.current = sessionId;
         audioChunkIndexRef.current = 0;
@@ -838,7 +840,7 @@ function App() {
           duration: finalDuration,
           label: `Take ${takeIndex}`,
           source: 'recording',
-          audioSessionId: audioSessionIdRef.current || undefined,
+          audioSessionId: ENABLE_AUDIO_CHUNKS ? audioSessionIdRef.current || undefined : undefined,
         };
         takeUrlsRef.current.add(objectUrl);
         setRecordedTakes((prev) => [take, ...prev]);
@@ -849,7 +851,7 @@ function App() {
         setRecordingState('idle');
       };
 
-      if (sessionId && audioTracks.length) {
+      if (sessionId && audioTracks.length && ENABLE_AUDIO_CHUNKS) {
         try {
           const audioStream = new MediaStream(audioTracks);
           const audioRecorder = audioMime ? new MediaRecorder(audioStream, { mimeType: audioMime }) : new MediaRecorder(audioStream);
@@ -923,7 +925,11 @@ function App() {
       syncRecordElapsed();
       mediaRecorderRef.current.stop();
     }
-    if (audioRecorderRef.current && (audioRecorderRef.current.state === 'recording' || audioRecorderRef.current.state === 'paused')) {
+    if (
+      ENABLE_AUDIO_CHUNKS &&
+      audioRecorderRef.current &&
+      (audioRecorderRef.current.state === 'recording' || audioRecorderRef.current.state === 'paused')
+    ) {
       audioRecorderRef.current.stop();
     }
     setRecordingState('idle');
