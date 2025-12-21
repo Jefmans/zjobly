@@ -54,17 +54,23 @@ const guessLocationLocally = (text: string): string | null => {
   if (!normalized) return null;
 
   const remoteMatch = normalized.match(
-    /\bremote\b(?:\s+(?:within|across|in)\s+(?<region>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)?))?/i,
+    /\bremote\b(?:\s+(?:within|across|in)\s+(?<region>(?:the\s+)?[A-Za-z][\w]+(?:[ -][A-Za-z][\w]+){0,2}(?:,\s*[A-Za-z][\w]+)?))?/i,
   );
   if (remoteMatch) {
     const region = remoteMatch.groups?.region ? normalizeLocationText(remoteMatch.groups.region) : null;
     return region ? `Remote (${region})` : 'Remote';
   }
 
+  const locPattern =
+    /(?:the\s+)?[A-Za-z][\w]+(?:[ -][A-Za-z][\w]+){0,3}(?:,\s*[A-Za-z][\w]+)?/;
+
   const patterns = [
-    /\b(?:based|located|living|live|from|out of|working|work(?:ing)?|hiring|recruiting|role is|position is|job is|onsite|on-site|office|team|teams)\s+(?:in|near|around)\s+(?<loc>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)*)/i,
-    /\b(?:relocating|relocate)\s+to\s+(?<loc>(?:the\s+)?[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}(?:,\s*[A-Z][\w]+)*)/i,
-    /\b(?:in|around)\s+(?<loc>[A-Z][\w]+(?:[ -][A-Z][\w]+){0,2}),\s*(?<region>[A-Z]{2,}|[A-Z][a-z]+)\b/i,
+    new RegExp(
+      `\\b(?:based|located|living|live|from|out of|working|work(?:ing)?|hiring|recruiting|role is|position is|job is|onsite|on-site|office|team|teams)\\s+(?:in|at|near|around)\\s+(?<loc>${locPattern.source})`,
+      'i',
+    ),
+    new RegExp(`\\b(?:relocating|relocate)\\s+to\\s+(?<loc>${locPattern.source})`, 'i'),
+    new RegExp(`\\b(?:in|at|around)\\s+(?<loc>${locPattern.source})(?:,\\s*(?<region>[A-Za-z]{2,}|[A-Za-z][a-z]+))?\\b`, 'i'),
   ];
 
   for (const pattern of patterns) {
