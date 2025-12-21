@@ -55,45 +55,7 @@ const pruneLocationPhrase = (loc: string) => {
   return normalizeLocationText(trimmed.replace(/[;:.]+$/, ''));
 };
 
-const guessLocationLocally = (text: string): string | null => {
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (!normalized) return null;
-
-  const remoteMatch = normalized.match(
-    /\bremote\b(?:\s+(?:within|across|in)\s+(?<region>(?:the\s+)?[A-Za-z][\w]+(?:[ -][A-Za-z][\w]+){0,2}(?:,\s*[A-Za-z][\w]+)?))?/i,
-  );
-  if (remoteMatch) {
-    const region = remoteMatch.groups?.region ? normalizeLocationText(remoteMatch.groups.region) : null;
-    const remoteLoc = region ? `Remote (${region})` : 'Remote';
-    return pruneLocationPhrase(remoteLoc) || remoteLoc;
-  }
-
-  const locPattern =
-    /(?:the\s+)?[A-Za-z][\w]+(?:[ -][A-Za-z][\w]+){0,3}(?:,\s*[A-Za-z][\w]+)?/;
-
-  const patterns = [
-    new RegExp(
-      `\\b(?:based|located|living|live|from|out of|working|work(?:ing)?|hiring|recruiting|role is|position is|job is|onsite|on-site|office|team|teams)\\s+(?:in|at|near|around)\\s+(?<loc>${locPattern.source})`,
-      'i',
-    ),
-    new RegExp(`\\b(?:relocating|relocate)\\s+to\\s+(?<loc>${locPattern.source})`, 'i'),
-    new RegExp(`\\b(?:in|at|around)\\s+(?<loc>${locPattern.source})(?:,\\s*(?<region>[A-Za-z]{2,}|[A-Za-z][a-z]+))?\\b`, 'i'),
-  ];
-
-  for (const pattern of patterns) {
-    const match = pattern.exec(normalized);
-    if (match?.groups) {
-      const loc = normalizeLocationText(match.groups.loc || '');
-      const region = match.groups.region ? normalizeLocationText(match.groups.region) : '';
-      const combined = pruneLocationPhrase(region ? `${loc}, ${region}` : loc);
-      if (combined && combined.length >= 3 && combined.length <= 60) {
-        return combined;
-      }
-    }
-  }
-
-  return null;
-};
+// Location is inferred server-side via spaCy; frontend only cleans the returned phrase.
 
 const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
   if (view === 'welcome') return 'Screen:Welcome';
@@ -1249,16 +1211,6 @@ function App() {
       setAutoTranscriptSessionId(sessionId);
     }
   }, [selectedTake?.audioSessionId, audioSessionTranscripts, transcriptText, autoTranscriptSessionId]);
-
-  useEffect(() => {
-    const guess = guessLocationLocally(transcriptText);
-    const currentLocation = form.location.trim();
-    if (!guess || !transcriptText.trim()) return;
-    if (locationManuallySetRef.current) return;
-    if (currentLocation && currentLocation.toLowerCase() === guess.toLowerCase()) return;
-    if (currentLocation) return;
-    setForm((prev) => ({ ...prev, location: guess }));
-  }, [transcriptText, form.location]);
 
   useEffect(() => {
     const text = transcriptText.trim();
