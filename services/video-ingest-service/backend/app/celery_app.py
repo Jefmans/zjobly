@@ -161,9 +161,29 @@ def process_audio_chunk(
             if size_bytes == 0:
                 raise ValueError("Audio chunk is empty after download.")
 
+            # If this is not the first chunk, try to prepend the first chunk bytes to restore headers for ffmpeg.
+            merged_path = input_path
+            if chunk_index > 0:
+                dir_part = object_key.rsplit("/", 1)[0]
+                ext_part = (ext or "").lstrip(".") or "webm"
+                first_key = f"{dir_part}/chunk-000000.{ext_part}"
+                first_path = os.path.join(temp_dir, f"chunk0.{ext_part}")
+                try:
+                    download_object_to_path(bucket_to_use, first_key, first_path)
+                    if os.path.getsize(first_path) > 0:
+                        merged_path = os.path.join(temp_dir, f"merged.{ext_part}")
+                        with open(merged_path, "wb") as merged, open(first_path, "rb") as head, open(
+                            input_path, "rb"
+                        ) as chunk:
+                            merged.write(head.read())
+                            merged.write(chunk.read())
+                except Exception:
+                    # If we can't fetch the first chunk, fall back to the current chunk as-is.
+                    merged_path = input_path
+
             # Normalize every chunk to a standalone audio file to avoid container/header issues.
             normalized_path = os.path.join(temp_dir, "audio.mp3")
-            transcode_to_audio(input_path, normalized_path)
+            transcode_to_audio(merged_path, normalized_path)
             normalized_size = os.path.getsize(normalized_path)
             if normalized_size == 0:
                 raise ValueError("Audio chunk is empty after transcoding.")
