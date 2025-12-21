@@ -179,6 +179,7 @@ function App() {
   const locationManuallySetRef = useRef(false);
   const locationSuggestionAbortRef = useRef<AbortController | null>(null);
   const lastLocationQueryRef = useRef<string | null>(null);
+  const locationSuggestionDisabledRef = useRef(false);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -661,6 +662,7 @@ function App() {
     locationSuggestionAbortRef.current?.abort();
     locationSuggestionAbortRef.current = null;
     lastLocationQueryRef.current = null;
+    locationSuggestionDisabledRef.current = false;
     setTranscriptText('');
     setDraftKeywords([]);
     setDraftingError(null);
@@ -1254,6 +1256,7 @@ function App() {
       return;
     }
     if (locationManuallySetRef.current) return;
+    if (locationSuggestionDisabledRef.current) return;
     const truncated = text.slice(0, 8000);
     if (lastLocationQueryRef.current === truncated) return;
 
@@ -1275,6 +1278,11 @@ function App() {
         setForm((prev) => ({ ...prev, location: suggestion }));
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
+        const message = (err as Error)?.message?.toLowerCase?.() || '';
+        if (message.includes('not found') || message.includes('404')) {
+          locationSuggestionDisabledRef.current = true;
+          return;
+        }
         console.error('Location suggestion failed', err);
       }
     })();
