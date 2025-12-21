@@ -30,3 +30,7 @@ class LocationFromTranscriptRequest(BaseModel):
 
 class LocationFromTranscriptResponse(BaseModel):
     location: Optional[str] = Field(None, description="Best-effort extracted location, or null if not found.")
+    city: Optional[str] = Field(None, description="City extracted from the location text, if available.")
+    region: Optional[str] = Field(None, description="Region/state extracted from the location text, if available.")
+    country: Optional[str] = Field(None, description="Country extracted from the location text, if available.")
+    postal_code: Optional[str] = Field(None, description="Postal/ZIP code extracted from the location text, if available.")
