@@ -161,8 +161,9 @@ def process_audio_chunk(
             if size_bytes == 0:
                 raise ValueError("Audio chunk is empty after download.")
 
-            # If this is not the first chunk, try to prepend the first chunk bytes to restore headers for ffmpeg.
-            merged_path = input_path
+            # Attempt to transcode the chunk as-is; if that fails for later chunks, try with chunk0 prepended
+            # to restore container headers for formats that omit them in timesliced blobs.
+            candidate_paths: list[str] = [input_path]
             if chunk_index > 0:
                 dir_part = object_key.rsplit("/", 1)[0]
                 ext_part = (ext or "").lstrip(".") or "webm"
@@ -177,30 +178,29 @@ def process_audio_chunk(
                         ) as chunk:
                             merged.write(head.read())
                             merged.write(chunk.read())
+                        candidate_paths.append(merged_path)
                 except Exception:
-                    # If we can't fetch the first chunk, fall back to the current chunk as-is.
-                    merged_path = input_path
+                    # If we can't read the first chunk, we'll proceed with the original chunk only.
+                    pass
 
-            # Normalize every chunk to a standalone audio file to avoid container/header issues.
             normalized_path = os.path.join(temp_dir, "audio.mp3")
-            transcode_to_audio(merged_path, normalized_path)
-            normalized_size = os.path.getsize(normalized_path)
-            if normalized_size == 0:
-                raise ValueError("Audio chunk is empty after transcoding.")
-            if normalized_size > OPENAI_MAX_BYTES:
-                raise ValueError("Audio chunk exceeds OpenAI upload limit.")
+            transcribed = False
+            for candidate in candidate_paths:
+                try:
+                    transcode_to_audio(candidate, normalized_path)
+                except Exception:
+                    continue
+                normalized_size = os.path.getsize(normalized_path)
+                if normalized_size == 0:
+                    continue
+                if normalized_size > OPENAI_MAX_BYTES:
+                    raise ValueError("Audio chunk exceeds OpenAI upload limit.")
+                transcript = call_whisper(normalized_path)
+                transcribed = True
+                break
 
-            # Replace the stored chunk with the normalized audio so it is playable.
-            s3 = storage.get_s3_client()
-            with open(normalized_path, "rb") as norm_obj:
-                s3.upload_fileobj(
-                    norm_obj,
-                    bucket_to_use,
-                    object_key,
-                    ExtraArgs={"ContentType": "audio/mpeg"},
-                )
-
-            transcript = call_whisper(normalized_path)
+            if not transcribed:
+                raise RuntimeError("Could not transcode audio chunk for transcription.")
 
         transcript_key = storage.build_audio_transcript_object_key(session_id, chunk_index)
         storage.put_text_object(bucket_to_use, transcript_key, transcript)
