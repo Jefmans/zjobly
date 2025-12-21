@@ -47,7 +47,12 @@ def download_object_to_path(bucket: str, object_key: str, dest_path: str) -> Non
         s3.download_fileobj(bucket, object_key, file_obj)
 
 
-def transcode_to_audio(input_path: str, output_path: str, start_time: float | None = None) -> None:
+def transcode_to_audio(
+    input_path: str,
+    output_path: str,
+    start_time: float | None = None,
+    duration: float | None = None,
+) -> None:
     command = [
         "ffmpeg",
         "-y",
@@ -61,6 +66,7 @@ def transcode_to_audio(input_path: str, output_path: str, start_time: float | No
         "16000",
         "-b:a",
         "64k",
+        *(["-t", f"{duration:.3f}"] if duration and duration > 0 else []),
         output_path,
     ]
     result = subprocess.run(
@@ -222,7 +228,12 @@ def process_audio_chunk(
             transcribed = False
             for candidate, start_time in candidate_paths:
                 try:
-                    transcode_to_audio(candidate, normalized_path, start_time=start_time)
+                    transcode_to_audio(
+                        candidate,
+                        normalized_path,
+                        start_time=start_time,
+                        duration=DEFAULT_CHUNK_SECONDS + 0.5 if start_time else None,
+                    )
                 except Exception:
                     continue
                 normalized_size = os.path.getsize(normalized_path)
