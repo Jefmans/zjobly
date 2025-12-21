@@ -1,6 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 
 from app.config import settings
 from app.routes import accounts
@@ -26,6 +27,20 @@ def create_app() -> FastAPI:
         expose_headers=["*"],
         allow_credentials=False,
     )
+
+    @app.middleware("http")
+    async def add_cors_headers(request, call_next):
+        """
+        Final safeguard to ensure CORS headers are present even on error responses.
+        """
+        response: Response = await call_next(request)
+        origin = request.headers.get("origin")
+        if origin and ("*" in allowed_origins or origin in allowed_origins):
+            response.headers.setdefault("Access-Control-Allow-Origin", origin if origin != "*" else "*")
+            response.headers.setdefault("Vary", "Origin")
+            response.headers.setdefault("Access-Control-Allow-Headers", "*")
+            response.headers.setdefault("Access-Control-Allow-Methods", "*")
+        return response
 
     @app.get("/health", tags=["system"])
     async def health() -> dict:
