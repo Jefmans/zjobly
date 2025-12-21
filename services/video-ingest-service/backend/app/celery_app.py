@@ -46,10 +46,11 @@ def download_object_to_path(bucket: str, object_key: str, dest_path: str) -> Non
         s3.download_fileobj(bucket, object_key, file_obj)
 
 
-def transcode_to_audio(input_path: str, output_path: str) -> None:
+def transcode_to_audio(input_path: str, output_path: str, start_time: float | None = None) -> None:
     command = [
         "ffmpeg",
         "-y",
+        *(["-ss", f"{start_time:.3f}"] if start_time and start_time > 0 else []),
         "-i",
         input_path,
         "-vn",
@@ -71,6 +72,35 @@ def transcode_to_audio(input_path: str, output_path: str) -> None:
     if result.returncode != 0:
         snippet = (result.stderr or "").strip()[-400:]
         raise RuntimeError(f"ffmpeg failed to extract audio: {snippet}")
+
+
+def probe_duration_seconds(path: str) -> float:
+    """
+    Probe media duration using ffprobe; returns 0.0 on failure.
+    """
+    command = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+    ]
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return 0.0
+    try:
+        return float((result.stdout or "").strip())
+    except ValueError:
+        return 0.0
 
 
 def call_whisper(file_path: str) -> str:
@@ -163,7 +193,7 @@ def process_audio_chunk(
 
             # Attempt to transcode the chunk as-is; if that fails for later chunks, try with chunk0 prepended
             # to restore container headers for formats that omit them in timesliced blobs.
-            candidate_paths: list[str] = [input_path]
+            candidate_paths: list[tuple[str, float | None]] = [(input_path, None)]
             if chunk_index > 0:
                 dir_part = object_key.rsplit("/", 1)[0]
                 ext_part = (ext or "").lstrip(".") or "webm"
@@ -171,23 +201,25 @@ def process_audio_chunk(
                 first_path = os.path.join(temp_dir, f"chunk0.{ext_part}")
                 try:
                     download_object_to_path(bucket_to_use, first_key, first_path)
-                    if os.path.getsize(first_path) > 0:
+                    first_size = os.path.getsize(first_path)
+                    if first_size > 0:
                         merged_path = os.path.join(temp_dir, f"merged.{ext_part}")
                         with open(merged_path, "wb") as merged, open(first_path, "rb") as head, open(
                             input_path, "rb"
                         ) as chunk:
                             merged.write(head.read())
                             merged.write(chunk.read())
-                        candidate_paths.append(merged_path)
+                        skip_seconds = probe_duration_seconds(first_path) if first_size else 0.0
+                        candidate_paths.append((merged_path, skip_seconds if skip_seconds > 0 else None))
                 except Exception:
                     # If we can't read the first chunk, we'll proceed with the original chunk only.
                     pass
 
             normalized_path = os.path.join(temp_dir, "audio.mp3")
             transcribed = False
-            for candidate in candidate_paths:
+            for candidate, start_time in candidate_paths:
                 try:
-                    transcode_to_audio(candidate, normalized_path)
+                    transcode_to_audio(candidate, normalized_path, start_time=start_time)
                 except Exception:
                     continue
                 normalized_size = os.path.getsize(normalized_path)
