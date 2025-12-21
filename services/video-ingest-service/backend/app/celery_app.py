@@ -22,6 +22,7 @@ celery_app.conf.task_default_queue = "media"
 
 _openai_client: Optional[OpenAI] = None
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
+DEFAULT_CHUNK_SECONDS = 5.0
 
 
 def get_openai_client() -> OpenAI:
@@ -210,7 +211,9 @@ def process_audio_chunk(
                             merged.write(head.read())
                             merged.write(chunk.read())
                         skip_seconds = probe_duration_seconds(first_path) if first_size else 0.0
-                        candidate_paths.append((merged_path, skip_seconds if skip_seconds > 0 else None))
+                        if skip_seconds <= 0:
+                            skip_seconds = DEFAULT_CHUNK_SECONDS
+                        candidate_paths.append((merged_path, skip_seconds))
                 except Exception:
                     # If we can't read the first chunk, we'll proceed with the original chunk only.
                     pass
