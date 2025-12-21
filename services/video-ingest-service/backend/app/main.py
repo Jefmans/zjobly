@@ -17,12 +17,14 @@ def create_app() -> FastAPI:
     )
 
     # Allow browser clients (zjobly.com) to call the API directly.
+    allowed_origins = settings.MEDIA_CORS_ALLOWED_ORIGINS or ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.MEDIA_CORS_ALLOWED_ORIGINS or ["https://zjobly.com", "https://www.zjobly.com"],
+        allow_origins=allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
+        allow_credentials=False,
     )
 
     @app.get("/health", tags=["system"])
