@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import tempfile
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -106,6 +107,41 @@ def _split_location_parts(location: str) -> dict[str, str | None]:
         parts["region"] = tokens[-2]
 
     return parts
+
+
+def _geocode_location(location: str) -> dict[str, Optional[str]]:
+    """
+    Best-effort geocode using Nominatim (OpenStreetMap). Keeps this optional and fails soft.
+    """
+    result = {"city": None, "region": None, "country": None, "postal_code": None}
+    if not location:
+        return result
+    try:
+        resp = httpx.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"format": "json", "limit": 1, "q": location},
+            headers={"User-Agent": "zjobly-media-api/0.1"},
+            timeout=4.0,
+        )
+        if resp.status_code != 200:
+            return result
+        data = resp.json()
+        if not isinstance(data, list) or not data:
+            return result
+        address = data[0].get("address") or {}
+        result["city"] = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("hamlet")
+            or address.get("municipality")
+        )
+        result["region"] = address.get("state") or address.get("region") or address.get("county")
+        result["country"] = address.get("country")
+        result["postal_code"] = address.get("postcode")
+        return result
+    except Exception:
+        return result
 
 
 SYSTEM_PROMPT = (
@@ -241,12 +277,13 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
         raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
 
     components = _split_location_parts(location) if location else {"location": None}
+    geo = _geocode_location(location) if location else {"city": None, "region": None, "country": None, "postal_code": None}
     return LocationFromTranscriptResponse(
         location=location,
-        city=components.get("city"),
-        region=components.get("region"),
-        country=components.get("country"),
-        postal_code=components.get("postal_code"),
+        city=geo.get("city") or components.get("city"),
+        region=geo.get("region") or components.get("region"),
+        country=geo.get("country") or components.get("country"),
+        postal_code=geo.get("postal_code") or components.get("postal_code"),
     )
 
 
