@@ -43,6 +43,7 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   summary: '',
   discoverable: true,
 };
+// Disable chunked audio uploads; record/upload full files only.
 const ENABLE_AUDIO_CHUNKS = false;
 
 const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
@@ -120,6 +121,8 @@ function App() {
   const [audioSessionStatuses, setAudioSessionStatuses] = useState<Record<string, 'pending' | 'partial' | 'final'>>({});
   const [pendingDraftSessionId, setPendingDraftSessionId] = useState<string | null>(null);
   const [autoTranscriptSessionId, setAutoTranscriptSessionId] = useState<string | null>(null);
+  const [candidateTranscript, setCandidateTranscript] = useState<string>('');
+  const [candidateTranscriptStatus, setCandidateTranscriptStatus] = useState<'pending' | 'final' | undefined>(undefined);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -582,6 +585,8 @@ function App() {
     setVideoDuration(null);
     setVideoObjectKey(null);
     setCandidateVideoObjectKey(null);
+    setCandidateTranscript('');
+    setCandidateTranscriptStatus(undefined);
     setSelectedTakeId(null);
     setUploadProgress(null);
     setStatus('idle');
@@ -1034,6 +1039,20 @@ function App() {
       const objectKey = confirmed.object_key || presign.object_key;
       setCandidateVideoObjectKey(objectKey);
       startProcessingPoll(objectKey);
+      setCandidateTranscript('');
+      setCandidateTranscriptStatus('pending');
+      try {
+        const draft = await generateJobDraftFromVideo(objectKey);
+        if (draft?.transcript) {
+          setCandidateTranscript(draft.transcript);
+          setCandidateTranscriptStatus('final');
+        } else {
+          setCandidateTranscriptStatus(undefined);
+        }
+      } catch (err) {
+        console.error('Could not fetch transcript for candidate video', err);
+        setCandidateTranscriptStatus(undefined);
+      }
       setCandidateValidation(false);
       setCandidateStep('profile');
     } catch (err) {
@@ -1380,6 +1399,8 @@ function App() {
         processingMessage={processingMessage}
         audioSessionTranscripts={audioSessionTranscripts}
         audioSessionStatuses={audioSessionStatuses}
+        fallbackTranscript={candidateTranscript}
+        fallbackTranscriptStatus={candidateTranscriptStatus}
         onSaveVideo={saveCandidateVideo}
         profile={candidateProfile}
         onProfileChange={handleCandidateProfileChange}

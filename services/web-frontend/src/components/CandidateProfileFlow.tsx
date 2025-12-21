@@ -30,6 +30,8 @@ type Props = {
   processingMessage: string | null;
   audioSessionTranscripts: Record<string, string>;
   audioSessionStatuses: Record<string, "pending" | "partial" | "final">;
+  fallbackTranscript?: string;
+  fallbackTranscriptStatus?: "pending" | "final";
   onSaveVideo: () => void;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -67,6 +69,8 @@ export function CandidateProfileFlow({
   processingMessage,
   audioSessionTranscripts,
   audioSessionStatuses,
+  fallbackTranscript,
+  fallbackTranscriptStatus,
   onSaveVideo,
   profile,
   onProfileChange,
@@ -89,8 +93,14 @@ export function CandidateProfileFlow({
   const canStop = recordingState === "recording" || recordingState === "paused";
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const transcriptSessionId = selectedTake?.audioSessionId;
-  const transcript = transcriptSessionId ? audioSessionTranscripts[transcriptSessionId] : "";
-  const transcriptStatus = transcriptSessionId ? audioSessionStatuses[transcriptSessionId] : undefined;
+  const transcript = transcriptSessionId
+    ? audioSessionTranscripts[transcriptSessionId]
+    : fallbackTranscript || "";
+  const transcriptStatus = transcriptSessionId
+    ? audioSessionStatuses[transcriptSessionId]
+    : fallbackTranscript
+    ? fallbackTranscriptStatus ?? "final"
+    : undefined;
   const transcriptPlaceholder =
     transcriptStatus === "pending" || transcriptStatus === "partial"
       ? "Transcribing your intro... hang tight."
