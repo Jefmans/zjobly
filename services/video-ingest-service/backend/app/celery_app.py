@@ -161,16 +161,26 @@ def process_audio_chunk(
             if size_bytes == 0:
                 raise ValueError("Audio chunk is empty after download.")
 
-            transcription_path = input_path
-            if size_bytes > OPENAI_MAX_BYTES:
-                audio_path = os.path.join(temp_dir, "audio.mp3")
-                transcode_to_audio(input_path, audio_path)
-                transcription_path = audio_path
-                size_bytes = os.path.getsize(transcription_path)
-            if size_bytes > OPENAI_MAX_BYTES:
+            # Normalize every chunk to a standalone audio file to avoid container/header issues.
+            normalized_path = os.path.join(temp_dir, "audio.mp3")
+            transcode_to_audio(input_path, normalized_path)
+            normalized_size = os.path.getsize(normalized_path)
+            if normalized_size == 0:
+                raise ValueError("Audio chunk is empty after transcoding.")
+            if normalized_size > OPENAI_MAX_BYTES:
                 raise ValueError("Audio chunk exceeds OpenAI upload limit.")
 
-            transcript = call_whisper(transcription_path)
+            # Replace the stored chunk with the normalized audio so it is playable.
+            s3 = storage.get_s3_client()
+            with open(normalized_path, "rb") as norm_obj:
+                s3.upload_fileobj(
+                    norm_obj,
+                    bucket_to_use,
+                    object_key,
+                    ExtraArgs={"ContentType": "audio/mpeg"},
+                )
+
+            transcript = call_whisper(normalized_path)
 
         transcript_key = storage.build_audio_transcript_object_key(session_id, chunk_index)
         storage.put_text_object(bucket_to_use, transcript_key, transcript)
