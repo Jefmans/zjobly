@@ -49,7 +49,7 @@ const LOCAL_USER_KEY = "zjobly-user-id";
 const apiBase = () => {
   const base = (import.meta.env.VITE_API_URL || "").toString().trim();
   if (!base) {
-    throw new Error("Missing VITE_API_URL. Set it to your API base, e.g. https://api.zjobly.com");
+    throw new Error("Missing VITE_API_URL. Set it to your API base, e.g. https://api.zjobly.com/videos");
   }
   return base.replace(/\/$/, "");
 };
