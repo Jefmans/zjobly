@@ -89,6 +89,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         if resp.status_code != 200:
             return result
         data = resp.json()
+        print("GEOCODER - DATA", data)
         if not isinstance(data, list) or not data:
             return result
         address = data[0].get("address") or {}
