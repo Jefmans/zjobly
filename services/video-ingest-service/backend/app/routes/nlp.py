@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import subprocess
 import tempfile
 from typing import Optional
@@ -70,43 +69,6 @@ def _extract_location_spacy(text: str) -> str | None:
             if 2 <= len(guess) <= 60:
                 return guess
     return None
-
-
-def _split_location_parts(location: str) -> dict[str, str | None]:
-    parts = {
-        "location": location,
-        "city": None,
-        "region": None,
-        "country": None,
-        "postal_code": None,
-    }
-    if not location:
-        return parts
-
-    postal = re.search(r"\b\d{4,6}\b", location)
-    if postal:
-        parts["postal_code"] = postal.group(0)
-
-    cleaned = location
-    if postal:
-        cleaned = cleaned.replace(postal.group(0), " ")
-    cleaned = re.sub(r"\s+", " ", cleaned)
-
-    tokens = [t.strip(",. ") for t in re.split(r"[,-]", cleaned) if t.strip(",. ")]
-    if not tokens:
-        return parts
-
-    parts["city"] = tokens[0] if tokens[0] else None
-    if len(tokens) >= 2:
-        candidate = tokens[-1]
-        if re.fullmatch(r"[A-Z]{2}", candidate):
-            parts["country"] = candidate
-        else:
-            parts["country"] = candidate
-    if len(tokens) >= 3:
-        parts["region"] = tokens[-2]
-
-    return parts
 
 
 def _geocode_location(location: str) -> dict[str, Optional[str]]:
@@ -277,6 +239,7 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
         raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
 
     geo = _geocode_location(location) if location else {"city": None, "region": None, "country": None, "postal_code": None}
+    print("GEOCODER", {"input": location, "geo": geo})  # or logging.info(...)
     return LocationFromTranscriptResponse(
         location=location,
         city=geo.get("city"),
