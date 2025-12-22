@@ -88,6 +88,22 @@ class CandidateProfile(Base):
     applications: Mapped[list["Application"]] = relationship(back_populates="candidate")
 
 
+class Location(Base):
+    __tablename__ = "locations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    city: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    region: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    country: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    latitude: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    longitude: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    jobs: Mapped[list["Job"]] = relationship(back_populates="location_ref")
+
+
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -97,6 +113,7 @@ class Job(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"), nullable=True, index=True)
     status: Mapped[JobStatus] = mapped_column(SAEnum(JobStatus), default=JobStatus.open)
     visibility: Mapped[JobVisibility] = mapped_column(SAEnum(JobVisibility), default=JobVisibility.public)
     video_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -105,6 +122,7 @@ class Job(Base):
 
     user: Mapped["User"] = relationship()
     company: Mapped[Company] = relationship(back_populates="jobs")
+    location_ref: Mapped[Location | None] = relationship()
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
 
 

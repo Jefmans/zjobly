@@ -14,7 +14,9 @@ from app.schemas_accounts import (
     CompanyOut,
     JobCreate,
     JobOut,
+    LocationOut,
 )
+from app.routes import nlp as nlp_routes
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -126,6 +128,8 @@ def _build_job_out(job: models.Job) -> JobOut:
         title=job.title,
         description=job.description,
         location=job.location,
+        location_id=job.location_id,
+        location_details=job.location_ref,
         status=job.status,
         visibility=job.visibility,
         video_object_key=job.video_object_key,
@@ -143,12 +147,49 @@ def create_job(
 ) -> JobOut:
     _assert_membership(session, payload.company_id, current_user.id)
 
+    location_id = payload.location_id
+    resolved_location_str = payload.location
+    if not location_id and payload.location:
+        # Geocode to persist structured location.
+        geo = nlp_routes._geocode_location(payload.location)
+        location_name = (
+            ", ".join([comp for comp in [geo.get('city'), geo.get('region'), geo.get('country')] if comp])
+            or geo.get('postal_code')
+            or payload.location
+        )
+        location_obj = (
+            session.query(models.Location)
+            .filter(
+                models.Location.name == location_name,
+                models.Location.city == (geo.get('city') or None),
+                models.Location.region == (geo.get('region') or None),
+                models.Location.country == (geo.get('country') or None),
+                models.Location.postal_code == (geo.get('postal_code') or None),
+            )
+            .first()
+        )
+        if not location_obj:
+            location_obj = models.Location(
+                name=location_name,
+                city=geo.get('city') or None,
+                region=geo.get('region') or None,
+                country=geo.get('country') or None,
+                postal_code=geo.get('postal_code') or None,
+                latitude=geo.get('latitude') or None,
+                longitude=geo.get('longitude') or None,
+            )
+            session.add(location_obj)
+            session.flush()
+        location_id = location_obj.id
+        resolved_location_str = location_name
+
     job = models.Job(
         user_id=current_user.id,
         company_id=payload.company_id,
         title=payload.title,
         description=payload.description,
-        location=payload.location,
+        location=resolved_location_str,
+        location_id=location_id,
         status=payload.status,
         visibility=payload.visibility,
         video_object_key=payload.video_object_key,

@@ -53,9 +53,24 @@ class JobCreate(BaseModel):
     title: str
     description: Optional[str] = None
     location: Optional[str] = None
+    location_id: Optional[str] = None
     status: JobStatus = JobStatus.open
     visibility: JobVisibility = JobVisibility.public
     video_object_key: Optional[str] = None
+
+
+class LocationOut(BaseModel):
+    id: str
+    name: str
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+    class Config:
+        orm_mode = True
 
 
 class JobOut(BaseModel):
@@ -65,6 +80,8 @@ class JobOut(BaseModel):
     title: str
     description: Optional[str] = None
     location: Optional[str] = None
+    location_id: Optional[str] = None
+    location_details: Optional[LocationOut] = None
     status: JobStatus
     visibility: JobVisibility
     video_object_key: Optional[str] = None

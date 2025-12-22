@@ -75,7 +75,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
     """
     Best-effort geocode using Nominatim (OpenStreetMap). Keeps this optional and fails soft.
     """
-    result = {"city": None, "region": None, "country": None, "postal_code": None}
+    result = {"city": None, "region": None, "country": None, "postal_code": None, "latitude": None, "longitude": None}
     if not location:
         return result
     try:
@@ -86,18 +86,18 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
                 "limit": 1,
                 "q": location,
                 "addressdetails": 1,
+                "accept-language": "en",
             },
             headers={"User-Agent": "zjobly-media-api/0.1"},
             timeout=4.0,
         )
-        print("GEOCODER", resp)
         if resp.status_code != 200:
             return result
         data = resp.json()
-        print("GEOCODER - DATA", data)
         if not isinstance(data, list) or not data:
             return result
-        address = data[0].get("address") or {}
+        top = data[0]
+        address = top.get("address") or {}
         result["city"] = (
             address.get("city")
             or address.get("town")
@@ -108,6 +108,20 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         result["region"] = address.get("state") or address.get("region") or address.get("county")
         result["country"] = address.get("country")
         result["postal_code"] = address.get("postcode")
+        result["latitude"] = top.get("lat")
+        result["longitude"] = top.get("lon")
+
+        if not any([result["city"], result["region"], result["country"], result["postal_code"]]):
+            display = (top.get("display_name") or "").strip()
+            if display:
+                tokens = [t.strip() for t in display.split(",") if t.strip()]
+                if tokens:
+                    result["city"] = tokens[0]
+                if len(tokens) >= 2:
+                    result["country"] = tokens[-1]
+                if len(tokens) >= 3:
+                    result["region"] = tokens[-2]
+
         return result
     except Exception:
         return result
