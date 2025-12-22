@@ -81,7 +81,12 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
     try:
         resp = httpx.get(
             "https://nominatim.openstreetmap.org/search",
-            params={"format": "json", "limit": 1, "q": location},
+            params={
+                "format": "json",
+                "limit": 1,
+                "q": location,
+                "addressdetails": 1,
+            },
             headers={"User-Agent": "zjobly-media-api/0.1"},
             timeout=4.0,
         )
