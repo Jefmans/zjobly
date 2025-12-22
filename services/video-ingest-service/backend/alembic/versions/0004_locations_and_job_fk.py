@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0004_locations"
-down_revision = "0003_add_video_object_key_to_jobs"
+down_revision = "0003_video_object_key"
 branch_labels = None
 depends_on = None
 
