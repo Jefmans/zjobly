@@ -85,6 +85,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
                 "format": "json",
                 "limit": 1,
                 "q": location,
+                "postalcode": 1,
                 "addressdetails": 1,
                 "accept-language": "en",
             },
@@ -108,7 +109,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         )
         result["region"] = address.get("state") or address.get("region") or address.get("county")
         result["country"] = address.get("country")
-        result["postal_code"] = address.get("postcode")
+        result["postal_code"] = address.get("postcode") or top.get("postalcode")
         result["latitude"] = top.get("lat")
         result["longitude"] = top.get("lon")
 
