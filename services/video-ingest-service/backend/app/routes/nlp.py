@@ -96,6 +96,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         data = resp.json()
         if not isinstance(data, list) or not data:
             return result
+        print("GEOCODE - DATA   : ", data)
         top = data[0]
         address = top.get("address") or {}
         result["city"] = (
