@@ -92,6 +92,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
             headers={"User-Agent": "zjobly-media-api/0.1"},
             timeout=4.0,
         )
+        print("GEOCODE - RESP   : ", resp)
         if resp.status_code != 200:
             return result
         data = resp.json()
