@@ -1355,6 +1355,11 @@ function App() {
     setCandidateStep(nextStep);
   };
 
+  const goToJobsOverview = () => {
+    setSelectedJobId(null);
+    setView('jobs');
+  };
+
   const selectTake = (id: string) => {
     const take = recordedTakes.find((t) => t.id === id);
     if (!take) return;
@@ -1482,6 +1487,7 @@ function App() {
         profileSaving={candidateProfileSaving}
         profileSaved={candidateProfileSaved}
         showValidation={candidateValidation}
+        onViewJobs={goToJobsOverview}
       />
 
       <JobSeekerFlow

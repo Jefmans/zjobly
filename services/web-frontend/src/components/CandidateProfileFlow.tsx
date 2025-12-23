@@ -39,6 +39,7 @@ type Props = {
   profileSaving: boolean;
   profileSaved: boolean;
   showValidation: boolean;
+  onViewJobs: () => void;
 };
 
 export function CandidateProfileFlow({
@@ -78,6 +79,7 @@ export function CandidateProfileFlow({
   profileSaving,
   profileSaved,
   showValidation,
+  onViewJobs,
 }: Props) {
   if (view !== "find") return null;
 
@@ -250,6 +252,9 @@ export function CandidateProfileFlow({
                   Back to select video
                 </button>
                 <div className="panel-action-right">
+                  <button type="button" className="cta secondary" onClick={onViewJobs}>
+                    View jobs
+                  </button>
                   <button
                     type="button"
                     className="cta primary"
