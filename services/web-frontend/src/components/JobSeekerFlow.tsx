@@ -78,10 +78,19 @@ export function JobSeekerFlow({
   const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
+  const appliedJobStatusById = useMemo(() => {
+    const map: Record<string, ApplicationStatus> = {};
+    candidateApplications.forEach((application) => {
+      map[application.job_id] = application.status;
+    });
+    return map;
+  }, [candidateApplications]);
   const canApplyForSelectedJob = Boolean(
     selectedJob && isCandidate && selectedJob.status === "open" && selectedJob.visibility === "public",
   );
-  const hasAppliedForSelectedJob = Boolean(selectedJob && appliedJobs[selectedJob.id]);
+  const hasAppliedForSelectedJob = Boolean(
+    selectedJob && (appliedJobs[selectedJob.id] || appliedJobStatusById[selectedJob.id]),
+  );
   const filteredApplications = useMemo(() => {
     if (applicationFilter === "all") return jobApplications;
     if (applicationFilter === "withheld") {
@@ -323,15 +332,15 @@ export function JobSeekerFlow({
   }, [view, isEmployer, selectedJobId]);
 
   useEffect(() => {
-    if (view !== "applications" || !isCandidate) {
+    if (!isCandidate) {
       setCandidateApplications([]);
       setCandidateApplicationsLoading(false);
       setCandidateApplicationsError(null);
-      if (view !== "jobDetail") {
-        setExpandedApplicationId(null);
-      }
       return;
     }
+    const shouldLoad = view === "applications" || view === "jobs";
+    if (!shouldLoad) return;
+
     let cancelled = false;
     setCandidateApplicationsLoading(true);
     setCandidateApplicationsError(null);
@@ -595,6 +604,16 @@ export function JobSeekerFlow({
                   {(() => {
                     const status = getStatusMeta(job.status);
                     return <div className={`job-status ${status.className}`}>{status.label}</div>;
+                  })()}
+                  {isCandidate && (() => {
+                    const appliedStatus =
+                      appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null);
+                    if (!appliedStatus) return null;
+                    return (
+                      <span className={`application-status ${appliedStatus}`}>
+                        {formatApplicationStatus(appliedStatus)}
+                      </span>
+                    );
                   })()}
                   {isEmployer && (
                     <div className="job-application-counts">
