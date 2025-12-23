@@ -19,6 +19,8 @@ from app.schemas_nlp import (
     JobDraftResponse,
     LocationFromTranscriptRequest,
     LocationFromTranscriptResponse,
+    ProfileDraftRequest,
+    ProfileDraftResponse,
 )
 
 router = APIRouter(prefix="/nlp", tags=["nlp"])
@@ -136,6 +138,12 @@ SYSTEM_PROMPT = (
     "Keep the tone clear and appealing, avoid fluff, and do not invent details that are not in the transcript."
 )
 
+PROFILE_PROMPT = (
+    "You turn a short candidate intro transcript into a concise profile. "
+    "Output JSON with keys: headline (max ~10 words, role + level + a hook) and summary (concise 60-120 words). "
+    "Keep it factual and derived from the transcript; do not invent details."
+)
+
 
 def _normalize_keywords(raw_keywords: object) -> list[str]:
     if isinstance(raw_keywords, list):
@@ -247,6 +255,46 @@ def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftRes
     return JobDraftResponse(title=title, description=description, keywords=keywords)
 
 
+def _draft_profile_from_transcript(transcript: str, language: str | None) -> ProfileDraftResponse:
+    client = get_openai_client()
+    model = settings.LLM_MODEL or "gpt-4o-mini"
+    system_prompt = PROFILE_PROMPT
+    if language:
+        system_prompt = f"{PROFILE_PROMPT} Respond in {language}."
+
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            temperature=0.35,
+            max_tokens=260,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": transcript},
+            ],
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not generate a profile draft from the transcript") from exc
+
+    content = completion.choices[0].message.content if completion.choices else None
+    if not content:
+        raise HTTPException(status_code=500, detail="Empty response from the language model")
+
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail="Invalid response from the language model") from exc
+
+    headline = (parsed.get("headline") or "").strip()
+    summary = (parsed.get("summary") or parsed.get("profile") or "").strip()
+    location = (parsed.get("location") or "").strip() or None
+
+    if not headline or not summary:
+        raise HTTPException(status_code=500, detail="Missing headline or summary in the generated profile")
+
+    return ProfileDraftResponse(headline=headline, summary=summary, location=location)
+
+
 @router.post("/location-from-transcript", response_model=LocationFromTranscriptResponse)
 def location_from_transcript(payload: LocationFromTranscriptRequest) -> LocationFromTranscriptResponse:
     text = (payload.transcript or "").strip()
@@ -294,3 +342,11 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
     draft = _draft_from_transcript(transcript, payload.language)
     draft.transcript = transcript
     return draft
+
+
+@router.post("/profile-draft", response_model=ProfileDraftResponse)
+def generate_profile_draft(payload: ProfileDraftRequest) -> ProfileDraftResponse:
+    transcript = payload.transcript.strip()
+    if len(transcript) < 20:
+        raise HTTPException(status_code=400, detail="Transcript is too short to generate a profile draft")
+    return _draft_profile_from_transcript(transcript, payload.language)

@@ -34,3 +34,14 @@ class LocationFromTranscriptResponse(BaseModel):
     region: Optional[str] = Field(None, description="Region/state extracted from the location text, if available.")
     country: Optional[str] = Field(None, description="Country extracted from the location text, if available.")
     postal_code: Optional[str] = Field(None, description="Postal/ZIP code extracted from the location text, if available.")
+
+
+class ProfileDraftRequest(BaseModel):
+    transcript: str = Field(..., min_length=20, description="Candidate intro transcript or raw text.")
+    language: Optional[str] = Field(None, description="Optional language/locale hint (e.g., 'en', 'nl-BE').")
+
+
+class ProfileDraftResponse(BaseModel):
+    headline: str
+    summary: str
+    location: Optional[str] = None

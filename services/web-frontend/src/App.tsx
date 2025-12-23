@@ -164,6 +164,12 @@ function App() {
   const lastLocationQueryRef = useRef<string | null>(null);
   const locationSuggestionDisabledRef = useRef(false);
   const [locationDetails, setLocationDetails] = useState<{ city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null } | null>(null);
+  const candidateProfileEditedRef = useRef<{ headline: boolean; location: boolean; summary: boolean }>({
+    headline: false,
+    location: false,
+    summary: false,
+  });
+  const candidateLocationAbortRef = useRef<AbortController | null>(null);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -532,6 +538,9 @@ function App() {
     const { name, value } = e.target;
     const isCheckbox = e.target instanceof HTMLInputElement && e.target.type === 'checkbox';
     const nextValue = isCheckbox ? e.target.checked : value;
+    if (name === 'headline' || name === 'location' || name === 'summary') {
+      candidateProfileEditedRef.current = { ...candidateProfileEditedRef.current, [name]: true };
+    }
     setCandidateProfile((prev) => ({
       ...prev,
       [name]: nextValue,
@@ -1271,6 +1280,41 @@ function App() {
 
     return () => controller.abort();
   }, [transcriptText, form.location]);
+
+  // Autofill candidate profile fields from transcript when available
+  useEffect(() => {
+    const text = candidateTranscript.trim();
+    if (!text || candidateTranscriptStatus !== 'final') return;
+
+    if (!candidateProfileEditedRef.current.headline && !(candidateProfile.headline || '').trim()) {
+      const firstSentence = text.split(/[.!?]/)[0]?.trim() || text.slice(0, 80);
+      setCandidateProfile((prev) => ({ ...prev, headline: firstSentence.slice(0, 80) }));
+    }
+
+    if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
+      setCandidateProfile((prev) => ({ ...prev, summary: text.slice(0, 600) }));
+    }
+
+    if (!candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
+      const controller = new AbortController();
+      candidateLocationAbortRef.current?.abort();
+      candidateLocationAbortRef.current = controller;
+      void (async () => {
+        try {
+          const res = await getLocationFromTranscript(text.slice(0, 8000), controller.signal);
+          if (controller.signal.aborted) return;
+          const suggestion = formatLocationSuggestion(res || { location: null });
+          if (suggestion) {
+            setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
+          }
+        } catch (err) {
+          if ((err as any)?.name === 'AbortError') return;
+          console.error('Candidate location suggestion failed', err);
+        }
+      })();
+      return () => controller.abort();
+    }
+  }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.headline, candidateProfile.summary, candidateProfile.location]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
