@@ -160,7 +160,6 @@ export function CandidateProfileFlow({
                 <div>
                   <h2>Profile detail</h2>
                   <p className="hint">Tell employers where you are, what you do, and if you want to be discoverable.</p>
-                  {videoSaved && <span className="pill">Video saved</span>}
                 </div>
                 <button type="button" className="ghost" onClick={() => goToStep("select")}>
                   Back to select video
@@ -372,17 +371,16 @@ export function CandidateProfileFlow({
           )}
 
           {candidateStep === "select" && (
-            <div className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Select your video</h2>
-                  <p className="hint">Choose a take or upload a file, then save it.</p>
-                  {videoSaved && <span className="pill">Video saved</span>}
+              <div className="panel">
+                <div className="panel-header">
+                  <div>
+                    <h2>Select your video</h2>
+                    <p className="hint">Choose a take or upload a file, then save it.</p>
+                  </div>
+                  <button type="button" className="ghost" onClick={() => goToStep("record")}>
+                    Back to recording
+                  </button>
                 </div>
-                <button type="button" className="ghost" onClick={onBackToWelcome}>
-                  Cancel
-                </button>
-              </div>
 
               <div className="video-preview">
                 {videoUrl ? (
