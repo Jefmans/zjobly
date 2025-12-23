@@ -23,6 +23,7 @@ class Settings:
     ]
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "whisper-1")
     SPACY_MODEL: str = os.getenv("SPACY_MODEL", "en_core_web_sm")
+    SPACY_FALLBACK_MODEL: str = os.getenv("SPACY_FALLBACK_MODEL", "xx_ent_wiki_sm")
     API_BASE_PATH: str = os.getenv("API_BASE_PATH", "")
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")
     API_PREFIX: str = os.getenv("API_PREFIX", API_BASE_PATH)

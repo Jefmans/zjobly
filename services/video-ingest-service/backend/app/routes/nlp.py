@@ -26,7 +26,7 @@ from app.schemas_nlp import (
 router = APIRouter(prefix="/nlp", tags=["nlp"])
 
 _openai_client: OpenAI | None = None
-_spacy_nlp: Language | None = None
+_spacy_nlp_cache: dict[str, Language] = {}
 
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
 
@@ -43,21 +43,31 @@ def get_openai_client() -> OpenAI:
     return _openai_client
 
 
-def get_spacy_nlp() -> Language:
-    global _spacy_nlp
-    print("spacy model : ", _spacy_nlp)
-    if _spacy_nlp is not None:
-        return _spacy_nlp
+def get_spacy_nlp(model_name: str | None = None, strict: bool = True) -> Language | None:
+    """
+    Load and cache a spaCy model by name. If strict is False and the model cannot be loaded,
+    return None so callers can attempt a fallback model.
+    """
+    global _spacy_nlp_cache
+    name = (model_name or settings.SPACY_MODEL or "en_core_web_sm").strip()
+    if not name:
+        raise HTTPException(status_code=500, detail="spaCy model name is empty")
 
-    model_name = settings.SPACY_MODEL or "en_core_web_sm"
+    cached = _spacy_nlp_cache.get(name)
+    if cached is not None:
+        return cached
+
     try:
-        _spacy_nlp = spacy.load(model_name)
-        print("spacy model : ", _spacy_nlp)
+        nlp = spacy.load(name)
+        _spacy_nlp_cache[name] = nlp
+        return nlp
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=500, detail="spaCy model not available. Check SPACY_MODEL and dependencies."
-        ) from exc
-    return _spacy_nlp
+        if strict:
+            raise HTTPException(
+                status_code=500,
+                detail=f"spaCy model '{name}' not available. Check SPACY_MODEL/SPACY_FALLBACK_MODEL and dependencies.",
+            ) from exc
+        return None
 
 
 def _clean_location(text: str) -> str:
@@ -65,15 +75,26 @@ def _clean_location(text: str) -> str:
 
 
 def _extract_location_spacy(text: str) -> str | None:
-    nlp = get_spacy_nlp()
+    primary_model = (settings.SPACY_MODEL or "en_core_web_sm").strip()
+    fallback_model = (settings.SPACY_FALLBACK_MODEL or "xx_ent_wiki_sm").strip()
+    model_order: list[str] = []
+    for name in [primary_model, fallback_model]:
+        if name and name not in model_order:
+            model_order.append(name)
+
     print("TEXT :", text)
-    doc = nlp(text)
-    print("SPACY DOC :", doc)
-    for ent in doc.ents:
-        if ent.label_ in ("GPE", "LOC"):
-            guess = _clean_location(ent.text)
-            if 2 <= len(guess) <= 60:
-                return guess
+    for idx, model_name in enumerate(model_order):
+        nlp = get_spacy_nlp(model_name, strict=idx == 0)
+        if nlp is None:
+            print(f"spaCy model '{model_name}' unavailable; skipping")
+            continue
+        doc = nlp(text)
+        print(f"SPACY DOC ({model_name}) :", doc)
+        for ent in doc.ents:
+            if ent.label_ in ("GPE", "LOC"):
+                guess = _clean_location(ent.text)
+                if 2 <= len(guess) <= 60:
+                    return guess
     return None
 
 

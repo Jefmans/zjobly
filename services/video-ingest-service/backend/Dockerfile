@@ -3,7 +3,9 @@ RUN apt-get update && apt-get install -y ffmpeg build-essential && rm -rf /var/l
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
+    pip install --no-cache-dir \
+      https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl \
+      https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.7.0/xx_ent_wiki_sm-3.7.0-py3-none-any.whl
 COPY app ./app
 # Include Alembic config and migration scripts for running migrations inside the container.
 COPY alembic.ini .
