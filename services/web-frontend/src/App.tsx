@@ -1104,6 +1104,7 @@ function App() {
       });
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
+      setCandidateStep('profile');
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Could not save your profile.');
