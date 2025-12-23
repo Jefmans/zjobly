@@ -251,9 +251,6 @@ export function CandidateProfileFlow({
                   Back to select video
                 </button>
                 <div className="panel-action-right">
-                  <button type="button" className="ghost" onClick={onBackToWelcome}>
-                    Back to welcome
-                  </button>
                   <button
                     type="button"
                     className="cta primary"
@@ -448,7 +445,7 @@ export function CandidateProfileFlow({
                 </div>
               )}
               {status === "success" && (
-                <div className="success">Video saved. We&apos;ll finish transcription in the background.</div>
+                null
               )}
 
               <div className="panel-actions split">
