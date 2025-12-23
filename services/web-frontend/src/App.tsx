@@ -71,6 +71,7 @@ const getScreenLabel = (
     if (candidateStep === 'select') return 'Screen:FindZjob/SelectVideo';
     return 'Screen:FindZjob/ProfileDetail';
   }
+  if (view === 'apply') return 'Screen:FindZjob/ApplyVideo';
   if (view === 'jobs') {
     return role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
   }

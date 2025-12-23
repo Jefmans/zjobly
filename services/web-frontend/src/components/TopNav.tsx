@@ -27,7 +27,8 @@ export function TopNav({
   const showBack = view !== "welcome";
   const showMainNav = view !== "welcome";
   const isEmployerJobsView = (view === "jobs" || view === "jobDetail") && role === "employer";
-  const isCandidateJobsView = (view === "jobs" || view === "jobDetail") && role === "candidate";
+  const isCandidateJobsView =
+    (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
 
   return (
     <div className="top-nav">

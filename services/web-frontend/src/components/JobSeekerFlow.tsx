@@ -42,7 +42,7 @@ export function JobSeekerFlow({
   const [applyDuration, setApplyDuration] = useState<number | null>(null);
   const [applyVideoSource, setApplyVideoSource] = useState<"recording" | "upload" | null>(null);
   const [applyStream, setApplyStream] = useState<MediaStream | null>(null);
-  const [applyRecordingState, setApplyRecordingState] = useState<"idle" | "recording">("idle");
+  const [applyRecordingState, setApplyRecordingState] = useState<"idle" | "recording" | "paused">("idle");
   const [applyRecordDuration, setApplyRecordDuration] = useState<number>(0);
   const [applyStatus, setApplyStatus] = useState<
     "idle" | "presigning" | "uploading" | "confirming" | "saving" | "success" | "error"
@@ -55,9 +55,15 @@ export function JobSeekerFlow({
   const applyChunksRef = useRef<Blob[]>([]);
   const applyRecordTimerRef = useRef<number | null>(null);
   const applyRecordStartedAtRef = useRef<number | null>(null);
+  const applyRecordElapsedRef = useRef<number>(0);
   const applyDiscardRecordingRef = useRef<boolean>(false);
   const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
+  const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
+  const canApplyForSelectedJob = Boolean(
+    selectedJob && isCandidate && selectedJob.status === "open" && selectedJob.visibility === "public",
+  );
+  const hasAppliedForSelectedJob = Boolean(selectedJob && appliedJobs[selectedJob.id]);
 
   const formatDate = (value?: string | null) => {
     if (!value) return "N/A";
@@ -106,8 +112,48 @@ export function JobSeekerFlow({
       window.clearInterval(applyRecordTimerRef.current);
       applyRecordTimerRef.current = null;
     }
+  };
+  const syncApplyRecordElapsed = () => {
+    if (applyRecordStartedAtRef.current !== null) {
+      applyRecordElapsedRef.current += (Date.now() - applyRecordStartedAtRef.current) / 1000;
+      applyRecordStartedAtRef.current = null;
+    }
+    clearApplyRecordTimer();
+    setApplyRecordDuration(applyRecordElapsedRef.current);
+  };
+  const resetApplyRecordTimer = () => {
+    clearApplyRecordTimer();
     applyRecordStartedAtRef.current = null;
+    applyRecordElapsedRef.current = 0;
     setApplyRecordDuration(0);
+  };
+  const startApplyRecordTimer = () => {
+    applyRecordStartedAtRef.current = Date.now();
+    clearApplyRecordTimer();
+    applyRecordTimerRef.current = window.setInterval(() => {
+      if (applyRecordStartedAtRef.current === null) return;
+      const elapsed =
+        applyRecordElapsedRef.current + (Date.now() - applyRecordStartedAtRef.current) / 1000;
+      setApplyRecordDuration(elapsed);
+      if (elapsed >= MAX_APPLICATION_VIDEO_SECONDS) {
+        stopApplyRecording(false);
+      }
+    }, 250);
+  };
+  const openApplyRecorder = async () => {
+    if (applyStreamRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setApplyError("Camera/mic access is not supported in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      applyStreamRef.current = stream;
+      setApplyStream(stream);
+    } catch (err) {
+      console.error(err);
+      setApplyError("Could not access camera/mic. Check permissions and try again.");
+    }
   };
   const stopApplyStream = () => {
     if (applyStreamRef.current) {
@@ -119,14 +165,31 @@ export function JobSeekerFlow({
   const stopApplyRecording = (discard: boolean) => {
     applyDiscardRecordingRef.current = discard;
     if (applyRecorderRef.current && applyRecorderRef.current.state !== "inactive") {
+      syncApplyRecordElapsed();
       applyRecorderRef.current.stop();
       return;
     }
     applyDiscardRecordingRef.current = false;
     applyChunksRef.current = [];
-    clearApplyRecordTimer();
+    resetApplyRecordTimer();
     setApplyRecordingState("idle");
     stopApplyStream();
+  };
+  const pauseApplyRecording = () => {
+    if (applyRecordingState !== "recording") return;
+    if (applyRecorderRef.current && applyRecorderRef.current.state === "recording") {
+      applyRecorderRef.current.pause();
+      syncApplyRecordElapsed();
+      setApplyRecordingState("paused");
+    }
+  };
+  const resumeApplyRecording = () => {
+    if (applyRecordingState !== "paused") return;
+    if (applyRecorderRef.current && applyRecorderRef.current.state === "paused") {
+      applyRecorderRef.current.resume();
+      startApplyRecordTimer();
+      setApplyRecordingState("recording");
+    }
   };
   const resetApplyState = () => {
     stopApplyRecording(true);
@@ -158,10 +221,23 @@ export function JobSeekerFlow({
   }, [selectedJobId]);
 
   useEffect(() => {
-    if (view !== "jobDetail") {
+    if (view !== "jobDetail" && view !== "apply") {
       resetApplyState();
     }
   }, [view]);
+  useEffect(() => {
+    if (view !== "apply") return;
+    if (!canApplyForSelectedJob || hasAppliedForSelectedJob) return;
+    void openApplyRecorder();
+  }, [view, canApplyForSelectedJob, hasAppliedForSelectedJob]);
+  useEffect(() => {
+    if (view === "apply") return;
+    if (applyRecordingState !== "idle") {
+      stopApplyRecording(true);
+    } else {
+      stopApplyStream();
+    }
+  }, [view, applyRecordingState]);
   useEffect(() => {
     return () => {
       stopApplyRecording(true);
@@ -220,10 +296,6 @@ export function JobSeekerFlow({
   };
   const startApplyRecording = async () => {
     if (applyRecordingState === "recording") return;
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setApplyError("Camera/mic access is not supported in this browser.");
-      return;
-    }
     setApplyError(null);
     setApplyStatus("idle");
     setApplyProgress(null);
@@ -235,9 +307,11 @@ export function JobSeekerFlow({
     setApplyDuration(null);
     setApplyVideoSource(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      applyStreamRef.current = stream;
-      setApplyStream(stream);
+      if (!applyStreamRef.current) {
+        await openApplyRecorder();
+      }
+      const stream = applyStreamRef.current;
+      if (!stream) return;
       applyChunksRef.current = [];
       const preferredTypes = [
         "video/webm;codecs=vp9,opus",
@@ -254,7 +328,7 @@ export function JobSeekerFlow({
       };
       recorder.onstop = () => {
         applyRecorderRef.current = null;
-        clearApplyRecordTimer();
+        resetApplyRecordTimer();
         setApplyRecordingState("idle");
         stopApplyStream();
         const discard = applyDiscardRecordingRef.current;
@@ -293,16 +367,8 @@ export function JobSeekerFlow({
         };
         probe.src = objectUrl;
       };
-      clearApplyRecordTimer();
-      applyRecordStartedAtRef.current = Date.now();
-      applyRecordTimerRef.current = window.setInterval(() => {
-        if (applyRecordStartedAtRef.current === null) return;
-        const elapsed = (Date.now() - applyRecordStartedAtRef.current) / 1000;
-        setApplyRecordDuration(elapsed);
-        if (elapsed >= MAX_APPLICATION_VIDEO_SECONDS) {
-          stopApplyRecording(false);
-        }
-      }, 250);
+      resetApplyRecordTimer();
+      startApplyRecordTimer();
       recorder.start();
       setApplyRecordingState("recording");
     } catch (err) {
@@ -338,11 +404,17 @@ export function JobSeekerFlow({
       await applyToJob(jobId, { video_object_key: confirmed.object_key || presign.object_key });
       setApplyStatus("success");
       setAppliedJobs((prev) => ({ ...prev, [jobId]: true }));
+      stopApplyStream();
+      setView("jobDetail");
     } catch (err) {
       console.error(err);
       setApplyStatus("error");
       setApplyError(err instanceof Error ? err.message : "Could not submit your application.");
     }
+  };
+  const handleApplyCancel = () => {
+    stopApplyRecording(true);
+    setView("jobDetail");
   };
 
   if (view === "jobs") {
@@ -427,12 +499,211 @@ export function JobSeekerFlow({
     );
   }
 
-  if (view === "jobDetail") {
-    const job = selectedJobId ? jobs.find((j) => j.id === selectedJobId) : undefined;
-    const canApply = Boolean(job && isCandidate && job.status === "open" && job.visibility === "public");
-    const hasApplied = Boolean(job && appliedJobs[job.id]);
-    const isApplying = ["presigning", "uploading", "confirming", "saving"].includes(applyStatus);
+  if (view === "apply") {
+    const job = selectedJob;
     const isRecording = applyRecordingState === "recording";
+    const isPaused = applyRecordingState === "paused";
+    const isActiveRecording = isRecording || isPaused;
+    const canRecord = applyRecordingState === "idle" || isPaused;
+    const canPause = applyRecordingState === "recording";
+    const canStop = isActiveRecording;
+    const recordActionLabel = isPaused ? "Resume" : "Start";
+    const recordAction = isPaused ? resumeApplyRecording : startApplyRecording;
+    const isApplying = ["presigning", "uploading", "confirming", "saving"].includes(applyStatus);
+    const recorderOpen = Boolean(applyStream || applyVideoUrl);
+    const recordLabel = formatDuration(applyRecordDuration) ?? "0:00";
+    const durationLabel = formatDuration(applyDuration) ?? "0:00";
+
+    return (
+      <>
+        {nav}
+        <section className="hero">
+          <div className="view-pill">Find Zjob</div>
+          <p className="tag">Zjobly</p>
+          <h1>Record your application</h1>
+          <p className="lede">
+            {job ? `Tell the recruiter why you want ${job.title}.` : "Select a job to apply."}
+          </p>
+          {!job && (
+            <div className="panel">
+              <p className="hint">Select a job from the list first.</p>
+              <div className="panel-actions">
+                <button type="button" className="ghost" onClick={() => setView("jobs")}>
+                  Back to jobs
+                </button>
+              </div>
+            </div>
+          )}
+          {job && (
+            <div className="fullscreen-recorder">
+              <div className="record-shell">
+                <div className="record-stage">
+                  {recorderOpen ? (
+                    <div className={`record-screen ${!isActiveRecording && applyVideoUrl ? "playback" : ""}`}>
+                      {!isActiveRecording && applyVideoUrl ? (
+                        <video
+                          key={applyVideoUrl}
+                          src={applyVideoUrl}
+                          className="live-video playback-video"
+                          controls
+                          playsInline
+                          autoPlay
+                          muted
+                        />
+                      ) : (
+                        <video ref={applyLiveVideoRef} className="live-video" autoPlay playsInline muted />
+                      )}
+                      <div className="record-screen-overlay">
+                        <div className="overlay-top">
+                          <span
+                            className={`status-pill ${isRecording ? "live" : isPaused ? "paused" : "idle"}`}
+                          >
+                            {isRecording ? "Recording" : isPaused ? "Paused" : "Camera ready"}
+                          </span>
+                          <div className="record-timer">
+                            <span>{isActiveRecording ? recordLabel : durationLabel}</span>
+                            <span className="record-max">/ 3:00</span>
+                          </div>
+                        </div>
+                        <div className="overlay-bottom">
+                          <div className="overlay-actions-left">
+                            <button type="button" className="ghost dark" onClick={handleApplyCancel}>
+                              Back to job
+                            </button>
+                          </div>
+                          <div className="overlay-actions-right">
+                            <div className="record-controls">
+                              <button
+                                type="button"
+                                className="record-control record"
+                                onClick={recordAction}
+                                disabled={
+                                  !canApplyForSelectedJob ||
+                                  hasAppliedForSelectedJob ||
+                                  isApplying ||
+                                  !canRecord
+                                }
+                                aria-label={recordActionLabel}
+                              >
+                                <span className="record-icon record-icon--record" aria-hidden="true" />
+                                <span className="record-label">{recordActionLabel}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="record-control pause"
+                                onClick={pauseApplyRecording}
+                                disabled={!canPause}
+                                aria-label="Pause"
+                              >
+                                <span className="record-icon record-icon--pause" aria-hidden="true" />
+                                <span className="record-label">Pause</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="record-control stop"
+                                onClick={stopApplyRecordingClick}
+                                disabled={!canStop}
+                                aria-label="Stop"
+                              >
+                                <span className="record-icon record-icon--stop" aria-hidden="true" />
+                                <span className="record-label">Stop</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="record-placeholder">
+                      <p>Opening camera... If it does not appear, grant permissions above.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="panel record-panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Application video</h2>
+                      <p className="hint">
+                        Focus on why you want the job and what you can deliver in the first 90 days.
+                      </p>
+                    </div>
+                    <button type="button" className="ghost" onClick={handleApplyCancel}>
+                      Back to job
+                    </button>
+                  </div>
+                  {!canApplyForSelectedJob && (
+                    <p className="hint">This job is not open for applications right now.</p>
+                  )}
+                  <div className="upload-box">
+                    <input
+                      id="application-video"
+                      name="application-video"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleApplyVideoChange}
+                      disabled={
+                        !canApplyForSelectedJob ||
+                        hasAppliedForSelectedJob ||
+                        isApplying ||
+                        isActiveRecording
+                      }
+                    />
+                    <div className="upload-copy">
+                      <strong>Select a video file</strong>
+                      <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                    </div>
+                  </div>
+                  {applyDuration !== null && (
+                    <p className="duration">Video length: {formatDuration(applyDuration)}</p>
+                  )}
+                  {applyError && <div className="error">{applyError}</div>}
+                  {applyStatus === "presigning" && <div className="notice">Requesting an upload URL...</div>}
+                  {applyStatus === "uploading" && (
+                    <div className="upload-progress">
+                      <div className="upload-progress-top">
+                        <span>Uploading application video...</span>
+                        <span>{applyPercent !== null ? `${applyPercent}%` : "..."}</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill" style={{ width: `${applyPercent ?? 5}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {applyStatus === "confirming" && <div className="notice">Confirming your upload...</div>}
+                  {applyStatus === "saving" && <div className="notice">Submitting your application...</div>}
+                  {applyStatus === "success" && (
+                    <div className="success">Application sent. The recruiter will review your video.</div>
+                  )}
+                  <div className="panel-actions">
+                    <button
+                      type="button"
+                      className="cta primary"
+                      onClick={() => job && handleApplyToJob(job.id)}
+                      disabled={
+                        !canApplyForSelectedJob ||
+                        hasAppliedForSelectedJob ||
+                        isApplying ||
+                        isActiveRecording ||
+                        !applyVideoFile
+                      }
+                    >
+                      {hasAppliedForSelectedJob ? "Applied" : isApplying ? "Applying..." : "Send application"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </>
+    );
+  }
+
+  if (view === "jobDetail") {
+    const job = selectedJob;
+    const canApply = canApplyForSelectedJob;
+    const hasApplied = hasAppliedForSelectedJob;
     return (
       <>
         {nav}
@@ -483,109 +754,60 @@ export function JobSeekerFlow({
               )}
               {job && isCandidate && (
                 <div className="panel">
-                  <h2>Apply with a short video</h2>
-                  <p className="hint">
-                    Record or upload a 1-3 minute video about why you want this job, then submit it to apply.
-                  </p>
-                  {!canApply && (
+                  <div className="panel-header">
+                    <div>
+                      <h2>{hasApplied ? "Your application" : "Apply to this job"}</h2>
+                      <p className="hint">
+                        {hasApplied
+                          ? "Your application video has been sent to the recruiter."
+                          : "Record a short video explaining why this role is a great fit."}
+                      </p>
+                    </div>
+                    {hasApplied && <span className="pill soft">Applied</span>}
+                  </div>
+                  {!hasApplied && !canApply && (
                     <p className="hint">This job is not open for applications right now.</p>
                   )}
-                  <div className="apply-recorder">
-                    <div className="record-controls">
-                      <button
-                        type="button"
-                        className="record-control record"
-                        onClick={startApplyRecording}
-                        disabled={!canApply || hasApplied || isApplying || isRecording}
-                      >
-                        <span className="record-icon record-icon--record" aria-hidden="true" />
-                        <span className="record-label">{isRecording ? "Recording" : "Record"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="record-control stop"
-                        onClick={stopApplyRecordingClick}
-                        disabled={!isRecording}
-                      >
-                        <span className="record-icon record-icon--stop" aria-hidden="true" />
-                        <span className="record-label">Stop</span>
-                      </button>
-                    </div>
-                    {isRecording && (
-                      <div className="record-timer">
-                        <span>{formatDuration(applyRecordDuration) ?? "0:00"}</span>
-                        <span className="record-max">/ 3:00</span>
+                  {hasApplied ? (
+                    <>
+                      <p className="hint">Status: Applied</p>
+                      {applyVideoUrl ? (
+                        <video
+                          key={applyVideoUrl}
+                          src={applyVideoUrl}
+                          className="job-detail-video"
+                          controls
+                          preload="metadata"
+                        />
+                      ) : (
+                        <p className="hint">Your application video was submitted.</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {applyVideoUrl && (
+                        <div className="video-preview">
+                          <video
+                            key={applyVideoUrl}
+                            src={applyVideoUrl}
+                            className="playback-video"
+                            controls
+                            preload="metadata"
+                          />
+                        </div>
+                      )}
+                      <div className="panel-actions">
+                        <button
+                          type="button"
+                          className="cta primary"
+                          onClick={() => setView("apply")}
+                          disabled={!canApply}
+                        >
+                          {applyVideoUrl ? "Continue application" : "Apply with video"}
+                        </button>
                       </div>
-                    )}
-                  </div>
-                  <div className="upload-box">
-                    <input
-                      id="application-video"
-                      name="application-video"
-                      type="file"
-                      accept="video/*"
-                      onChange={handleApplyVideoChange}
-                      disabled={!canApply || hasApplied || isApplying || isRecording}
-                    />
-                    <div className="upload-copy">
-                      <strong>Select a video file</strong>
-                      <span>MP4, MOV, WEBM - up to 3 minutes</span>
-                    </div>
-                  </div>
-                  {applyDuration !== null && (
-                    <p className="duration">Video length: {formatDuration(applyDuration)}</p>
+                    </>
                   )}
-                  <div className="video-preview">
-                    {applyStream ? (
-                      <video
-                        ref={applyLiveVideoRef}
-                        className="playback-video"
-                        autoPlay
-                        playsInline
-                        muted
-                      />
-                    ) : applyVideoUrl ? (
-                      <video
-                        key={applyVideoUrl}
-                        src={applyVideoUrl}
-                        className="playback-video"
-                        controls
-                        playsInline
-                      />
-                    ) : (
-                      <div className="video-preview-placeholder">
-                        <p className="hint">Upload a video to preview it here.</p>
-                      </div>
-                    )}
-                  </div>
-                  {applyError && <div className="error">{applyError}</div>}
-                  {applyStatus === "presigning" && <div className="notice">Requesting an upload URL...</div>}
-                  {applyStatus === "uploading" && (
-                    <div className="upload-progress">
-                      <div className="upload-progress-top">
-                        <span>Uploading application video...</span>
-                        <span>{applyPercent !== null ? `${applyPercent}%` : "..."}</span>
-                      </div>
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill" style={{ width: `${applyPercent ?? 5}%` }} />
-                      </div>
-                    </div>
-                  )}
-                  {applyStatus === "confirming" && <div className="notice">Confirming your upload...</div>}
-                  {applyStatus === "saving" && <div className="notice">Submitting your application...</div>}
-                  {applyStatus === "success" && (
-                    <div className="success">Application sent. The recruiter will review your video.</div>
-                  )}
-                  <div className="panel-actions">
-                    <button
-                      type="button"
-                      className="cta primary"
-                      onClick={() => job && handleApplyToJob(job.id)}
-                      disabled={!canApply || hasApplied || isApplying || isRecording || !applyVideoFile}
-                    >
-                      {hasApplied ? "Applied" : isApplying ? "Applying..." : "Apply now"}
-                    </button>
-                  </div>
                 </div>
               )}
               <div className="panel-actions split">
