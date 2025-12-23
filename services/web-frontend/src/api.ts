@@ -3,6 +3,7 @@ import type {
   CandidateProfileInput,
   Company,
   Job,
+  JobApplication,
   JobStatus,
   JobVisibility,
 } from "./types";
@@ -254,6 +255,13 @@ export async function searchPublicJobs(query?: string): Promise<Job[]> {
 
 export async function publishJob(jobId: string): Promise<Job> {
   return requestJson<Job>(`/accounts/jobs/${encodeURIComponent(jobId)}/publish`, { method: "POST" });
+}
+
+export async function applyToJob(jobId: string, payload: { video_object_key: string }): Promise<JobApplication> {
+  return requestJson<JobApplication>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function searchCandidates(query?: string): Promise<CandidateProfile[]> {

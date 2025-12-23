@@ -1,4 +1,6 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { applyToJob, confirmUpload, createUploadUrl, uploadFileToUrl } from "../api";
+import { formatDuration } from "../helpers";
 import { Job, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -15,6 +17,8 @@ type Props = {
   onPublishJob: (id: string) => void;
   publishingJobId: string | null;
 };
+
+const MAX_APPLICATION_VIDEO_SECONDS = 180;
 
 export function JobSeekerFlow({
   view,
@@ -33,6 +37,16 @@ export function JobSeekerFlow({
   const [sortBy, setSortBy] = useState("created_desc");
   const isCandidate = role === "candidate";
   const isEmployer = role === "employer";
+  const [applyVideoFile, setApplyVideoFile] = useState<File | null>(null);
+  const [applyVideoUrl, setApplyVideoUrl] = useState<string | null>(null);
+  const [applyDuration, setApplyDuration] = useState<number | null>(null);
+  const [applyStatus, setApplyStatus] = useState<
+    "idle" | "presigning" | "uploading" | "confirming" | "saving" | "success" | "error"
+  >("idle");
+  const [applyProgress, setApplyProgress] = useState<number | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
+  const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
 
   const formatDate = (value?: string | null) => {
     if (!value) return "N/A";
@@ -76,6 +90,17 @@ export function JobSeekerFlow({
     if (status === "open") return { label: "Open", className: "open" };
     return { label: "Published", className: "published" };
   };
+  const resetApplyState = () => {
+    if (applyVideoUrl) {
+      URL.revokeObjectURL(applyVideoUrl);
+    }
+    setApplyVideoFile(null);
+    setApplyVideoUrl(null);
+    setApplyDuration(null);
+    setApplyStatus("idle");
+    setApplyProgress(null);
+    setApplyError(null);
+  };
   const openJobDetail = (jobId: string) => {
     onSelectJob(jobId);
     setView("jobDetail");
@@ -85,6 +110,85 @@ export function JobSeekerFlow({
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       openJobDetail(jobId);
+    }
+  };
+
+  useEffect(() => {
+    resetApplyState();
+  }, [selectedJobId]);
+
+  useEffect(() => {
+    if (view !== "jobDetail") {
+      resetApplyState();
+    }
+  }, [view]);
+
+  const handleApplyVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setApplyError(null);
+    setApplyStatus("idle");
+    setApplyProgress(null);
+
+    if (!file) return;
+    if (applyVideoUrl) {
+      URL.revokeObjectURL(applyVideoUrl);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const probe = document.createElement("video");
+    const playbackProbe = document.createElement("video");
+    probe.preload = "metadata";
+    if (file.type && playbackProbe.canPlayType(file.type) === "") {
+      setApplyError(`This browser cannot play files of type ${file.type}. Try MP4 (H.264/AAC).`);
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
+
+    probe.onloadedmetadata = () => {
+      const duration = probe.duration;
+      if (duration > MAX_APPLICATION_VIDEO_SECONDS) {
+        setApplyError("Video must be 3 minutes or less.");
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      setApplyVideoFile(file);
+      setApplyVideoUrl(objectUrl);
+      setApplyDuration(duration);
+    };
+    probe.onerror = () => {
+      setApplyError("Could not read video metadata. Try a different file.");
+      URL.revokeObjectURL(objectUrl);
+    };
+    probe.src = objectUrl;
+  };
+
+  const handleApplyToJob = async (jobId: string) => {
+    setApplyError(null);
+    if (!applyVideoFile) {
+      setApplyError("Add a short video to apply.");
+      return;
+    }
+
+    try {
+      setApplyStatus("presigning");
+      const presign = await createUploadUrl(applyVideoFile);
+      setApplyStatus("uploading");
+      setApplyProgress(0);
+      await uploadFileToUrl(presign.upload_url, applyVideoFile, (percent) => setApplyProgress(percent));
+      setApplyStatus("confirming");
+      const confirmed = await confirmUpload({
+        object_key: presign.object_key,
+        duration_seconds: applyDuration ?? null,
+        source: "upload",
+      });
+      setApplyStatus("saving");
+      await applyToJob(jobId, { video_object_key: confirmed.object_key || presign.object_key });
+      setApplyStatus("success");
+      setAppliedJobs((prev) => ({ ...prev, [jobId]: true }));
+    } catch (err) {
+      console.error(err);
+      setApplyStatus("error");
+      setApplyError(err instanceof Error ? err.message : "Could not submit your application.");
     }
   };
 
@@ -172,6 +276,9 @@ export function JobSeekerFlow({
 
   if (view === "jobDetail") {
     const job = selectedJobId ? jobs.find((j) => j.id === selectedJobId) : undefined;
+    const canApply = Boolean(job && isCandidate && job.status === "open" && job.visibility === "public");
+    const hasApplied = Boolean(job && appliedJobs[job.id]);
+    const isApplying = ["presigning", "uploading", "confirming", "saving"].includes(applyStatus);
     return (
       <>
         {nav}
@@ -218,6 +325,77 @@ export function JobSeekerFlow({
                 <div className="panel">
                   <h2>Job description</h2>
                   <p>{job.description}</p>
+                </div>
+              )}
+              {job && isCandidate && (
+                <div className="panel">
+                  <h2>Apply with a short video</h2>
+                  <p className="hint">
+                    Record a 1-3 minute video about why you want this job, then upload it here to apply.
+                  </p>
+                  {!canApply && (
+                    <p className="hint">This job is not open for applications right now.</p>
+                  )}
+                  <div className="upload-box">
+                    <input
+                      id="application-video"
+                      name="application-video"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleApplyVideoChange}
+                      disabled={!canApply || hasApplied || isApplying}
+                    />
+                    <div className="upload-copy">
+                      <strong>Select a video file</strong>
+                      <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                    </div>
+                  </div>
+                  {applyDuration !== null && (
+                    <p className="duration">Video length: {formatDuration(applyDuration)}</p>
+                  )}
+                  <div className="video-preview">
+                    {applyVideoUrl ? (
+                      <video
+                        key={applyVideoUrl}
+                        src={applyVideoUrl}
+                        className="playback-video"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <div className="video-preview-placeholder">
+                        <p className="hint">Upload a video to preview it here.</p>
+                      </div>
+                    )}
+                  </div>
+                  {applyError && <div className="error">{applyError}</div>}
+                  {applyStatus === "presigning" && <div className="notice">Requesting an upload URL...</div>}
+                  {applyStatus === "uploading" && (
+                    <div className="upload-progress">
+                      <div className="upload-progress-top">
+                        <span>Uploading application video...</span>
+                        <span>{applyPercent !== null ? `${applyPercent}%` : "..."}</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill" style={{ width: `${applyPercent ?? 5}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {applyStatus === "confirming" && <div className="notice">Confirming your upload...</div>}
+                  {applyStatus === "saving" && <div className="notice">Submitting your application...</div>}
+                  {applyStatus === "success" && (
+                    <div className="success">Application sent. The recruiter will review your video.</div>
+                  )}
+                  <div className="panel-actions">
+                    <button
+                      type="button"
+                      className="cta primary"
+                      onClick={() => job && handleApplyToJob(job.id)}
+                      disabled={!canApply || hasApplied || isApplying || !applyVideoFile}
+                    >
+                      {hasApplied ? "Applied" : isApplying ? "Applying..." : "Apply now"}
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="panel-actions split">

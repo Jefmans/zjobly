@@ -144,6 +144,7 @@ class Application(Base):
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
     candidate_id: Mapped[str] = mapped_column(ForeignKey("candidate_profiles.id"), index=True)
     status: Mapped[ApplicationStatus] = mapped_column(SAEnum(ApplicationStatus), default=ApplicationStatus.applied)
+    video_object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

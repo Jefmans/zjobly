@@ -96,11 +96,18 @@ class JobOut(BaseModel):
         orm_mode = True
 
 
+class ApplicationCreate(BaseModel):
+    video_object_key: str
+
+
 class ApplicationOut(BaseModel):
     id: str
     job_id: str
     candidate_id: str
     status: ApplicationStatus
+    video_object_key: Optional[str] = None
+    applied_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True

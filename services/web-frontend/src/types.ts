@@ -65,6 +65,7 @@ export type CandidateProfile = CandidateProfileInput & {
 
 export type JobStatus = 'draft' | 'open' | 'closed' | 'published';
 export type JobVisibility = 'public' | 'private';
+export type ApplicationStatus = 'applied' | 'reviewing' | 'rejected' | 'hired';
 
 export type Job = {
   id: string;
@@ -81,5 +82,15 @@ export type Job = {
   video_object_key?: string | null;
   playback_url?: string | null;
   created_at?: string;
+  updated_at?: string;
+};
+
+export type JobApplication = {
+  id: string;
+  job_id: string;
+  candidate_id: string;
+  status: ApplicationStatus;
+  video_object_key?: string | null;
+  applied_at?: string;
   updated_at?: string;
 };

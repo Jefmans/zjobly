@@ -8,6 +8,8 @@ from app import models
 from app import storage
 from app.config import settings
 from app.schemas_accounts import (
+    ApplicationCreate,
+    ApplicationOut,
     CandidateProfileCreate,
     CandidateProfileOut,
     CompanyCreate,
@@ -235,6 +237,50 @@ def create_job(
     session.commit()
     session.refresh(job)
     return _build_job_out(job)
+
+
+@router.post("/jobs/{job_id}/applications", response_model=ApplicationOut)
+def apply_to_job(
+    job_id: str,
+    payload: ApplicationCreate,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> ApplicationOut:
+    video_key = (payload.video_object_key or "").strip()
+    if not video_key:
+        raise HTTPException(status_code=400, detail="Missing application video")
+
+    job = session.get(models.Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != models.JobStatus.open or job.visibility != models.JobVisibility.public:
+        raise HTTPException(status_code=400, detail="Job is not open for applications")
+
+    profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=400, detail="Complete your candidate profile before applying")
+
+    existing = (
+        session.query(models.Application)
+        .filter(
+            models.Application.job_id == job_id,
+            models.Application.candidate_id == profile.id,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="You already applied to this job")
+
+    application = models.Application(
+        job_id=job_id,
+        candidate_id=profile.id,
+        status=models.ApplicationStatus.applied,
+        video_object_key=video_key,
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
 
 
 @router.post("/jobs/{job_id}/publish", response_model=JobOut)
