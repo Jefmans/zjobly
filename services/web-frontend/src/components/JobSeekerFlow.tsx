@@ -78,6 +78,13 @@ export function JobSeekerFlow({
   const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
+  const candidateApplicationByJobId = useMemo(() => {
+    const map: Record<string, CandidateApplication> = {};
+    candidateApplications.forEach((application) => {
+      map[application.job_id] = application;
+    });
+    return map;
+  }, [candidateApplications]);
   const appliedJobStatusById = useMemo(() => {
     const map: Record<string, ApplicationStatus> = {};
     candidateApplications.forEach((application) => {
@@ -338,7 +345,7 @@ export function JobSeekerFlow({
       setCandidateApplicationsError(null);
       return;
     }
-    const shouldLoad = view === "applications" || view === "jobs";
+    const shouldLoad = view === "applications" || view === "jobs" || view === "jobDetail";
     if (!shouldLoad) return;
 
     let cancelled = false;
@@ -948,6 +955,7 @@ export function JobSeekerFlow({
     const appliedStatus = job
       ? appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null)
       : null;
+    const candidateApplication = job ? candidateApplicationByJobId[job.id] : null;
     return (
       <>
         {nav}
@@ -1134,8 +1142,19 @@ export function JobSeekerFlow({
                   )}
                   {hasApplied ? (
                     <>
-                      <p className="hint">Status: Applied</p>
-                      {applyVideoUrl ? (
+                      <p className="hint">
+                        Status: {formatApplicationStatus(appliedStatus || "applied")}
+                        {candidateApplication?.applied_at && ` · Applied ${formatDate(candidateApplication.applied_at)}`}
+                      </p>
+                      {candidateApplication?.playback_url ? (
+                        <video
+                          key={candidateApplication.playback_url}
+                          src={candidateApplication.playback_url}
+                          className="job-detail-video"
+                          controls
+                          preload="metadata"
+                        />
+                      ) : applyVideoUrl ? (
                         <video
                           key={applyVideoUrl}
                           src={applyVideoUrl}
