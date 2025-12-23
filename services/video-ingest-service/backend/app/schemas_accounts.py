@@ -96,6 +96,11 @@ class JobOut(BaseModel):
         orm_mode = True
 
 
+class JobWithCountsOut(JobOut):
+    applications_count: int = 0
+    withheld_count: int = 0
+
+
 class ApplicationCreate(BaseModel):
     video_object_key: str
 
@@ -111,6 +116,18 @@ class ApplicationOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class ApplicationDetailOut(BaseModel):
+    id: str
+    job_id: str
+    candidate_id: str
+    status: ApplicationStatus
+    video_object_key: Optional[str] = None
+    playback_url: Optional[str] = None
+    applied_at: datetime
+    updated_at: datetime
+    candidate_profile: CandidateProfileOut
 
 
 class MembershipOut(BaseModel):

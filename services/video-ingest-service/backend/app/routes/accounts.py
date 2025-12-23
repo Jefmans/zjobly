@@ -1,7 +1,8 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_session
 from app import models
@@ -9,6 +10,7 @@ from app import storage
 from app.config import settings
 from app.schemas_accounts import (
     ApplicationCreate,
+    ApplicationDetailOut,
     ApplicationOut,
     CandidateProfileCreate,
     CandidateProfileOut,
@@ -16,6 +18,7 @@ from app.schemas_accounts import (
     CompanyOut,
     JobCreate,
     JobOut,
+    JobWithCountsOut,
 )
 from app.routes import nlp as nlp_routes
 
@@ -211,6 +214,32 @@ def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOu
     )
 
 
+def _build_application_detail_out(application: models.Application) -> ApplicationDetailOut:
+    playback_url = None
+    if application.video_object_key:
+        try:
+            presigned = storage.presign_get_object(
+                bucket=settings.S3_BUCKET_RAW,
+                object_key=application.video_object_key,
+                expires_in=settings.MEDIA_PLAY_SIGN_EXPIRY_SEC,
+            )
+            playback_url = presigned["play_url"]
+        except Exception:
+            playback_url = None
+
+    return ApplicationDetailOut(
+        id=application.id,
+        job_id=application.job_id,
+        candidate_id=application.candidate_id,
+        status=application.status,
+        video_object_key=application.video_object_key,
+        playback_url=playback_url,
+        applied_at=application.applied_at,
+        updated_at=application.updated_at,
+        candidate_profile=_build_candidate_out(application.candidate),
+    )
+
+
 @router.post("/jobs", response_model=JobOut)
 def create_job(
     payload: JobCreate,
@@ -283,6 +312,27 @@ def apply_to_job(
     return application
 
 
+@router.get("/jobs/{job_id}/applications", response_model=list[ApplicationDetailOut])
+def list_job_applications(
+    job_id: str,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> list[ApplicationDetailOut]:
+    job = session.get(models.Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    _assert_membership(session, job.company_id, current_user.id)
+
+    applications = (
+        session.query(models.Application)
+        .options(joinedload(models.Application.candidate).joinedload(models.CandidateProfile.location_ref))
+        .filter(models.Application.job_id == job_id)
+        .order_by(models.Application.applied_at.desc())
+        .all()
+    )
+    return [_build_application_detail_out(application) for application in applications]
+
+
 @router.post("/jobs/{job_id}/publish", response_model=JobOut)
 def publish_job(
     job_id: str,
@@ -301,20 +351,45 @@ def publish_job(
     return _build_job_out(job)
 
 
-@router.get("/jobs", response_model=list[JobOut])
+@router.get("/jobs", response_model=list[JobWithCountsOut])
 def list_company_jobs(
     company_id: str,
     session: Session = Depends(get_session),
     current_user: models.User = Depends(get_current_user),
-) -> list[JobOut]:
+) -> list[JobWithCountsOut]:
     _assert_membership(session, company_id, current_user.id)
-    jobs = (
-        session.query(models.Job)
+    app_counts = (
+        session.query(
+            models.Application.job_id.label("job_id"),
+            func.count(models.Application.id).label("applications_count"),
+            func.sum(
+                case(
+                    (models.Application.status == models.ApplicationStatus.reviewing, 1),
+                    else_=0,
+                )
+            ).label("withheld_count"),
+        )
+        .group_by(models.Application.job_id)
+        .subquery()
+    )
+    rows = (
+        session.query(models.Job, app_counts.c.applications_count, app_counts.c.withheld_count)
+        .outerjoin(app_counts, models.Job.id == app_counts.c.job_id)
         .filter(models.Job.company_id == company_id)
         .order_by(models.Job.created_at.desc())
         .all()
     )
-    return [_build_job_out(job) for job in jobs]
+    results: list[JobWithCountsOut] = []
+    for job, applications_count, withheld_count in rows:
+        job_out = _build_job_out(job)
+        results.append(
+            JobWithCountsOut(
+                **job_out.dict(),
+                applications_count=int(applications_count or 0),
+                withheld_count=int(withheld_count or 0),
+            )
+        )
+    return results
 
 
 @router.get("/jobs/search", response_model=list[JobOut])

@@ -4,6 +4,7 @@ import type {
   Company,
   Job,
   JobApplication,
+  JobApplicationDetail,
   JobStatus,
   JobVisibility,
 } from "./types";
@@ -261,6 +262,12 @@ export async function applyToJob(jobId: string, payload: { video_object_key: str
   return requestJson<JobApplication>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function listJobApplications(jobId: string): Promise<JobApplicationDetail[]> {
+  return requestJson<JobApplicationDetail[]>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
+    method: "GET",
   });
 }
 

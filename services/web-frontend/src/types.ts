@@ -83,6 +83,8 @@ export type Job = {
   playback_url?: string | null;
   created_at?: string;
   updated_at?: string;
+  applications_count?: number | null;
+  withheld_count?: number | null;
 };
 
 export type JobApplication = {
@@ -93,4 +95,9 @@ export type JobApplication = {
   video_object_key?: string | null;
   applied_at?: string;
   updated_at?: string;
+};
+
+export type JobApplicationDetail = JobApplication & {
+  playback_url?: string | null;
+  candidate_profile: CandidateProfile;
 };

@@ -1,7 +1,7 @@
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { applyToJob, confirmUpload, createUploadUrl, uploadFileToUrl } from "../api";
+import { applyToJob, confirmUpload, createUploadUrl, listJobApplications, uploadFileToUrl } from "../api";
 import { formatDuration } from "../helpers";
-import { Job, UserRole, ViewMode } from "../types";
+import { Job, JobApplicationDetail, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -50,6 +50,10 @@ export function JobSeekerFlow({
   const [applyProgress, setApplyProgress] = useState<number | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
+  const [jobApplications, setJobApplications] = useState<JobApplicationDetail[]>([]);
+  const [jobApplicationsLoading, setJobApplicationsLoading] = useState(false);
+  const [jobApplicationsError, setJobApplicationsError] = useState<string | null>(null);
+  const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
   const applyStreamRef = useRef<MediaStream | null>(null);
   const applyRecorderRef = useRef<MediaRecorder | null>(null);
   const applyChunksRef = useRef<Blob[]>([]);
@@ -70,6 +74,10 @@ export function JobSeekerFlow({
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  };
+  const formatApplicationStatus = (status?: string | null) => {
+    if (!status) return "Unknown";
+    return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
   };
 
   const sortedJobs = useMemo(() => {
@@ -253,6 +261,38 @@ export function JobSeekerFlow({
       videoEl.srcObject = null;
     }
   }, [applyStream]);
+
+  useEffect(() => {
+    if (view !== "jobDetail" || !isEmployer || !selectedJobId) {
+      setJobApplications([]);
+      setJobApplicationsLoading(false);
+      setJobApplicationsError(null);
+      setExpandedApplicationId(null);
+      return;
+    }
+    let cancelled = false;
+    setJobApplicationsLoading(true);
+    setJobApplicationsError(null);
+    setExpandedApplicationId(null);
+    listJobApplications(selectedJobId)
+      .then((applications) => {
+        if (cancelled) return;
+        setJobApplications(Array.isArray(applications) ? applications : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setJobApplicationsError(err instanceof Error ? err.message : "Could not load applications.");
+        setJobApplications([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setJobApplicationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isEmployer, selectedJobId]);
 
   const handleApplyVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -476,6 +516,12 @@ export function JobSeekerFlow({
                     const status = getStatusMeta(job.status);
                     return <div className={`job-status ${status.className}`}>{status.label}</div>;
                   })()}
+                  {isEmployer && (
+                    <div className="job-application-counts">
+                      <span>Applications: {job.applications_count ?? 0}</span>
+                      <span>Withheld: {job.withheld_count ?? 0}</span>
+                    </div>
+                  )}
                   {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
                   {isEmployer && (job.status !== "open" || job.visibility !== "public") && (
                     <button
@@ -750,6 +796,76 @@ export function JobSeekerFlow({
                 <div className="panel">
                   <h2>Job description</h2>
                   <p>{job.description}</p>
+                </div>
+              )}
+              {job && isEmployer && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Applications</h2>
+                      <p className="hint">Review candidate profiles and application videos.</p>
+                    </div>
+                    <span className="pill soft">{jobApplications.length} total</span>
+                  </div>
+                  {jobApplicationsLoading && <p className="hint">Loading applications...</p>}
+                  {jobApplicationsError && <p className="error">{jobApplicationsError}</p>}
+                  {!jobApplicationsLoading && !jobApplicationsError && jobApplications.length === 0 && (
+                    <p className="hint">No applications yet.</p>
+                  )}
+                  {!jobApplicationsLoading && !jobApplicationsError && jobApplications.length > 0 && (
+                    <div className="applications-list">
+                      {jobApplications.map((application) => {
+                        const candidate = application.candidate_profile;
+                        const isOpen = expandedApplicationId === application.id;
+                        return (
+                          <div key={application.id} className={`application-card ${isOpen ? "open" : ""}`}>
+                            <button
+                              type="button"
+                              className="application-summary"
+                              onClick={() => setExpandedApplicationId(isOpen ? null : application.id)}
+                            >
+                              <div>
+                                <div className="candidate-name">{candidate.headline || "Candidate profile"}</div>
+                                <div className="candidate-meta">{candidate.location || "Location not provided"}</div>
+                              </div>
+                              <div className="application-meta">
+                                <span className={`application-status ${application.status}`}>
+                                  {formatApplicationStatus(application.status)}
+                                </span>
+                                <span className="applied-date">Applied {formatDate(application.applied_at)}</span>
+                                <span className="toggle-label">{isOpen ? "Hide details" : "View profile"}</span>
+                              </div>
+                            </button>
+                            {isOpen && (
+                              <div className="application-details">
+                                <div className="candidate-details">
+                                  <div className="detail-row">
+                                    <span className="detail-label">Headline</span>
+                                    <span>{candidate.headline || "—"}</span>
+                                  </div>
+                                  <div className="detail-row">
+                                    <span className="detail-label">Location</span>
+                                    <span>{candidate.location || "—"}</span>
+                                  </div>
+                                  {candidate.summary && <p className="candidate-summary">{candidate.summary}</p>}
+                                </div>
+                                {application.playback_url ? (
+                                  <video
+                                    className="application-video"
+                                    src={application.playback_url}
+                                    controls
+                                    preload="metadata"
+                                  />
+                                ) : (
+                                  <p className="hint">Application video is unavailable.</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
               {job && isCandidate && (
