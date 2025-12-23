@@ -43,6 +43,8 @@ const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcri
 const AUDIO_TRANSCRIPT_POLL_MS = 3000;
 const MIN_TRANSCRIPT_FOR_DRAFT = 30;
 const INITIAL_FORM_STATE = { title: '', location: '', description: '', companyName: '' };
+const ROLE_STORAGE_KEY = 'zjobly-user-role';
+const VIEW_STORAGE_KEY = 'zjobly-view';
 const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   headline: '',
   location: '',
@@ -56,6 +58,32 @@ const formatLocationSuggestion = (suggestion: { location: string | null; city?: 
     .map((p) => (p || '').trim())
     .filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : '';
+};
+
+const getStoredRole = (): UserRole | null => {
+  try {
+    const stored = localStorage.getItem(ROLE_STORAGE_KEY);
+    if (stored === 'candidate' || stored === 'employer') {
+      return stored;
+    }
+  } catch {
+    // ignore storage failures
+  }
+  return null;
+};
+
+const getStoredView = (): ViewMode => {
+  const storedRole = getStoredRole();
+  try {
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (stored === 'jobs') return 'jobs';
+    if (stored === 'applications' && storedRole === 'candidate') return 'applications';
+    if (stored === 'create' && storedRole === 'employer') return 'create';
+    if (stored === 'find' && storedRole === 'candidate') return 'find';
+  } catch {
+    // ignore storage failures
+  }
+  return 'welcome';
 };
 
 // Location is inferred server-side via spaCy; frontend only cleans the returned phrase.
@@ -89,18 +117,8 @@ const getScreenLabel = (
 };
 
 function App() {
-  const [view, setView] = useState<ViewMode>('welcome');
-  const [role, setRole] = useState<UserRole | null>(() => {
-    try {
-      const stored = localStorage.getItem('zjobly-user-role');
-      if (stored === 'candidate' || stored === 'employer') {
-        return stored;
-      }
-    } catch {
-      // ignore storage failures
-    }
-    return null;
-  });
+  const [view, setView] = useState<ViewMode>(() => getStoredView());
+  const [role, setRole] = useState<UserRole | null>(() => getStoredRole());
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
@@ -184,9 +202,9 @@ function App() {
     setRole(nextRole);
     try {
       if (nextRole) {
-        localStorage.setItem('zjobly-user-role', nextRole);
+        localStorage.setItem(ROLE_STORAGE_KEY, nextRole);
       } else {
-        localStorage.removeItem('zjobly-user-role');
+        localStorage.removeItem(ROLE_STORAGE_KEY);
       }
     } catch {
       // ignore storage failures
@@ -481,6 +499,23 @@ function App() {
   useEffect(() => {
     refreshJobs();
   }, [refreshJobs]);
+
+  useEffect(() => {
+    try {
+      const shouldPersist =
+        view === 'jobs' ||
+        (view === 'applications' && role === 'candidate') ||
+        (view === 'create' && role === 'employer') ||
+        (view === 'find' && role === 'candidate');
+      if (shouldPersist) {
+        localStorage.setItem(VIEW_STORAGE_KEY, view);
+      } else if (view === 'welcome') {
+        localStorage.removeItem(VIEW_STORAGE_KEY);
+      }
+    } catch {
+      // ignore storage failures
+    }
+  }, [view, role]);
 
   useEffect(() => {
     if (createStep !== 'details') {
