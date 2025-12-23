@@ -310,6 +310,7 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
     transcript_snippet = text[:8000]
     try:
         location = _extract_location_spacy(transcript_snippet)
+        print("SPAcy location:", location)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
