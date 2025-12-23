@@ -1427,6 +1427,7 @@ function App() {
       onCreate={startCreateFlow}
       onFind={startCandidateFlow}
       onJobs={() => setRoleAndView('employer', 'jobs')}
+      onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
       onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
     />
   );
