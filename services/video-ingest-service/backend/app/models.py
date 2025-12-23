@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -79,6 +80,7 @@ class CandidateProfile(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     headline: Mapped[str | None] = mapped_column(String(255), nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"), nullable=True, index=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     discoverable: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -86,6 +88,7 @@ class CandidateProfile(Base):
 
     user: Mapped[User] = relationship(back_populates="candidate_profile")
     applications: Mapped[list["Application"]] = relationship(back_populates="candidate")
+    location_ref: Mapped[Optional["Location"]] = relationship(back_populates="candidates")
 
 
 class Location(Base):
@@ -102,6 +105,7 @@ class Location(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     jobs: Mapped[list["Job"]] = relationship(back_populates="location_ref")
+    candidates: Mapped[list["CandidateProfile"]] = relationship(back_populates="location_ref")
 
 
 class Job(Base):
@@ -122,7 +126,7 @@ class Job(Base):
 
     user: Mapped["User"] = relationship()
     company: Mapped[Company] = relationship(back_populates="jobs")
-    location_ref: Mapped[Location | None] = relationship()
+    location_ref: Mapped[Location | None] = relationship(back_populates="jobs")
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
 
 

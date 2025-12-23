@@ -14,7 +14,6 @@ from app.schemas_accounts import (
     CompanyOut,
     JobCreate,
     JobOut,
-    LocationOut,
 )
 from app.routes import nlp as nlp_routes
 
@@ -39,6 +38,59 @@ def get_current_user(
         session.commit()
         session.refresh(user)
     return user
+
+
+def _resolve_location_payload(
+    session: Session, location_id: Optional[str], location_text: Optional[str]
+) -> tuple[Optional[str], Optional[str], Optional[models.Location]]:
+    """
+    Resolve a location id or freeform text into a persisted Location row, returning
+    the chosen id, the human-friendly string, and the Location model (if any).
+    """
+    resolved_id = location_id
+    resolved_str = (location_text or "").strip() or None
+    location_obj: models.Location | None = None
+
+    if location_id:
+        location_obj = session.get(models.Location, location_id)
+        if not location_obj:
+            raise HTTPException(status_code=404, detail="Location not found")
+        if not resolved_str:
+            resolved_str = location_obj.name
+    elif resolved_str:
+        geo = nlp_routes._geocode_location(resolved_str)
+        location_name = (
+            ", ".join([comp for comp in [geo.get("city"), geo.get("region"), geo.get("country")] if comp])
+            or geo.get("postal_code")
+            or resolved_str
+        )
+        location_obj = (
+            session.query(models.Location)
+            .filter(
+                models.Location.name == location_name,
+                models.Location.city == (geo.get("city") or None),
+                models.Location.region == (geo.get("region") or None),
+                models.Location.country == (geo.get("country") or None),
+                models.Location.postal_code == (geo.get("postal_code") or None),
+            )
+            .first()
+        )
+        if not location_obj:
+            location_obj = models.Location(
+                name=location_name,
+                city=geo.get("city") or None,
+                region=geo.get("region") or None,
+                country=geo.get("country") or None,
+                postal_code=geo.get("postal_code") or None,
+                latitude=geo.get("latitude") or None,
+                longitude=geo.get("longitude") or None,
+            )
+            session.add(location_obj)
+            session.flush()
+        resolved_id = location_obj.id
+        resolved_str = location_name
+
+    return resolved_id, resolved_str, location_obj
 
 
 @router.post("/companies", response_model=CompanyOut)
@@ -73,25 +125,30 @@ def upsert_candidate_profile(
     session: Session = Depends(get_session),
     current_user: models.User = Depends(get_current_user),
 ) -> CandidateProfileOut:
+    location_id, resolved_location_str, _ = _resolve_location_payload(
+        session, payload.location_id, payload.location
+    )
     profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
     if not profile:
         profile = models.CandidateProfile(
             user_id=current_user.id,
             headline=payload.headline,
-            location=payload.location,
+            location=resolved_location_str,
+            location_id=location_id,
             summary=payload.summary,
             discoverable=payload.discoverable,
         )
         session.add(profile)
     else:
         profile.headline = payload.headline
-        profile.location = payload.location
+        profile.location = resolved_location_str
+        profile.location_id = location_id
         profile.summary = payload.summary
         profile.discoverable = payload.discoverable
 
     session.commit()
     session.refresh(profile)
-    return profile
+    return _build_candidate_out(profile)
 
 
 def _assert_membership(session: Session, company_id: str, user_id: str) -> models.CompanyMembership:
@@ -139,6 +196,19 @@ def _build_job_out(job: models.Job) -> JobOut:
     )
 
 
+def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOut:
+    return CandidateProfileOut(
+        id=profile.id,
+        user_id=profile.user_id,
+        headline=profile.headline,
+        location=profile.location,
+        location_id=profile.location_id,
+        location_details=profile.location_ref,
+        summary=profile.summary,
+        discoverable=profile.discoverable,
+    )
+
+
 @router.post("/jobs", response_model=JobOut)
 def create_job(
     payload: JobCreate,
@@ -147,42 +217,9 @@ def create_job(
 ) -> JobOut:
     _assert_membership(session, payload.company_id, current_user.id)
 
-    location_id = payload.location_id
-    resolved_location_str = payload.location
-    if not location_id and payload.location:
-        # Geocode to persist structured location.
-        geo = nlp_routes._geocode_location(payload.location)
-        location_name = (
-            ", ".join([comp for comp in [geo.get('city'), geo.get('region'), geo.get('country')] if comp])
-            or geo.get('postal_code')
-            or payload.location
-        )
-        location_obj = (
-            session.query(models.Location)
-            .filter(
-                models.Location.name == location_name,
-                models.Location.city == (geo.get('city') or None),
-                models.Location.region == (geo.get('region') or None),
-                models.Location.country == (geo.get('country') or None),
-                models.Location.postal_code == (geo.get('postal_code') or None),
-            )
-            .first()
-        )
-        if not location_obj:
-            location_obj = models.Location(
-                name=location_name,
-                city=geo.get('city') or None,
-                region=geo.get('region') or None,
-                country=geo.get('country') or None,
-                postal_code=geo.get('postal_code') or None,
-                latitude=geo.get('latitude') or None,
-                longitude=geo.get('longitude') or None,
-            )
-            session.add(location_obj)
-            session.flush()
-        location_id = location_obj.id
-        resolved_location_str = location_name
-
+    location_id, resolved_location_str, _ = _resolve_location_payload(
+        session, payload.location_id, payload.location
+    )
     job = models.Job(
         user_id=current_user.id,
         company_id=payload.company_id,
@@ -247,4 +284,5 @@ def search_candidates(
     if q:
         ilike = f"%{q}%"
         query = query.filter(models.CandidateProfile.headline.ilike(ilike))
-    return query.order_by(models.CandidateProfile.updated_at.desc()).limit(50).all()
+    results = query.order_by(models.CandidateProfile.updated_at.desc()).limit(50).all()
+    return [_build_candidate_out(profile) for profile in results]

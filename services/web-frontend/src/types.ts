@@ -30,6 +30,17 @@ export type Company = {
   website?: string | null;
 };
 
+export type LocationDetails = {
+  id: string;
+  name: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  postal_code?: string | null;
+  latitude?: string | null;
+  longitude?: string | null;
+};
+
 export type CompanyMembership = {
   id: string;
   user_id: string;
@@ -41,6 +52,7 @@ export type CompanyMembership = {
 export type CandidateProfileInput = {
   headline?: string | null;
   location?: string | null;
+  location_id?: string | null;
   summary?: string | null;
   discoverable: boolean;
 };
@@ -48,6 +60,7 @@ export type CandidateProfileInput = {
 export type CandidateProfile = CandidateProfileInput & {
   id: string;
   user_id: string;
+  location_details?: LocationDetails | null;
 };
 
 export type JobStatus = 'draft' | 'open' | 'closed' | 'published';
@@ -58,6 +71,8 @@ export type Job = {
   company_id?: string;
   title: string;
   location?: string;
+  location_id?: string | null;
+  location_details?: LocationDetails | null;
   description?: string | null;
   status: JobStatus;
   visibility?: JobVisibility;

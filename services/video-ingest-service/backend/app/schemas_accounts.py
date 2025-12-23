@@ -29,9 +29,24 @@ class CompanyOut(BaseModel):
         orm_mode = True
 
 
+class LocationOut(BaseModel):
+    id: str
+    name: str
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
 class CandidateProfileCreate(BaseModel):
     headline: Optional[str] = None
     location: Optional[str] = None
+    location_id: Optional[str] = None
     summary: Optional[str] = None
     discoverable: bool = False
 
@@ -41,6 +56,8 @@ class CandidateProfileOut(BaseModel):
     user_id: str
     headline: Optional[str] = None
     location: Optional[str] = None
+    location_id: Optional[str] = None
+    location_details: Optional[LocationOut] = None
     summary: Optional[str] = None
     discoverable: bool
 
@@ -57,20 +74,6 @@ class JobCreate(BaseModel):
     status: JobStatus = JobStatus.open
     visibility: JobVisibility = JobVisibility.public
     video_object_key: Optional[str] = None
-
-
-class LocationOut(BaseModel):
-    id: str
-    name: str
-    city: Optional[str] = None
-    region: Optional[str] = None
-    country: Optional[str] = None
-    postal_code: Optional[str] = None
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
-
-    class Config:
-        orm_mode = True
 
 
 class JobOut(BaseModel):
