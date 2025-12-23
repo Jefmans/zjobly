@@ -33,6 +33,7 @@ import {
   UserRole,
   ViewMode,
 } from './types';
+import { getProfileDraftFromTranscript } from './api';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
@@ -170,6 +171,7 @@ function App() {
     summary: false,
   });
   const candidateLocationAbortRef = useRef<AbortController | null>(null);
+  const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -540,6 +542,7 @@ function App() {
     const nextValue = isCheckbox ? e.target.checked : value;
     if (name === 'headline' || name === 'location' || name === 'summary') {
       candidateProfileEditedRef.current = { ...candidateProfileEditedRef.current, [name]: true };
+      candidateProfileDraftAbortRef.current?.abort();
     }
     setCandidateProfile((prev) => ({
       ...prev,
@@ -1286,34 +1289,44 @@ function App() {
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
 
-    if (!candidateProfileEditedRef.current.headline && !(candidateProfile.headline || '').trim()) {
-      const firstSentence = text.split(/[.!?]/)[0]?.trim() || text.slice(0, 80);
-      setCandidateProfile((prev) => ({ ...prev, headline: firstSentence.slice(0, 80) }));
-    }
+    const controller = new AbortController();
+    candidateProfileDraftAbortRef.current?.abort();
+    candidateProfileDraftAbortRef.current = controller;
 
-    if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
-      setCandidateProfile((prev) => ({ ...prev, summary: text.slice(0, 600) }));
-    }
-
-    if (!candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
-      const controller = new AbortController();
-      candidateLocationAbortRef.current?.abort();
-      candidateLocationAbortRef.current = controller;
-      void (async () => {
-        try {
-          const res = await getLocationFromTranscript(text.slice(0, 8000), controller.signal);
-          if (controller.signal.aborted) return;
-          const suggestion = formatLocationSuggestion(res || { location: null });
-          if (suggestion) {
-            setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
-          }
-        } catch (err) {
-          if ((err as any)?.name === 'AbortError') return;
-          console.error('Candidate location suggestion failed', err);
+    void (async () => {
+      try {
+        const draft = await getProfileDraftFromTranscript(text.slice(0, 8000), controller.signal);
+        if (controller.signal.aborted) return;
+        if (!candidateProfileEditedRef.current.headline && !(candidateProfile.headline || '').trim()) {
+          setCandidateProfile((prev) => ({ ...prev, headline: draft.headline }));
         }
-      })();
-      return () => controller.abort();
-    }
+        if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
+          setCandidateProfile((prev) => ({ ...prev, summary: draft.summary }));
+        }
+        if (!candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
+          const location = draft.location || '';
+          if (location) {
+            setCandidateProfile((prev) => ({ ...prev, location }));
+          } else {
+            // fallback to geocoder if LLM did not return location
+            const locController = new AbortController();
+            candidateLocationAbortRef.current?.abort();
+            candidateLocationAbortRef.current = locController;
+            const res = await getLocationFromTranscript(text.slice(0, 8000), locController.signal);
+            if (locController.signal.aborted) return;
+            const suggestion = formatLocationSuggestion(res || { location: null });
+            if (suggestion) {
+              setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as any)?.name === 'AbortError') return;
+        console.error('Candidate profile draft failed', err);
+      }
+    })();
+
+    return () => controller.abort();
   }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.headline, candidateProfile.summary, candidateProfile.location]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);

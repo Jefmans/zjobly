@@ -48,6 +48,12 @@ export type LocationSuggestion = {
   postal_code?: string | null;
 };
 
+export type ProfileDraft = {
+  headline: string;
+  summary: string;
+  location?: string | null;
+};
+
 const LOCAL_USER_KEY = "zjobly-user-id";
 
 const apiBase = () => {
@@ -189,6 +195,17 @@ export async function getLocationFromTranscript(
   signal?: AbortSignal,
 ): Promise<LocationSuggestion> {
   return requestJson<LocationSuggestion>("/nlp/location-from-transcript", {
+    method: "POST",
+    body: JSON.stringify({ transcript }),
+    signal,
+  });
+}
+
+export async function getProfileDraftFromTranscript(
+  transcript: string,
+  signal?: AbortSignal,
+): Promise<ProfileDraft> {
+  return requestJson<ProfileDraft>("/nlp/profile-draft", {
     method: "POST",
     body: JSON.stringify({ transcript }),
     signal,
