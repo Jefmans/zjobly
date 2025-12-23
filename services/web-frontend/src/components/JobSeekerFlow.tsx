@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { applyToJob, confirmUpload, createUploadUrl, uploadFileToUrl } from "../api";
 import { formatDuration } from "../helpers";
 import { Job, UserRole, ViewMode } from "../types";
@@ -40,12 +40,23 @@ export function JobSeekerFlow({
   const [applyVideoFile, setApplyVideoFile] = useState<File | null>(null);
   const [applyVideoUrl, setApplyVideoUrl] = useState<string | null>(null);
   const [applyDuration, setApplyDuration] = useState<number | null>(null);
+  const [applyVideoSource, setApplyVideoSource] = useState<"recording" | "upload" | null>(null);
+  const [applyStream, setApplyStream] = useState<MediaStream | null>(null);
+  const [applyRecordingState, setApplyRecordingState] = useState<"idle" | "recording">("idle");
+  const [applyRecordDuration, setApplyRecordDuration] = useState<number>(0);
   const [applyStatus, setApplyStatus] = useState<
     "idle" | "presigning" | "uploading" | "confirming" | "saving" | "success" | "error"
   >("idle");
   const [applyProgress, setApplyProgress] = useState<number | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
+  const applyStreamRef = useRef<MediaStream | null>(null);
+  const applyRecorderRef = useRef<MediaRecorder | null>(null);
+  const applyChunksRef = useRef<Blob[]>([]);
+  const applyRecordTimerRef = useRef<number | null>(null);
+  const applyRecordStartedAtRef = useRef<number | null>(null);
+  const applyDiscardRecordingRef = useRef<boolean>(false);
+  const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
 
   const formatDate = (value?: string | null) => {
@@ -90,13 +101,42 @@ export function JobSeekerFlow({
     if (status === "open") return { label: "Open", className: "open" };
     return { label: "Published", className: "published" };
   };
+  const clearApplyRecordTimer = () => {
+    if (applyRecordTimerRef.current) {
+      window.clearInterval(applyRecordTimerRef.current);
+      applyRecordTimerRef.current = null;
+    }
+    applyRecordStartedAtRef.current = null;
+    setApplyRecordDuration(0);
+  };
+  const stopApplyStream = () => {
+    if (applyStreamRef.current) {
+      applyStreamRef.current.getTracks().forEach((track) => track.stop());
+      applyStreamRef.current = null;
+    }
+    setApplyStream(null);
+  };
+  const stopApplyRecording = (discard: boolean) => {
+    applyDiscardRecordingRef.current = discard;
+    if (applyRecorderRef.current && applyRecorderRef.current.state !== "inactive") {
+      applyRecorderRef.current.stop();
+      return;
+    }
+    applyDiscardRecordingRef.current = false;
+    applyChunksRef.current = [];
+    clearApplyRecordTimer();
+    setApplyRecordingState("idle");
+    stopApplyStream();
+  };
   const resetApplyState = () => {
+    stopApplyRecording(true);
     if (applyVideoUrl) {
       URL.revokeObjectURL(applyVideoUrl);
     }
     setApplyVideoFile(null);
     setApplyVideoUrl(null);
     setApplyDuration(null);
+    setApplyVideoSource(null);
     setApplyStatus("idle");
     setApplyProgress(null);
     setApplyError(null);
@@ -122,6 +162,21 @@ export function JobSeekerFlow({
       resetApplyState();
     }
   }, [view]);
+  useEffect(() => {
+    return () => {
+      stopApplyRecording(true);
+    };
+  }, []);
+  useEffect(() => {
+    const videoEl = applyLiveVideoRef.current;
+    if (!videoEl) return;
+    if (applyStream) {
+      videoEl.srcObject = applyStream;
+      videoEl.play().catch(() => undefined);
+    } else {
+      videoEl.srcObject = null;
+    }
+  }, [applyStream]);
 
   const handleApplyVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -133,6 +188,7 @@ export function JobSeekerFlow({
     if (applyVideoUrl) {
       URL.revokeObjectURL(applyVideoUrl);
     }
+    setApplyVideoSource("upload");
 
     const objectUrl = URL.createObjectURL(file);
     const probe = document.createElement("video");
@@ -154,12 +210,109 @@ export function JobSeekerFlow({
       setApplyVideoFile(file);
       setApplyVideoUrl(objectUrl);
       setApplyDuration(duration);
+      setApplyVideoSource("upload");
     };
     probe.onerror = () => {
       setApplyError("Could not read video metadata. Try a different file.");
       URL.revokeObjectURL(objectUrl);
     };
     probe.src = objectUrl;
+  };
+  const startApplyRecording = async () => {
+    if (applyRecordingState === "recording") return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setApplyError("Camera/mic access is not supported in this browser.");
+      return;
+    }
+    setApplyError(null);
+    setApplyStatus("idle");
+    setApplyProgress(null);
+    if (applyVideoUrl) {
+      URL.revokeObjectURL(applyVideoUrl);
+    }
+    setApplyVideoFile(null);
+    setApplyVideoUrl(null);
+    setApplyDuration(null);
+    setApplyVideoSource(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      applyStreamRef.current = stream;
+      setApplyStream(stream);
+      applyChunksRef.current = [];
+      const preferredTypes = [
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm",
+      ];
+      const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      applyRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          applyChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        applyRecorderRef.current = null;
+        clearApplyRecordTimer();
+        setApplyRecordingState("idle");
+        stopApplyStream();
+        const discard = applyDiscardRecordingRef.current;
+        applyDiscardRecordingRef.current = false;
+        const chunks = applyChunksRef.current;
+        applyChunksRef.current = [];
+        if (discard) return;
+        if (!chunks.length) {
+          setApplyError("Recording failed to capture video.");
+          return;
+        }
+        const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+        const objectUrl = URL.createObjectURL(blob);
+        const probe = document.createElement("video");
+        probe.preload = "metadata";
+        probe.onloadedmetadata = () => {
+          const duration = probe.duration;
+          if (duration > MAX_APPLICATION_VIDEO_SECONDS) {
+            setApplyError("Video must be 3 minutes or less.");
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          const fileName = `application-${Date.now()}.webm`;
+          const file = new File([blob], fileName, { type: blob.type || "video/webm" });
+          if (applyVideoUrl) {
+            URL.revokeObjectURL(applyVideoUrl);
+          }
+          setApplyVideoFile(file);
+          setApplyVideoUrl(objectUrl);
+          setApplyDuration(duration);
+          setApplyVideoSource("recording");
+        };
+        probe.onerror = () => {
+          setApplyError("Could not read recorded video metadata. Try again.");
+          URL.revokeObjectURL(objectUrl);
+        };
+        probe.src = objectUrl;
+      };
+      clearApplyRecordTimer();
+      applyRecordStartedAtRef.current = Date.now();
+      applyRecordTimerRef.current = window.setInterval(() => {
+        if (applyRecordStartedAtRef.current === null) return;
+        const elapsed = (Date.now() - applyRecordStartedAtRef.current) / 1000;
+        setApplyRecordDuration(elapsed);
+        if (elapsed >= MAX_APPLICATION_VIDEO_SECONDS) {
+          stopApplyRecording(false);
+        }
+      }, 250);
+      recorder.start();
+      setApplyRecordingState("recording");
+    } catch (err) {
+      console.error(err);
+      stopApplyStream();
+      setApplyError("Could not access camera/mic. Check permissions and try again.");
+    }
+  };
+  const stopApplyRecordingClick = () => {
+    stopApplyRecording(false);
   };
 
   const handleApplyToJob = async (jobId: string) => {
@@ -179,7 +332,7 @@ export function JobSeekerFlow({
       const confirmed = await confirmUpload({
         object_key: presign.object_key,
         duration_seconds: applyDuration ?? null,
-        source: "upload",
+        source: applyVideoSource || "upload",
       });
       setApplyStatus("saving");
       await applyToJob(jobId, { video_object_key: confirmed.object_key || presign.object_key });
@@ -279,6 +432,7 @@ export function JobSeekerFlow({
     const canApply = Boolean(job && isCandidate && job.status === "open" && job.visibility === "public");
     const hasApplied = Boolean(job && appliedJobs[job.id]);
     const isApplying = ["presigning", "uploading", "confirming", "saving"].includes(applyStatus);
+    const isRecording = applyRecordingState === "recording";
     return (
       <>
         {nav}
@@ -331,11 +485,39 @@ export function JobSeekerFlow({
                 <div className="panel">
                   <h2>Apply with a short video</h2>
                   <p className="hint">
-                    Record a 1-3 minute video about why you want this job, then upload it here to apply.
+                    Record or upload a 1-3 minute video about why you want this job, then submit it to apply.
                   </p>
                   {!canApply && (
                     <p className="hint">This job is not open for applications right now.</p>
                   )}
+                  <div className="apply-recorder">
+                    <div className="record-controls">
+                      <button
+                        type="button"
+                        className="record-control record"
+                        onClick={startApplyRecording}
+                        disabled={!canApply || hasApplied || isApplying || isRecording}
+                      >
+                        <span className="record-icon record-icon--record" aria-hidden="true" />
+                        <span className="record-label">{isRecording ? "Recording" : "Record"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="record-control stop"
+                        onClick={stopApplyRecordingClick}
+                        disabled={!isRecording}
+                      >
+                        <span className="record-icon record-icon--stop" aria-hidden="true" />
+                        <span className="record-label">Stop</span>
+                      </button>
+                    </div>
+                    {isRecording && (
+                      <div className="record-timer">
+                        <span>{formatDuration(applyRecordDuration) ?? "0:00"}</span>
+                        <span className="record-max">/ 3:00</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="upload-box">
                     <input
                       id="application-video"
@@ -343,7 +525,7 @@ export function JobSeekerFlow({
                       type="file"
                       accept="video/*"
                       onChange={handleApplyVideoChange}
-                      disabled={!canApply || hasApplied || isApplying}
+                      disabled={!canApply || hasApplied || isApplying || isRecording}
                     />
                     <div className="upload-copy">
                       <strong>Select a video file</strong>
@@ -354,7 +536,15 @@ export function JobSeekerFlow({
                     <p className="duration">Video length: {formatDuration(applyDuration)}</p>
                   )}
                   <div className="video-preview">
-                    {applyVideoUrl ? (
+                    {applyStream ? (
+                      <video
+                        ref={applyLiveVideoRef}
+                        className="playback-video"
+                        autoPlay
+                        playsInline
+                        muted
+                      />
+                    ) : applyVideoUrl ? (
                       <video
                         key={applyVideoUrl}
                         src={applyVideoUrl}
@@ -391,7 +581,7 @@ export function JobSeekerFlow({
                       type="button"
                       className="cta primary"
                       onClick={() => job && handleApplyToJob(job.id)}
-                      disabled={!canApply || hasApplied || isApplying || !applyVideoFile}
+                      disabled={!canApply || hasApplied || isApplying || isRecording || !applyVideoFile}
                     >
                       {hasApplied ? "Applied" : isApplying ? "Applying..." : "Apply now"}
                     </button>
