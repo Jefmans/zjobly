@@ -64,7 +64,9 @@ def _clean_location(text: str) -> str:
 
 def _extract_location_spacy(text: str) -> str | None:
     nlp = get_spacy_nlp()
+    print("TEXT :", text)
     doc = nlp(text)
+    print("SPACY DOC :", doc)
     for ent in doc.ents:
         if ent.label_ in ("GPE", "LOC"):
             guess = _clean_location(ent.text)
