@@ -49,7 +49,7 @@ def get_spacy_nlp() -> Language:
     if _spacy_nlp is not None:
         return _spacy_nlp
 
-    model_name = settings.SPACY_MODEL or "xx_ent_wiki_sm"
+    model_name = settings.SPACY_MODEL or "en_core_web_sm"
     try:
         _spacy_nlp = spacy.load(model_name)
         print("spacy model : ", _spacy_nlp)
