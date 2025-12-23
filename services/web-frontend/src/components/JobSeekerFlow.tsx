@@ -945,6 +945,9 @@ export function JobSeekerFlow({
     const job = selectedJob;
     const canApply = canApplyForSelectedJob;
     const hasApplied = hasAppliedForSelectedJob;
+    const appliedStatus = job
+      ? appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null)
+      : null;
     return (
       <>
         {nav}
@@ -967,6 +970,11 @@ export function JobSeekerFlow({
                   const status = getStatusMeta(job.status);
                   return <span className={`job-status ${status.className}`}>{status.label}</span>;
                 })()}
+                {isCandidate && appliedStatus && (
+                  <span className={`application-status ${appliedStatus}`}>
+                    {formatApplicationStatus(appliedStatus)}
+                  </span>
+                )}
                 {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
               </div>
               {job.videoUrl || job.playback_url ? (
