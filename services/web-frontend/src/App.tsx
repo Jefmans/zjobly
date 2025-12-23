@@ -18,6 +18,7 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
+  searchPublicJobs,
   upsertCandidateProfile,
   uploadFileToUrl,
 } from './api';
@@ -57,15 +58,24 @@ const formatLocationSuggestion = (suggestion: { location: string | null; city?: 
 
 // Location is inferred server-side via spaCy; frontend only cleans the returned phrase.
 
-const getScreenLabel = (view: ViewMode, step: CreateStep, candidateStep: CandidateStep): string => {
+const getScreenLabel = (
+  view: ViewMode,
+  step: CreateStep,
+  candidateStep: CandidateStep,
+  role: UserRole | null,
+): string => {
   if (view === 'welcome') return 'Screen:Welcome';
   if (view === 'find') {
     if (candidateStep === 'record') return 'Screen:FindZjob/RecordVideo';
     if (candidateStep === 'select') return 'Screen:FindZjob/SelectVideo';
     return 'Screen:FindZjob/ProfileDetail';
   }
-  if (view === 'jobs') return 'Screen:MyJobs/List';
-  if (view === 'jobDetail') return 'Screen:MyJobs/Detail';
+  if (view === 'jobs') {
+    return role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
+  }
+  if (view === 'jobDetail') {
+    return role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
+  }
   if (view === 'create') {
     if (step === 'record') return 'Screen:CreateZjob/RecordVideo';
     if (step === 'select') return 'Screen:CreateZjob/SelectVideo';
@@ -367,15 +377,20 @@ function App() {
   };
 
   const refreshJobs = useCallback(async () => {
-    if (!companyId) {
-      setJobs([]);
-      setJobsError(null);
-      return;
-    }
     setJobsLoading(true);
     setJobsError(null);
     try {
-      const fetched = await listCompanyJobs(companyId);
+      let fetched: Job[] = [];
+      if (role === 'candidate') {
+        fetched = await searchPublicJobs();
+      } else {
+        if (!companyId) {
+          setJobs([]);
+          setJobsError(null);
+          return;
+        }
+        fetched = await listCompanyJobs(companyId);
+      }
       if (!Array.isArray(fetched)) {
         setJobs([]);
         setJobsError('Could not load jobs.');
@@ -393,7 +408,7 @@ function App() {
     } finally {
       setJobsLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, role]);
 
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
@@ -1337,7 +1352,7 @@ function App() {
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const screenLabel = getScreenLabel(view, createStep, candidateStep);
+  const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
 
   const backToWelcome = () => {
     resetCreateState();
@@ -1493,6 +1508,7 @@ function App() {
       <JobSeekerFlow
         view={view}
         nav={nav}
+        role={role}
         jobs={jobs}
         jobsLoading={jobsLoading}
         jobsError={jobsError}

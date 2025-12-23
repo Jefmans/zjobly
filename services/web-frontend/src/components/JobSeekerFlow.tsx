@@ -1,9 +1,10 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Job, ViewMode } from "../types";
+import { Job, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
   nav: ReactNode;
+  role: UserRole | null;
   jobs: Job[];
   jobsLoading: boolean;
   jobsError: string | null;
@@ -16,6 +17,7 @@ type Props = {
 export function JobSeekerFlow({
   view,
   nav,
+  role,
   jobs,
   jobsLoading,
   jobsError,
@@ -25,6 +27,7 @@ export function JobSeekerFlow({
   setView,
 }: Props) {
   const [sortBy, setSortBy] = useState("created_desc");
+  const isCandidate = role === "candidate";
 
   const formatDate = (value?: string | null) => {
     if (!value) return "N/A";
@@ -74,10 +77,12 @@ export function JobSeekerFlow({
       <>
         {nav}
         <section className="hero">
-          <div className="view-pill">My Jobs</div>
+          <div className="view-pill">{isCandidate ? "Find Zjob" : "My Jobs"}</div>
           <p className="tag">Zjobly</p>
-          <h1>Your jobs</h1>
-          <p className="lede">Click a job to see its details.</p>
+          <h1>{isCandidate ? "Open jobs" : "Your jobs"}</h1>
+          <p className="lede">
+            {isCandidate ? "Browse published jobs and tap one for details." : "Click a job to see its details."}
+          </p>
           <div className="jobs-toolbar">
             <div className="field">
               <label htmlFor="jobSort">Sort by</label>
@@ -90,11 +95,15 @@ export function JobSeekerFlow({
               </select>
             </div>
           </div>
-          {!companyId && <p className="hint">Set VITE_COMPANY_ID in your .env to load jobs from the API.</p>}
+          {!isCandidate && !companyId && (
+            <p className="hint">Set VITE_COMPANY_ID in your .env to load jobs from the API.</p>
+          )}
           {jobsError && <p className="error">{jobsError}</p>}
           {jobsLoading && <p className="hint">Loading jobs...</p>}
           {!jobsLoading && !jobsError && jobs.length === 0 && (
-            <p className="hint">No jobs yet. Publish one to see it here.</p>
+            <p className="hint">
+              {isCandidate ? "No open jobs yet. Check back soon." : "No jobs yet. Publish one to see it here."}
+            </p>
           )}
           <div className="jobs-list">
             {sortedJobs.map((job) => (
@@ -138,11 +147,15 @@ export function JobSeekerFlow({
       <>
         {nav}
         <section className="hero">
-          <div className="view-pill">Job Detail</div>
+          <div className="view-pill">{isCandidate ? "Zjob Detail" : "Job Detail"}</div>
           <p className="tag">Zjobly</p>
           {jobsLoading && <p className="hint">Loading jobs...</p>}
           {jobsError && <p className="error">{jobsError}</p>}
-          {!job && !jobsLoading && <p className="hint">Select a job from the list first.</p>}
+          {!job && !jobsLoading && (
+            <p className="hint">
+              {isCandidate ? "Pick a job from the list to view details." : "Select a job from the list first."}
+            </p>
+          )}
           {job && (
             <>
               <h1>{job.title}</h1>
@@ -165,7 +178,11 @@ export function JobSeekerFlow({
                 </div>
               ) : (
                 <div className="panel">
-                  <p className="hint">Video is processing or unavailable. Publish a job with a video to see it here.</p>
+                  <p className="hint">
+                    {isCandidate
+                      ? "Video is processing or unavailable."
+                      : "Video is processing or unavailable. Publish a job with a video to see it here."}
+                  </p>
                 </div>
               )}
               {job.description && (
