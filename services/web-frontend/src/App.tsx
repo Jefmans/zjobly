@@ -1291,31 +1291,10 @@ function App() {
     if (!text || candidateTranscriptStatus !== 'final') return;
 
     const draftController = new AbortController();
-    const geoController = new AbortController();
     candidateProfileDraftAbortRef.current?.abort();
-    candidateLocationAbortRef.current?.abort();
     candidateProfileDraftAbortRef.current = draftController;
-    candidateLocationAbortRef.current = geoController;
 
-    // Kick off geocoder immediately for location if needed
-    const needsLocation = !candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim();
-    if (needsLocation) {
-      void (async () => {
-        try {
-          const res = await getLocationFromTranscript(text.slice(0, 8000), geoController.signal);
-          if (geoController.signal.aborted) return;
-          const suggestion = formatLocationSuggestion(res || { location: null });
-          if (suggestion && !candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
-            setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
-          }
-        } catch (err) {
-          if ((err as any)?.name === 'AbortError') return;
-          console.error('Candidate location suggestion failed', err);
-        }
-      })();
-    }
-
-    // LLM draft for headline/summary and optional location
+    // LLM draft for headline/summary
     void (async () => {
       try {
         const draft = await getProfileDraftFromTranscript(text.slice(0, 8000), draftController.signal);
@@ -1326,15 +1305,6 @@ function App() {
         if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
           setCandidateProfile((prev) => ({ ...prev, summary: draft.summary }));
         }
-        if (
-          needsLocation &&
-          !candidateProfileEditedRef.current.location &&
-          !(candidateProfile.location || '').trim() &&
-          draft.location
-        ) {
-          setCandidateProfile((prev) => ({ ...prev, location: draft.location || '' }));
-          geoController.abort();
-        }
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
         console.error('Candidate profile draft failed', err);
@@ -1343,9 +1313,36 @@ function App() {
 
     return () => {
       draftController.abort();
-      geoController.abort();
     };
   }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.headline, candidateProfile.summary, candidateProfile.location]);
+
+  // Geocode candidate location when transcript is ready and location is empty
+  useEffect(() => {
+    const text = candidateTranscript.trim();
+    if (!text || candidateTranscriptStatus !== 'final') return;
+    if (candidateProfileEditedRef.current.location) return;
+    if ((candidateProfile.location || '').trim()) return;
+
+    const controller = new AbortController();
+    candidateLocationAbortRef.current?.abort();
+    candidateLocationAbortRef.current = controller;
+
+    void (async () => {
+      try {
+        const res = await getLocationFromTranscript(text.slice(0, 8000), controller.signal);
+        if (controller.signal.aborted) return;
+        const suggestion = formatLocationSuggestion(res || { location: null });
+        if (suggestion && !candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
+          setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
+        }
+      } catch (err) {
+        if ((err as any)?.name === 'AbortError') return;
+        console.error('Candidate location suggestion failed', err);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.location]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
