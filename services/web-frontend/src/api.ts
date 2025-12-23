@@ -1,6 +1,7 @@
 import type {
   CandidateProfile,
   CandidateProfileInput,
+  CandidateApplication,
   Company,
   Job,
   JobApplication,
@@ -270,6 +271,10 @@ export async function listJobApplications(jobId: string): Promise<JobApplication
   return requestJson<JobApplicationDetail[]>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
     method: "GET",
   });
+}
+
+export async function listCandidateApplications(): Promise<CandidateApplication[]> {
+  return requestJson<CandidateApplication[]>("/accounts/applications", { method: "GET" });
 }
 
 export async function updateJobApplication(

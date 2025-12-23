@@ -1284,6 +1284,18 @@ button[type='submit']:disabled {
   background: #0f172a;
 }
 
+.application-media {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.media-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
 .record-timer {
   display: flex;
   gap: 0.35rem;

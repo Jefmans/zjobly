@@ -134,6 +134,18 @@ class ApplicationDetailOut(BaseModel):
     candidate_profile: CandidateProfileOut
 
 
+class ApplicationWithJobOut(BaseModel):
+    id: str
+    job_id: str
+    candidate_id: str
+    status: ApplicationStatus
+    video_object_key: Optional[str] = None
+    playback_url: Optional[str] = None
+    applied_at: datetime
+    updated_at: datetime
+    job: JobOut
+
+
 class MembershipOut(BaseModel):
     id: str
     user_id: str

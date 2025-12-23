@@ -13,6 +13,7 @@ from app.schemas_accounts import (
     ApplicationDetailOut,
     ApplicationOut,
     ApplicationUpdate,
+    ApplicationWithJobOut,
     CandidateProfileCreate,
     CandidateProfileOut,
     CompanyCreate,
@@ -241,6 +242,32 @@ def _build_application_detail_out(application: models.Application) -> Applicatio
     )
 
 
+def _build_application_with_job_out(application: models.Application) -> ApplicationWithJobOut:
+    playback_url = None
+    if application.video_object_key:
+        try:
+            presigned = storage.presign_get_object(
+                bucket=settings.S3_BUCKET_RAW,
+                object_key=application.video_object_key,
+                expires_in=settings.MEDIA_PLAY_SIGN_EXPIRY_SEC,
+            )
+            playback_url = presigned["play_url"]
+        except Exception:
+            playback_url = None
+
+    return ApplicationWithJobOut(
+        id=application.id,
+        job_id=application.job_id,
+        candidate_id=application.candidate_id,
+        status=application.status,
+        video_object_key=application.video_object_key,
+        playback_url=playback_url,
+        applied_at=application.applied_at,
+        updated_at=application.updated_at,
+        job=_build_job_out(application.job),
+    )
+
+
 @router.post("/jobs", response_model=JobOut)
 def create_job(
     payload: JobCreate,
@@ -311,6 +338,25 @@ def apply_to_job(
     session.commit()
     session.refresh(application)
     return application
+
+
+@router.get("/applications", response_model=list[ApplicationWithJobOut])
+def list_candidate_applications(
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> list[ApplicationWithJobOut]:
+    profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        return []
+
+    applications = (
+        session.query(models.Application)
+        .options(joinedload(models.Application.job).joinedload(models.Job.location_ref))
+        .filter(models.Application.candidate_id == profile.id)
+        .order_by(models.Application.applied_at.desc())
+        .all()
+    )
+    return [_build_application_with_job_out(application) for application in applications]
 
 
 @router.get("/jobs/{job_id}/applications", response_model=list[ApplicationDetailOut])

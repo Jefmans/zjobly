@@ -72,6 +72,7 @@ const getScreenLabel = (
     return 'Screen:FindZjob/ProfileDetail';
   }
   if (view === 'apply') return 'Screen:FindZjob/ApplyVideo';
+  if (view === 'applications') return 'Screen:FindZjob/MyApplications';
   if (view === 'jobs') {
     return role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
   }
@@ -1429,6 +1430,7 @@ function App() {
       onFind={startCandidateFlow}
       onJobs={() => setRoleAndView('employer', 'jobs')}
       onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
+      onApplications={() => setRoleAndView('candidate', 'applications')}
       onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
     />
   );

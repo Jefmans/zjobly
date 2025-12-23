@@ -9,6 +9,7 @@ type Props = {
   onFind: () => void;
   onJobs: () => void;
   onBrowseJobs: () => void;
+  onApplications: () => void;
   onRoleChange: (role: UserRole) => void;
 };
 
@@ -20,6 +21,7 @@ export function TopNav({
   onFind,
   onJobs,
   onBrowseJobs,
+  onApplications,
   onRoleChange,
 }: Props) {
   const showEmployerNav = role !== "candidate";
@@ -29,6 +31,7 @@ export function TopNav({
   const isEmployerJobsView = (view === "jobs" || view === "jobDetail") && role === "employer";
   const isCandidateJobsView =
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
+  const isCandidateApplicationsView = view === "applications" && role === "candidate";
 
   return (
     <div className="top-nav">
@@ -58,6 +61,15 @@ export function TopNav({
         >
           Browse jobs
         </button>
+        {showCandidateNav && (
+          <button
+            type="button"
+            className={`nav-btn ghost ${isCandidateApplicationsView ? "active" : ""}`}
+            onClick={onApplications}
+          >
+            My applications
+          </button>
+        )}
         <RoleSelect variant="nav" role={role} onChange={onRoleChange} />
       </div>
     </div>
