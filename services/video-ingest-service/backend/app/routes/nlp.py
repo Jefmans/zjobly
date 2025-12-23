@@ -45,12 +45,14 @@ def get_openai_client() -> OpenAI:
 
 def get_spacy_nlp() -> Language:
     global _spacy_nlp
+    print("spacy model : ", _spacy_nlp)
     if _spacy_nlp is not None:
         return _spacy_nlp
 
     model_name = settings.SPACY_MODEL or "en_core_web_sm"
     try:
         _spacy_nlp = spacy.load(model_name)
+        print("spacy model : ", _spacy_nlp)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500, detail="spaCy model not available. Check SPACY_MODEL and dependencies."
