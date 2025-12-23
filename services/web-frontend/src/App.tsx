@@ -18,6 +18,7 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
+  publishJob,
   searchPublicJobs,
   upsertCandidateProfile,
   uploadFileToUrl,
@@ -128,6 +129,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [jobSaving, setJobSaving] = useState(false);
+  const [publishingJobId, setPublishingJobId] = useState<string | null>(null);
   const [candidateProfileSaving, setCandidateProfileSaving] = useState(false);
   const [candidateProfileSaved, setCandidateProfileSaved] = useState(false);
   const [candidateValidation, setCandidateValidation] = useState(false);
@@ -1221,6 +1223,34 @@ function App() {
     }
   };
 
+  const handlePublishJob = async (jobId: string) => {
+    setJobsError(null);
+    setPublishingJobId(jobId);
+    try {
+      const updated = await publishJob(jobId);
+      if (updated?.playback_url) {
+        jobVideoUrlsRef.current[jobId] = updated.playback_url;
+      }
+      setJobs((prev) =>
+        prev.map((job) => {
+          if (job.id !== jobId) return job;
+          const fallbackVideoUrl = job.videoUrl || updated?.playback_url || jobVideoUrlsRef.current[jobId];
+          return {
+            ...job,
+            ...updated,
+            videoUrl: fallbackVideoUrl,
+            videoLabel: job.videoLabel,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error(err);
+      setJobsError(err instanceof Error ? err.message : 'Publishing the job failed.');
+    } finally {
+      setPublishingJobId(null);
+    }
+  };
+
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const selectedAudioSessionId = selectedTake?.audioSessionId || null;
 
@@ -1516,6 +1546,8 @@ function App() {
         selectedJobId={selectedJobId}
         onSelectJob={setSelectedJobId}
         setView={setView}
+        onPublishJob={handlePublishJob}
+        publishingJobId={publishingJobId}
       />
     </main>
   );

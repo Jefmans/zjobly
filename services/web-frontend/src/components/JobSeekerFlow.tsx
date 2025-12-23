@@ -12,6 +12,8 @@ type Props = {
   selectedJobId: string | null;
   onSelectJob: (id: string) => void;
   setView: (v: ViewMode) => void;
+  onPublishJob: (id: string) => void;
+  publishingJobId: string | null;
 };
 
 export function JobSeekerFlow({
@@ -25,9 +27,12 @@ export function JobSeekerFlow({
   selectedJobId,
   onSelectJob,
   setView,
+  onPublishJob,
+  publishingJobId,
 }: Props) {
   const [sortBy, setSortBy] = useState("created_desc");
   const isCandidate = role === "candidate";
+  const isEmployer = role === "employer";
 
   const formatDate = (value?: string | null) => {
     if (!value) return "N/A";
@@ -71,6 +76,17 @@ export function JobSeekerFlow({
     if (status === "open") return { label: "Open", className: "open" };
     return { label: "Published", className: "published" };
   };
+  const openJobDetail = (jobId: string) => {
+    onSelectJob(jobId);
+    setView("jobDetail");
+  };
+  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, jobId: string) => {
+    if (event.currentTarget !== event.target) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openJobDetail(jobId);
+    }
+  };
 
   if (view === "jobs") {
     return (
@@ -107,14 +123,14 @@ export function JobSeekerFlow({
           )}
           <div className="jobs-list">
             {sortedJobs.map((job) => (
-              <button
+              <div
                 key={job.id}
-                type="button"
                 className="job-card"
-                onClick={() => {
-                  onSelectJob(job.id);
-                  setView("jobDetail");
-                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`View details for ${job.title}`}
+                onClick={() => openJobDetail(job.id)}
+                onKeyDown={(event) => handleCardKeyDown(event, job.id)}
               >
                 <div className="job-card-left">
                   <div className="job-title">{job.title}</div>
@@ -132,8 +148,21 @@ export function JobSeekerFlow({
                     return <div className={`job-status ${status.className}`}>{status.label}</div>;
                   })()}
                   {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
+                  {isEmployer && (job.status !== "open" || job.visibility !== "public") && (
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onPublishJob(job.id);
+                      }}
+                      disabled={publishingJobId === job.id}
+                    >
+                      {publishingJobId === job.id ? "Publishing..." : "Publish"}
+                    </button>
+                  )}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </section>
@@ -191,10 +220,20 @@ export function JobSeekerFlow({
                   <p>{job.description}</p>
                 </div>
               )}
-              <div className="panel-actions">
+              <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => setView("jobs")}>
                   Back to jobs
                 </button>
+                {isEmployer && (job.status !== "open" || job.visibility !== "public") && (
+                  <button
+                    type="button"
+                    className="cta secondary"
+                    onClick={() => onPublishJob(job.id)}
+                    disabled={publishingJobId === job.id}
+                  >
+                    {publishingJobId === job.id ? "Publishing..." : "Publish job"}
+                  </button>
+                )}
               </div>
             </>
           )}

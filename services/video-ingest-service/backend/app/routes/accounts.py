@@ -237,6 +237,24 @@ def create_job(
     return _build_job_out(job)
 
 
+@router.post("/jobs/{job_id}/publish", response_model=JobOut)
+def publish_job(
+    job_id: str,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> JobOut:
+    job = session.get(models.Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    _assert_membership(session, job.company_id, current_user.id)
+
+    job.status = models.JobStatus.open
+    job.visibility = models.JobVisibility.public
+    session.commit()
+    session.refresh(job)
+    return _build_job_out(job)
+
+
 @router.get("/jobs", response_model=list[JobOut])
 def list_company_jobs(
     company_id: str,

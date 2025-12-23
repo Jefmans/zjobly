@@ -252,6 +252,10 @@ export async function searchPublicJobs(query?: string): Promise<Job[]> {
   return requestJson<Job[]>(`/accounts/jobs/search${search}`, { method: "GET" });
 }
 
+export async function publishJob(jobId: string): Promise<Job> {
+  return requestJson<Job>(`/accounts/jobs/${encodeURIComponent(jobId)}/publish`, { method: "POST" });
+}
+
 export async function searchCandidates(query?: string): Promise<CandidateProfile[]> {
   const search = query ? `?q=${encodeURIComponent(query)}` : "";
   return requestJson<CandidateProfile[]>(`/accounts/candidates/search${search}`, { method: "GET" });
