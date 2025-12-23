@@ -19,6 +19,7 @@ import {
   getAudioSessionTranscript,
   listCompanyJobs,
   publishJob,
+  unpublishJob,
   searchPublicJobs,
   upsertCandidateProfile,
   uploadFileToUrl,
@@ -132,6 +133,7 @@ function App() {
   const [status, setStatus] = useState<Status>('idle');
   const [jobSaving, setJobSaving] = useState(false);
   const [publishingJobId, setPublishingJobId] = useState<string | null>(null);
+  const [unpublishingJobId, setUnpublishingJobId] = useState<string | null>(null);
   const [candidateProfileSaving, setCandidateProfileSaving] = useState(false);
   const [candidateProfileSaved, setCandidateProfileSaved] = useState(false);
   const [candidateValidation, setCandidateValidation] = useState(false);
@@ -1253,6 +1255,34 @@ function App() {
     }
   };
 
+  const handleUnpublishJob = async (jobId: string) => {
+    setJobsError(null);
+    setUnpublishingJobId(jobId);
+    try {
+      const updated = await unpublishJob(jobId);
+      if (updated?.playback_url) {
+        jobVideoUrlsRef.current[jobId] = updated.playback_url;
+      }
+      setJobs((prev) =>
+        prev.map((job) => {
+          if (job.id !== jobId) return job;
+          const fallbackVideoUrl = job.videoUrl || updated?.playback_url || jobVideoUrlsRef.current[jobId];
+          return {
+            ...job,
+            ...updated,
+            videoUrl: fallbackVideoUrl,
+            videoLabel: job.videoLabel,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error(err);
+      setJobsError(err instanceof Error ? err.message : 'Unpublishing the job failed.');
+    } finally {
+      setUnpublishingJobId(null);
+    }
+  };
+
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const selectedAudioSessionId = selectedTake?.audioSessionId || null;
 
@@ -1551,7 +1581,9 @@ function App() {
         onSelectJob={setSelectedJobId}
         setView={setView}
         onPublishJob={handlePublishJob}
+        onUnpublishJob={handleUnpublishJob}
         publishingJobId={publishingJobId}
+        unpublishingJobId={unpublishingJobId}
       />
     </main>
   );

@@ -260,6 +260,10 @@ export async function publishJob(jobId: string): Promise<Job> {
   return requestJson<Job>(`/accounts/jobs/${encodeURIComponent(jobId)}/publish`, { method: "POST" });
 }
 
+export async function unpublishJob(jobId: string): Promise<Job> {
+  return requestJson<Job>(`/accounts/jobs/${encodeURIComponent(jobId)}/unpublish`, { method: "POST" });
+}
+
 export async function applyToJob(jobId: string, payload: { video_object_key: string }): Promise<JobApplication> {
   return requestJson<JobApplication>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
     method: "POST",

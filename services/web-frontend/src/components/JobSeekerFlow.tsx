@@ -23,7 +23,9 @@ type Props = {
   onSelectJob: (id: string) => void;
   setView: (v: ViewMode) => void;
   onPublishJob: (id: string) => void;
+  onUnpublishJob: (id: string) => void;
   publishingJobId: string | null;
+  unpublishingJobId: string | null;
 };
 
 const MAX_APPLICATION_VIDEO_SECONDS = 180;
@@ -40,7 +42,9 @@ export function JobSeekerFlow({
   onSelectJob,
   setView,
   onPublishJob,
+  onUnpublishJob,
   publishingJobId,
+  unpublishingJobId,
 }: Props) {
   const [sortBy, setSortBy] = useState("created_desc");
   const isCandidate = role === "candidate";
@@ -629,19 +633,38 @@ export function JobSeekerFlow({
                     </div>
                   )}
                   {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
-                  {isEmployer && (job.status !== "open" || job.visibility !== "public") && (
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onPublishJob(job.id);
-                      }}
-                      disabled={publishingJobId === job.id}
-                    >
-                      {publishingJobId === job.id ? "Publishing..." : "Publish"}
-                    </button>
-                  )}
+                  {isEmployer && (() => {
+                    const isPublished =
+                      (job.status === "open" || job.status === "published") && job.visibility === "public";
+                    if (isPublished) {
+                      return (
+                        <button
+                          type="button"
+                          className="ghost danger"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onUnpublishJob(job.id);
+                          }}
+                          disabled={unpublishingJobId === job.id}
+                        >
+                          {unpublishingJobId === job.id ? "Unpublishing..." : "Unpublish"}
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onPublishJob(job.id);
+                        }}
+                        disabled={publishingJobId === job.id}
+                      >
+                        {publishingJobId === job.id ? "Publishing..." : "Publish"}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
@@ -1197,16 +1220,32 @@ export function JobSeekerFlow({
                 <button type="button" className="ghost" onClick={() => setView("jobs")}>
                   Back to jobs
                 </button>
-                {isEmployer && (job.status !== "open" || job.visibility !== "public") && (
-                  <button
-                    type="button"
-                    className="cta secondary"
-                    onClick={() => onPublishJob(job.id)}
-                    disabled={publishingJobId === job.id}
-                  >
-                    {publishingJobId === job.id ? "Publishing..." : "Publish job"}
-                  </button>
-                )}
+                {isEmployer && (() => {
+                  const isPublished =
+                    (job.status === "open" || job.status === "published") && job.visibility === "public";
+                  if (isPublished) {
+                    return (
+                      <button
+                        type="button"
+                        className="cta secondary"
+                        onClick={() => onUnpublishJob(job.id)}
+                        disabled={unpublishingJobId === job.id}
+                      >
+                        {unpublishingJobId === job.id ? "Unpublishing..." : "Unpublish job"}
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      type="button"
+                      className="cta secondary"
+                      onClick={() => onPublishJob(job.id)}
+                      disabled={publishingJobId === job.id}
+                    >
+                      {publishingJobId === job.id ? "Publishing..." : "Publish job"}
+                    </button>
+                  );
+                })()}
               </div>
             </>
           )}
