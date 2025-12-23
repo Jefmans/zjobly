@@ -48,20 +48,11 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
 };
 // Disable chunked audio uploads; record/upload full files only.
 const ENABLE_AUDIO_CHUNKS = false;
-const normalizeLocationText = (loc: string) => loc.replace(/^[\s,]+|[\s,.]+$/g, '').replace(/\s+/g, ' ').trim();
-const pruneLocationPhrase = (loc: string) => {
-  const stop = /\b(?:and|with|for|that|which|working|teams?|role|position|job|opening|openings|hiring|seeking|candidates?|opportunity|opportunities)\b/i;
-  const match = stop.exec(loc);
-  const trimmed = match && match.index > 2 ? loc.slice(0, match.index) : loc;
-  return normalizeLocationText(trimmed.replace(/[;:.]+$/, ''));
-};
-
 const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
   const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
     .map((p) => (p || '').trim())
     .filter(Boolean);
-  const combined = parts.length > 0 ? parts.join(', ') : suggestion.location || '';
-  return pruneLocationPhrase(combined || suggestion.location || '');
+  return parts.length > 0 ? parts.join(', ') : '';
 };
 
 // Location is inferred server-side via spaCy; frontend only cleans the returned phrase.
