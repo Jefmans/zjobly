@@ -140,7 +140,7 @@ SYSTEM_PROMPT = (
 
 PROFILE_PROMPT = (
     "You turn a short candidate intro transcript into a concise profile. "
-    "Output JSON with keys: headline (max ~10 words, role + level + a hook) and summary (concise 60-120 words). "
+    "Output JSON with keys: headline (6-10 words, role + level + 1 hook) and summary (80-140 words, 2-3 sentences). "
     "Keep it factual and derived from the transcript; do not invent details."
 )
 
@@ -288,6 +288,12 @@ def _draft_profile_from_transcript(transcript: str, language: str | None) -> Pro
     headline = (parsed.get("headline") or "").strip()
     summary = (parsed.get("summary") or parsed.get("profile") or "").strip()
     location = (parsed.get("location") or "").strip() or None
+
+    # Fallbacks to ensure summary is not identical to headline and has some length
+    if summary and headline and summary.strip().lower() == headline.strip().lower():
+        summary = transcript[:200].strip()
+    if len(summary.split()) < 10:
+        summary = (summary + " " + transcript[:400]).strip()
 
     if not headline or not summary:
         raise HTTPException(status_code=500, detail="Missing headline or summary in the generated profile")
