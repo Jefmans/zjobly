@@ -5,6 +5,7 @@ import type {
   Job,
   JobApplication,
   JobApplicationDetail,
+  ApplicationStatus,
   JobStatus,
   JobVisibility,
 } from "./types";
@@ -269,6 +270,20 @@ export async function listJobApplications(jobId: string): Promise<JobApplication
   return requestJson<JobApplicationDetail[]>(`/accounts/jobs/${encodeURIComponent(jobId)}/applications`, {
     method: "GET",
   });
+}
+
+export async function updateJobApplication(
+  jobId: string,
+  applicationId: string,
+  payload: { status: ApplicationStatus },
+): Promise<JobApplication> {
+  return requestJson<JobApplication>(
+    `/accounts/jobs/${encodeURIComponent(jobId)}/applications/${encodeURIComponent(applicationId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export async function searchCandidates(query?: string): Promise<CandidateProfile[]> {

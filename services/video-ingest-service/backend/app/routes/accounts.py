@@ -12,6 +12,7 @@ from app.schemas_accounts import (
     ApplicationCreate,
     ApplicationDetailOut,
     ApplicationOut,
+    ApplicationUpdate,
     CandidateProfileCreate,
     CandidateProfileOut,
     CompanyCreate,
@@ -331,6 +332,29 @@ def list_job_applications(
         .all()
     )
     return [_build_application_detail_out(application) for application in applications]
+
+
+@router.patch("/jobs/{job_id}/applications/{application_id}", response_model=ApplicationOut)
+def update_job_application(
+    job_id: str,
+    application_id: str,
+    payload: ApplicationUpdate,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> ApplicationOut:
+    job = session.get(models.Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    _assert_membership(session, job.company_id, current_user.id)
+
+    application = session.get(models.Application, application_id)
+    if not application or application.job_id != job_id:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    application.status = payload.status
+    session.commit()
+    session.refresh(application)
+    return application
 
 
 @router.post("/jobs/{job_id}/publish", response_model=JobOut)

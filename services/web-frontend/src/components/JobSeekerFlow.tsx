@@ -1,7 +1,14 @@
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { applyToJob, confirmUpload, createUploadUrl, listJobApplications, uploadFileToUrl } from "../api";
+import {
+  applyToJob,
+  confirmUpload,
+  createUploadUrl,
+  listJobApplications,
+  updateJobApplication,
+  uploadFileToUrl,
+} from "../api";
 import { formatDuration } from "../helpers";
-import { Job, JobApplicationDetail, UserRole, ViewMode } from "../types";
+import { ApplicationStatus, Job, JobApplicationDetail, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -54,6 +61,9 @@ export function JobSeekerFlow({
   const [jobApplicationsLoading, setJobApplicationsLoading] = useState(false);
   const [jobApplicationsError, setJobApplicationsError] = useState<string | null>(null);
   const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
+  const [applicationFilter, setApplicationFilter] = useState<"all" | "applied" | "withheld" | "rejected">("all");
+  const [applicationUpdatingId, setApplicationUpdatingId] = useState<string | null>(null);
+  const [applicationActionError, setApplicationActionError] = useState<string | null>(null);
   const applyStreamRef = useRef<MediaStream | null>(null);
   const applyRecorderRef = useRef<MediaRecorder | null>(null);
   const applyChunksRef = useRef<Blob[]>([]);
@@ -68,6 +78,13 @@ export function JobSeekerFlow({
     selectedJob && isCandidate && selectedJob.status === "open" && selectedJob.visibility === "public",
   );
   const hasAppliedForSelectedJob = Boolean(selectedJob && appliedJobs[selectedJob.id]);
+  const filteredApplications = useMemo(() => {
+    if (applicationFilter === "all") return jobApplications;
+    if (applicationFilter === "withheld") {
+      return jobApplications.filter((application) => application.status === "reviewing");
+    }
+    return jobApplications.filter((application) => application.status === applicationFilter);
+  }, [applicationFilter, jobApplications]);
 
   const formatDate = (value?: string | null) => {
     if (!value) return "N/A";
@@ -77,6 +94,7 @@ export function JobSeekerFlow({
   };
   const formatApplicationStatus = (status?: string | null) => {
     if (!status) return "Unknown";
+    if (status === "reviewing") return "Withheld";
     return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
   };
 
@@ -268,12 +286,18 @@ export function JobSeekerFlow({
       setJobApplicationsLoading(false);
       setJobApplicationsError(null);
       setExpandedApplicationId(null);
+      setApplicationFilter("all");
+      setApplicationUpdatingId(null);
+      setApplicationActionError(null);
       return;
     }
     let cancelled = false;
     setJobApplicationsLoading(true);
     setJobApplicationsError(null);
     setExpandedApplicationId(null);
+    setApplicationFilter("all");
+    setApplicationUpdatingId(null);
+    setApplicationActionError(null);
     listJobApplications(selectedJobId)
       .then((applications) => {
         if (cancelled) return;
@@ -455,6 +479,24 @@ export function JobSeekerFlow({
   const handleApplyCancel = () => {
     stopApplyRecording(true);
     setView("jobDetail");
+  };
+  const handleApplicationStatusUpdate = async (applicationId: string, status: ApplicationStatus) => {
+    if (!selectedJobId) return;
+    setApplicationActionError(null);
+    setApplicationUpdatingId(applicationId);
+    try {
+      const updated = await updateJobApplication(selectedJobId, applicationId, { status });
+      setJobApplications((prev) =>
+        prev.map((application) =>
+          application.id === applicationId ? { ...application, status: updated.status } : application,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      setApplicationActionError(err instanceof Error ? err.message : "Could not update application.");
+    } finally {
+      setApplicationUpdatingId(null);
+    }
   };
 
   if (view === "jobs") {
@@ -805,18 +847,45 @@ export function JobSeekerFlow({
                       <h2>Applications</h2>
                       <p className="hint">Review candidate profiles and application videos.</p>
                     </div>
-                    <span className="pill soft">{jobApplications.length} total</span>
+                    <div className="panel-header-actions">
+                      <div className="field inline">
+                        <label htmlFor="applicationFilter">Filter</label>
+                        <select
+                          id="applicationFilter"
+                          value={applicationFilter}
+                          onChange={(event) =>
+                            setApplicationFilter(
+                              event.target.value as "all" | "applied" | "withheld" | "rejected",
+                            )
+                          }
+                        >
+                          <option value="all">All</option>
+                          <option value="applied">Applied</option>
+                          <option value="withheld">Withheld</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+                      <span className="pill soft">
+                        {filteredApplications.length} of {jobApplications.length}
+                      </span>
+                    </div>
                   </div>
                   {jobApplicationsLoading && <p className="hint">Loading applications...</p>}
                   {jobApplicationsError && <p className="error">{jobApplicationsError}</p>}
+                  {applicationActionError && <p className="error">{applicationActionError}</p>}
                   {!jobApplicationsLoading && !jobApplicationsError && jobApplications.length === 0 && (
                     <p className="hint">No applications yet.</p>
                   )}
-                  {!jobApplicationsLoading && !jobApplicationsError && jobApplications.length > 0 && (
+                  {!jobApplicationsLoading &&
+                    !jobApplicationsError &&
+                    jobApplications.length > 0 &&
+                    filteredApplications.length === 0 && <p className="hint">No applications match this filter.</p>}
+                  {!jobApplicationsLoading && !jobApplicationsError && filteredApplications.length > 0 && (
                     <div className="applications-list">
-                      {jobApplications.map((application) => {
+                      {filteredApplications.map((application) => {
                         const candidate = application.candidate_profile;
                         const isOpen = expandedApplicationId === application.id;
+                        const isUpdating = applicationUpdatingId === application.id;
                         return (
                           <div key={application.id} className={`application-card ${isOpen ? "open" : ""}`}>
                             <button
@@ -848,6 +917,24 @@ export function JobSeekerFlow({
                                     <span>{candidate.location || "—"}</span>
                                   </div>
                                   {candidate.summary && <p className="candidate-summary">{candidate.summary}</p>}
+                                  <div className="application-actions">
+                                    <button
+                                      type="button"
+                                      className="ghost"
+                                      onClick={() => handleApplicationStatusUpdate(application.id, "reviewing")}
+                                      disabled={isUpdating || application.status === "reviewing"}
+                                    >
+                                      {application.status === "reviewing" ? "Withheld" : "Withhold"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ghost danger"
+                                      onClick={() => handleApplicationStatusUpdate(application.id, "rejected")}
+                                      disabled={isUpdating || application.status === "rejected"}
+                                    >
+                                      {application.status === "rejected" ? "Rejected" : "Reject"}
+                                    </button>
+                                  </div>
                                 </div>
                                 {application.playback_url ? (
                                   <video

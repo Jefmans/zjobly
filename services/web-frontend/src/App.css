@@ -376,6 +376,25 @@ p {
   gap: 1rem;
 }
 
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.field.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field.inline select {
+  width: auto;
+  min-width: 140px;
+}
+
 .panel-actions {
   display: flex;
   justify-content: flex-end;
@@ -1233,6 +1252,12 @@ button[type='submit']:disabled {
   gap: 0.5rem;
 }
 
+.application-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .detail-row {
   display: flex;
   gap: 0.75rem;
@@ -1291,6 +1316,16 @@ button[type='submit']:disabled {
 
 .ghost:hover {
   border-color: #94a3b8;
+}
+
+.ghost.danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff5f5;
+}
+
+.ghost.danger:hover {
+  border-color: #fca5a5;
 }
 
 .ghost.dark {

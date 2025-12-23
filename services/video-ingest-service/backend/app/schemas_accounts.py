@@ -105,6 +105,10 @@ class ApplicationCreate(BaseModel):
     video_object_key: str
 
 
+class ApplicationUpdate(BaseModel):
+    status: ApplicationStatus
+
+
 class ApplicationOut(BaseModel):
     id: str
     job_id: str
