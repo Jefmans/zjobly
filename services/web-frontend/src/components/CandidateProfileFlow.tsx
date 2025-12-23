@@ -448,7 +448,7 @@ export function CandidateProfileFlow({
                 </div>
               )}
               {status === "success" && (
-                <div className="success">Video saved. Continue to your profile details.</div>
+                <div className="success">Video saved. We&apos;ll finish transcription in the background.</div>
               )}
 
               <div className="panel-actions split">
@@ -456,14 +456,18 @@ export function CandidateProfileFlow({
                   Back to recording
                 </button>
                 <div className="panel-action-right">
-                  <button type="button" className="ghost" onClick={() => goToStep("profile")} disabled={!videoSaved}>
-                    Continue to profile
-                  </button>
                   <button
                     type="button"
                     className="cta primary"
                     onClick={onSaveVideo}
-                    disabled={isSavingVideo || !selectedTake}
+                    disabled={
+                      isSavingVideo ||
+                      !selectedTake ||
+                      status === "processing" ||
+                      status === "presigning" ||
+                      status === "uploading" ||
+                      status === "confirming"
+                    }
                   >
                     {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
                   </button>
