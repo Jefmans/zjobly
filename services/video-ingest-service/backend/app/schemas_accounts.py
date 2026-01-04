@@ -69,6 +69,7 @@ class JobCreate(BaseModel):
     company_id: str
     title: str
     description: Optional[str] = None
+    keywords: Optional[list[str]] = None
     location: Optional[str] = None
     location_id: Optional[str] = None
     status: JobStatus = JobStatus.open
@@ -82,6 +83,7 @@ class JobOut(BaseModel):
     company_id: str
     title: str
     description: Optional[str] = None
+    keywords: Optional[list[str]] = None
     location: Optional[str] = None
     location_id: Optional[str] = None
     location_details: Optional[LocationOut] = None

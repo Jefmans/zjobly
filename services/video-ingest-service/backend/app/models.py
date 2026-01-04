@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -116,6 +116,7 @@ class Job(Base):
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    keywords: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     location_id: Mapped[str | None] = mapped_column(ForeignKey("locations.id"), nullable=True, index=True)
     status: Mapped[JobStatus] = mapped_column(SAEnum(JobStatus), default=JobStatus.open)

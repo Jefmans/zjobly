@@ -8,7 +8,7 @@ import {
   updateJobApplication,
   uploadFileToUrl,
 } from "../api";
-import { formatDuration } from "../helpers";
+import { filterKeywordsByLocation, formatDuration } from "../helpers";
 import { ApplicationStatus, CandidateApplication, Job, JobApplicationDetail, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -1079,6 +1079,7 @@ export function JobSeekerFlow({
       ? appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null)
       : null;
     const candidateApplication = job ? candidateApplicationByJobId[job.id] : null;
+    const jobKeywords = job ? filterKeywordsByLocation(job.keywords, job.location) : [];
     const jobClosedForCandidate =
       isCandidate &&
       job &&
@@ -1154,6 +1155,18 @@ export function JobSeekerFlow({
                 <div className="panel">
                   <h2>Job description</h2>
                   <p>{job.description}</p>
+                </div>
+              )}
+              {jobKeywords.length > 0 && (
+                <div className="panel">
+                  <h2>Keywords</h2>
+                  <div className="keyword-chips">
+                    {jobKeywords.map((keyword, index) => (
+                      <span key={`${job.id}-keyword-${index}`} className="keyword-chip">
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               {job && isEmployer && (

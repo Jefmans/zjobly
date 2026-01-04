@@ -75,6 +75,7 @@ export type Job = {
   location_id?: string | null;
   location_details?: LocationDetails | null;
   description?: string | null;
+  keywords?: string[] | null;
   status: JobStatus;
   visibility?: JobVisibility;
   videoLabel?: string;

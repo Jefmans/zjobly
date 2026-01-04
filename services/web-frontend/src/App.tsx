@@ -25,7 +25,7 @@ import {
   upsertCandidateProfile,
   uploadFileToUrl,
 } from './api';
-import { formatDuration, makeTakeId } from './helpers';
+import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
 import {
   CandidateStep,
   CandidateProfileInput,
@@ -1213,12 +1213,14 @@ function App() {
 
       const jobStatus = publish ? 'open' : 'draft';
       const jobVisibility = publish ? 'public' : 'private';
+      const jobKeywords = filterKeywordsByLocation(draftKeywords, form.location);
 
       const savedJob = await createJob({
         company_id: resolvedCompanyId,
         title: form.title,
         description: form.description || null,
         location: form.location,
+        keywords: jobKeywords,
         status: jobStatus,
         visibility: jobVisibility,
         video_object_key: videoObjectKey,
@@ -1232,6 +1234,7 @@ function App() {
         title: form.title,
         location: form.location,
         description: form.description || null,
+        keywords: jobKeywords,
         status: jobStatus,
         visibility: jobVisibility,
         video_object_key: videoObjectKey,
@@ -1454,6 +1457,7 @@ function App() {
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
   const showDevNav = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
+  const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
 
   const backToWelcome = () => {
     resetCreateState();
@@ -1581,7 +1585,7 @@ function App() {
         onGenerateFromTranscript={generateFromTranscript}
         draftingFromTranscript={draftingFromTranscript}
         draftingError={draftingError}
-        draftKeywords={draftKeywords}
+        draftKeywords={filteredDraftKeywords}
         goToStep={goToStep}
         onSaveVideo={saveVideo}
         onSaveJob={saveJob}

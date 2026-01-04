@@ -236,6 +236,7 @@ export async function createJob(payload: {
   description?: string | null;
   location?: string | null;
   location_id?: string | null;
+  keywords?: string[] | null;
   status?: JobStatus;
   visibility?: JobVisibility;
   video_object_key?: string | null;
