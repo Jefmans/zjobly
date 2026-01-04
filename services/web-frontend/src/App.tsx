@@ -19,6 +19,7 @@ import {
   generateJobDraftFromVideo,
   getCandidateProfile,
   getLocationFromTranscript,
+  getProfileDraftFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
@@ -41,7 +42,6 @@ import {
   UserRole,
   ViewMode,
 } from './types';
-import { getProfileDraftFromTranscript } from './api';
 
 const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
 const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
@@ -213,7 +213,6 @@ function App() {
   const locationSuggestionAbortRef = useRef<AbortController | null>(null);
   const lastLocationQueryRef = useRef<string | null>(null);
   const locationSuggestionDisabledRef = useRef(false);
-  const [locationDetails, setLocationDetails] = useState<{ city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null } | null>(null);
   const candidateProfileEditedRef = useRef<{ headline: boolean; location: boolean; summary: boolean }>({
     headline: false,
     location: false,
@@ -653,7 +652,6 @@ function App() {
     const { name, value } = e.target;
     if (name === 'location') {
       locationManuallySetRef.current = true;
-      setLocationDetails(null);
     }
     setForm((prev) => ({ ...prev, [name]: value }));
     setStatus('idle');
@@ -791,7 +789,6 @@ function App() {
     locationSuggestionAbortRef.current = null;
     lastLocationQueryRef.current = null;
     locationSuggestionDisabledRef.current = false;
-    setLocationDetails(null);
     setTranscriptText('');
     setDraftKeywords([]);
     setDraftingError(null);
@@ -1473,12 +1470,6 @@ function App() {
         const res = await getLocationFromTranscript(truncated, controller.signal);
         if (controller.signal.aborted) return;
         const suggestion = formatLocationSuggestion(res || { location: null });
-        setLocationDetails({
-          city: res?.city,
-          region: res?.region,
-          country: res?.country,
-          postal_code: res?.postal_code,
-        });
         const latestLocation = form.location.trim();
         if (!suggestion) return;
         if (locationManuallySetRef.current) return;

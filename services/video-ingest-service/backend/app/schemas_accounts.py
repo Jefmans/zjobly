@@ -3,16 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.models import ApplicationStatus, CompanyRole, JobStatus, JobVisibility
-
-
-class UserOut(BaseModel):
-    id: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-
-    class Config:
-        orm_mode = True
+from app.models import ApplicationStatus, JobStatus, JobVisibility
 
 
 class CompanyCreate(BaseModel):
@@ -151,14 +142,3 @@ class ApplicationWithJobOut(BaseModel):
     applied_at: datetime
     updated_at: datetime
     job: JobOut
-
-
-class MembershipOut(BaseModel):
-    id: str
-    user_id: str
-    company_id: str
-    role: CompanyRole
-    is_default: bool
-
-    class Config:
-        orm_mode = True

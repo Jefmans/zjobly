@@ -1,6 +1,5 @@
 export type Status = 'idle' | 'presigning' | 'uploading' | 'confirming' | 'processing' | 'success' | 'error';
 export type RecordingState = 'idle' | 'recording' | 'paused';
-export type PermissionState = 'unknown' | 'granted' | 'denied';
 export type ViewMode =
   | 'welcome'
   | 'create'
@@ -14,14 +13,6 @@ export type ViewMode =
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';
-
-export type MembershipRole = 'admin' | 'recruiter' | 'viewer';
-
-export type User = {
-  id: string;
-  email?: string | null;
-  full_name?: string | null;
-};
 
 export type RecordedTake = {
   id: string;
@@ -48,14 +39,6 @@ export type LocationDetails = {
   postal_code?: string | null;
   latitude?: string | null;
   longitude?: string | null;
-};
-
-export type CompanyMembership = {
-  id: string;
-  user_id: string;
-  company_id: string;
-  role: MembershipRole;
-  is_default: boolean;
 };
 
 export type CandidateProfileInput = {

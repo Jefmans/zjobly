@@ -85,14 +85,11 @@ def _extract_location_spacy(text: str) -> str | None:
         if name and name not in model_order:
             model_order.append(name)
 
-    print("TEXT :", text)
     for idx, model_name in enumerate(model_order):
         nlp = get_spacy_nlp(model_name, strict=idx == 0)
         if nlp is None:
-            print(f"spaCy model '{model_name}' unavailable; skipping")
             continue
         doc = nlp(text)
-        print(f"SPACY DOC ({model_name}) :", doc)
         for ent in doc.ents:
             if ent.label_ in ("GPE", "LOC"):
                 guess = _clean_location(ent.text)
@@ -121,13 +118,11 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
             headers={"User-Agent": "zjobly-media-api/0.1"},
             timeout=4.0,
         )
-        print("GEOCODE - RESP   : ", resp)
         if resp.status_code != 200:
             return result
         data = resp.json()
         if not isinstance(data, list) or not data:
             return result
-        print("GEOCODE - DATA   : ", data)
         top = data[0]
         address = top.get("address") or {}
         result["city"] = (
@@ -395,14 +390,12 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
     transcript_snippet = text[:8000]
     try:
         location = _extract_location_spacy(transcript_snippet)
-        print("SPAcy location:", location)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="Failed to extract location from transcript") from exc
 
     geo = _geocode_location(location) if location else {"city": None, "region": None, "country": None, "postal_code": None}
-    print("GEOCODER", {"input": location, "geo": geo})  # or logging.info(...)
     return LocationFromTranscriptResponse(
         location=location,
         city=geo.get("city"),
