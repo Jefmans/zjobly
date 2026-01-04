@@ -1,6 +1,6 @@
 """Add candidate profile video and keywords.
 
-Revision ID: 0008_candidate_profile_video_keywords
+Revision ID: 0008_candidate_profile_media
 Revises: 0007_job_keywords
 Create Date: 2026-01-05
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0008_candidate_profile_video_keywords"
+revision = "0008_candidate_profile_media"
 down_revision = "0007_job_keywords"
 branch_labels = None
 depends_on = None
