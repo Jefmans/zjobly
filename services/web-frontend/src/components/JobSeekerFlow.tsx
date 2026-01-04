@@ -1117,12 +1117,7 @@ export function JobSeekerFlow({
                                       type="button"
                                       className="ghost"
                                       onClick={() => handleApplicationStatusUpdate(application.id, "reviewing")}
-                                      disabled={
-                                        isUpdating ||
-                                        application.status === "reviewing" ||
-                                        application.status === "rejected" ||
-                                        application.status === "hired"
-                                      }
+                                      disabled={isUpdating}
                                     >
                                       {application.status === "reviewing" ? "Withheld" : "Withhold"}
                                     </button>
@@ -1130,7 +1125,7 @@ export function JobSeekerFlow({
                                       type="button"
                                       className="ghost success"
                                       onClick={() => handleApplicationStatusUpdate(application.id, "hired")}
-                                      disabled={isUpdating || application.status === "hired" || application.status === "rejected"}
+                                      disabled={isUpdating}
                                     >
                                       {application.status === "hired" ? "Hired" : "Hire"}
                                     </button>
@@ -1138,7 +1133,7 @@ export function JobSeekerFlow({
                                       type="button"
                                       className="ghost danger"
                                       onClick={() => handleApplicationStatusUpdate(application.id, "rejected")}
-                                      disabled={isUpdating || application.status === "rejected" || application.status === "hired"}
+                                      disabled={isUpdating}
                                     >
                                       {application.status === "rejected" ? "Rejected" : "Reject"}
                                     </button>
