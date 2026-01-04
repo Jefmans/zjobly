@@ -12,12 +12,14 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
   const isEmployer = role === "employer";
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const runSearch = async (term?: string) => {
     setLoading(true);
     setError(null);
+    setSelectedCandidate(null);
     try {
       const trimmed = (term ?? "").trim();
       const results = await searchCandidates(trimmed ? trimmed : undefined);
@@ -44,6 +46,22 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
 
   const handleQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value);
+  };
+
+  const handleSelectCandidate = (candidate: CandidateProfile) => {
+    setSelectedCandidate(candidate);
+  };
+
+  const handleBackToResults = () => {
+    setSelectedCandidate(null);
+  };
+
+  const formatLocation = (candidate: CandidateProfile) => {
+    if (candidate.location) return candidate.location;
+    const details = candidate.location_details;
+    if (!details) return "Location not provided";
+    const parts = [details.city, details.region, details.country].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : "Location not provided";
   };
 
   if (view !== "candidates") return null;
@@ -84,15 +102,42 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
             {!loading && !error && candidates.length === 0 && (
               <p className="hint">No candidates found. Try a different search.</p>
             )}
-            <div className="candidate-list">
-              {candidates.map((candidate) => (
-                <div key={candidate.id} className="candidate-card">
-                  <div className="candidate-name">{candidate.headline || "Candidate profile"}</div>
-                  <div className="candidate-meta">{candidate.location || "Location not provided"}</div>
-                  {candidate.summary && <p className="candidate-summary">{candidate.summary}</p>}
+            {selectedCandidate ? (
+              <div className="panel">
+                <div className="panel-header">
+                  <div>
+                    <h2>Candidate profile</h2>
+                    <p className="hint">Review the candidate headline and location.</p>
+                  </div>
+                  <button type="button" className="ghost" onClick={handleBackToResults}>
+                    Back to results
+                  </button>
                 </div>
-              ))}
-            </div>
+                <div className="detail-row">
+                  <span className="detail-label">Headline</span>
+                  <span>{selectedCandidate.headline || "Candidate profile"}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Location</span>
+                  <span>{formatLocation(selectedCandidate)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="candidate-list">
+                {candidates.map((candidate) => (
+                  <div key={candidate.id} className="candidate-card">
+                    <button
+                      type="button"
+                      className="candidate-link"
+                      onClick={() => handleSelectCandidate(candidate)}
+                    >
+                      {candidate.headline || "Candidate profile"}
+                    </button>
+                    <div className="candidate-meta">{formatLocation(candidate)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </section>

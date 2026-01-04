@@ -1117,6 +1117,22 @@ button[type='submit']:disabled {
   gap: 0.5rem;
 }
 
+.candidate-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.candidate-link:hover {
+  color: #4338ca;
+  text-decoration: underline;
+}
+
 .jobs-toolbar {
   margin: 1rem 0 0.5rem;
   display: flex;
