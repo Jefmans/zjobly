@@ -78,6 +78,10 @@ export function JobSeekerFlow({
   const [candidateApplications, setCandidateApplications] = useState<CandidateApplication[]>([]);
   const [candidateApplicationsLoading, setCandidateApplicationsLoading] = useState(false);
   const [candidateApplicationsError, setCandidateApplicationsError] = useState<string | null>(null);
+  const [selectedJobSnapshot, setSelectedJobSnapshot] = useState<Job | null>(null);
+  const [candidateJobAvailability, setCandidateJobAvailability] = useState<"unknown" | "open" | "closed">("unknown");
+  const [candidateJobAvailabilityChecking, setCandidateJobAvailabilityChecking] = useState(false);
+  const [candidateJobAvailabilityError, setCandidateJobAvailabilityError] = useState<string | null>(null);
   const applyStreamRef = useRef<MediaStream | null>(null);
   const applyRecorderRef = useRef<MediaRecorder | null>(null);
   const applyChunksRef = useRef<Blob[]>([]);
@@ -88,6 +92,7 @@ export function JobSeekerFlow({
   const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
+  const displayJob = selectedJob ?? selectedJobSnapshot ?? undefined;
   const candidateApplicationByJobId = useMemo(() => {
     const map: Record<string, CandidateApplication> = {};
     candidateApplications.forEach((application) => {
@@ -104,9 +109,9 @@ export function JobSeekerFlow({
   }, [candidateApplications]);
   const isJobOpenForApply = (job?: Job) =>
     Boolean(job && job.status === "open" && job.visibility === "public");
-  const canApplyForSelectedJob = Boolean(selectedJob && isCandidate && isJobOpenForApply(selectedJob));
+  const canApplyForSelectedJob = Boolean(displayJob && isCandidate && isJobOpenForApply(displayJob));
   const hasAppliedForSelectedJob = Boolean(
-    selectedJob && (appliedJobs[selectedJob.id] || appliedJobStatusById[selectedJob.id]),
+    displayJob && (appliedJobs[displayJob.id] || appliedJobStatusById[displayJob.id]),
   );
   const filteredApplications = useMemo(() => {
     if (applicationFilter === "all") return jobApplications;
@@ -279,6 +284,12 @@ export function JobSeekerFlow({
   }, [selectedJobId]);
 
   useEffect(() => {
+    if (selectedJob) {
+      setSelectedJobSnapshot(selectedJob);
+    }
+  }, [selectedJob]);
+
+  useEffect(() => {
     if (view !== "jobDetail" && view !== "apply") {
       resetApplyState();
     }
@@ -355,6 +366,9 @@ export function JobSeekerFlow({
       setCandidateApplications([]);
       setCandidateApplicationsLoading(false);
       setCandidateApplicationsError(null);
+      setCandidateJobAvailability("unknown");
+      setCandidateJobAvailabilityChecking(false);
+      setCandidateJobAvailabilityError(null);
       return;
     }
     const shouldLoad = view === "applications" || view === "jobs" || view === "jobDetail";
@@ -383,6 +397,40 @@ export function JobSeekerFlow({
       cancelled = true;
     };
   }, [view, isCandidate]);
+
+  useEffect(() => {
+    if (view !== "jobDetail" || !isCandidate || !selectedJobId) {
+      setCandidateJobAvailability("unknown");
+      setCandidateJobAvailabilityChecking(false);
+      setCandidateJobAvailabilityError(null);
+      return;
+    }
+    let cancelled = false;
+    setCandidateJobAvailabilityChecking(true);
+    setCandidateJobAvailabilityError(null);
+    onRefreshJobs()
+      .then((updatedJobs) => {
+        if (cancelled) return;
+        const refreshedJob = updatedJobs.find((job) => job.id === selectedJobId);
+        if (!refreshedJob || !isJobOpenForApply(refreshedJob)) {
+          setCandidateJobAvailability("closed");
+          return;
+        }
+        setCandidateJobAvailability("open");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setCandidateJobAvailabilityError(err instanceof Error ? err.message : "Could not refresh job status.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setCandidateJobAvailabilityChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isCandidate, selectedJobId, onRefreshJobs]);
 
   const handleApplyVideoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -1024,14 +1072,17 @@ export function JobSeekerFlow({
   }
 
   if (view === "jobDetail") {
-    const job = selectedJob;
+    const job = displayJob;
     const canApply = canApplyForSelectedJob;
     const hasApplied = hasAppliedForSelectedJob;
     const appliedStatus = job
       ? appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null)
       : null;
     const candidateApplication = job ? candidateApplicationByJobId[job.id] : null;
-    const jobClosedForCandidate = isCandidate && job && !isJobOpenForApply(job);
+    const jobClosedForCandidate =
+      isCandidate &&
+      job &&
+      (candidateJobAvailability === "closed" || !isJobOpenForApply(job));
     return (
       <>
         {nav}
@@ -1056,6 +1107,10 @@ export function JobSeekerFlow({
                     </div>
                     <span className="pill soft">Closed</span>
                   </div>
+                  {candidateJobAvailabilityChecking && (
+                    <div className="notice">Refreshing job status...</div>
+                  )}
+                  {candidateJobAvailabilityError && <div className="error">{candidateJobAvailabilityError}</div>}
                   <div className="panel-actions">
                     <button type="button" className="cta primary" onClick={() => void handleBackToJobs()}>
                       Back to jobs
