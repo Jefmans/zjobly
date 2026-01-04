@@ -230,6 +230,22 @@ export async function upsertCandidateProfile(payload: CandidateProfileInput): Pr
   });
 }
 
+export async function getCandidateProfile(signal?: AbortSignal): Promise<CandidateProfile | null> {
+  try {
+    return await requestJson<CandidateProfile>("/accounts/candidate-profile", { method: "GET", signal });
+  } catch (err) {
+    if ((err as { name?: string })?.name === "AbortError") {
+      throw err;
+    }
+    const rawMessage = err instanceof Error ? err.message : "";
+    const message = rawMessage.toLowerCase();
+    if (message.includes("not found") || message.includes("404")) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function createJob(payload: {
   company_id: string;
   title: string;

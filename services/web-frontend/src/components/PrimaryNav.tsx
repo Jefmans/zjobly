@@ -49,7 +49,7 @@ export function PrimaryNav({
     },
     {
       label: "My profile",
-      isActive: view === "find",
+      isActive: view === "profile" || view === "find",
       onClick: onMyProfile,
     },
   ];

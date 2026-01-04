@@ -2,6 +2,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
+import { CandidateProfileView } from './components/CandidateProfileView';
 import { CandidateSearchFlow } from './components/CandidateSearchFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
@@ -16,6 +17,7 @@ import {
   createUploadUrl,
   generateJobDraftFromTranscript,
   generateJobDraftFromVideo,
+  getCandidateProfile,
   getLocationFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
@@ -29,6 +31,7 @@ import {
 import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
 import {
   CandidateStep,
+  CandidateProfile,
   CandidateProfileInput,
   CreateStep,
   Job,
@@ -90,6 +93,7 @@ const getStoredView = (): ViewMode => {
     if (stored === 'applications' && storedRole === 'candidate') return 'applications';
     if (stored === 'candidates' && storedRole === 'employer') return 'candidates';
     if (stored === 'create' && storedRole === 'employer') return 'create';
+    if (stored === 'profile' && storedRole === 'candidate') return 'profile';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
   } catch {
     // ignore storage failures
@@ -111,6 +115,7 @@ const getScreenLabel = (
     if (candidateStep === 'select') return 'Screen:FindZjob/SelectVideo';
     return 'Screen:FindZjob/ProfileDetail';
   }
+  if (view === 'profile') return 'Screen:MyProfile/Detail';
   if (view === 'apply') return 'Screen:FindZjob/ApplyVideo';
   if (view === 'applications') return 'Screen:FindZjob/MyApplications';
   if (view === 'jobs') {
@@ -155,6 +160,10 @@ function App() {
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
+  const [candidateProfileDetails, setCandidateProfileDetails] = useState<CandidateProfile | null>(null);
+  const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
+  const [candidateProfileError, setCandidateProfileError] = useState<string | null>(null);
+  const [candidateProfileExists, setCandidateProfileExists] = useState(false);
   const [candidateVideoObjectKey, setCandidateVideoObjectKey] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -232,6 +241,10 @@ function App() {
     setRecordingState('idle');
     setCandidateStep('record');
     setCandidateProfile({ ...INITIAL_CANDIDATE_PROFILE });
+    setCandidateProfileDetails(null);
+    setCandidateProfileLoading(false);
+    setCandidateProfileError(null);
+    setCandidateProfileExists(false);
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaving(false);
     setCandidateProfileSaved(false);
@@ -523,7 +536,8 @@ function App() {
         (view === 'applications' && role === 'candidate') ||
         (view === 'create' && role === 'employer') ||
         (view === 'candidates' && role === 'employer') ||
-        (view === 'find' && role === 'candidate');
+        (view === 'find' && role === 'candidate') ||
+        (view === 'profile' && role === 'candidate');
       if (shouldPersist) {
         localStorage.setItem(VIEW_STORAGE_KEY, view);
       } else if (view === 'welcome') {
@@ -532,6 +546,51 @@ function App() {
     } catch {
       // ignore storage failures
     }
+  }, [view, role]);
+
+  useEffect(() => {
+    if (view !== 'profile' || role !== 'candidate') return;
+
+    const controller = new AbortController();
+    let isActive = true;
+    setCandidateProfileLoading(true);
+    setCandidateProfileError(null);
+
+    void (async () => {
+      try {
+        const profile = await getCandidateProfile(controller.signal);
+        if (!isActive) return;
+        if (profile) {
+          setCandidateProfileDetails(profile);
+          setCandidateProfileExists(true);
+          setCandidateProfile({
+            headline: profile.headline ?? '',
+            location: profile.location ?? '',
+            location_id: profile.location_id ?? null,
+            summary: profile.summary ?? '',
+            discoverable: Boolean(profile.discoverable),
+          });
+        } else {
+          setCandidateProfileDetails(null);
+          setCandidateProfileExists(false);
+        }
+      } catch (err) {
+        if (!isActive) return;
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        setCandidateProfileError(err instanceof Error ? err.message : 'Could not load your profile.');
+        setCandidateProfileDetails(null);
+        setCandidateProfileExists(false);
+      } finally {
+        if (isActive) {
+          setCandidateProfileLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, [view, role]);
 
   useEffect(() => {
@@ -1150,9 +1209,9 @@ function App() {
     const summary = (candidateProfile.summary ?? '').toString().trim();
     const hasVideo = Boolean(candidateVideoObjectKey);
 
-    if (!headline || !location || !summary || !hasVideo) {
+    if (!headline || !location || !summary || (!hasVideo && !candidateProfileExists)) {
       setCandidateValidation(true);
-      if (!hasVideo) {
+      if (!hasVideo && !candidateProfileExists) {
         setError('Save your video before completing your profile.');
       }
       return;
@@ -1160,12 +1219,23 @@ function App() {
 
     setCandidateProfileSaving(true);
     try {
-      await upsertCandidateProfile({
+      const savedProfile = await upsertCandidateProfile({
         headline,
         location,
         summary,
         discoverable: Boolean(candidateProfile.discoverable),
       });
+      setCandidateProfileDetails(savedProfile ?? null);
+      setCandidateProfileExists(Boolean(savedProfile));
+      if (savedProfile) {
+        setCandidateProfile({
+          headline: savedProfile.headline ?? '',
+          location: savedProfile.location ?? '',
+          location_id: savedProfile.location_id ?? null,
+          summary: savedProfile.summary ?? '',
+          discoverable: Boolean(savedProfile.discoverable),
+        });
+      }
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
       setCandidateStep('profile');
@@ -1472,6 +1542,7 @@ function App() {
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
   const showDevNav = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
+  const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
   const backToWelcome = () => {
     resetCreateState();
@@ -1505,7 +1576,15 @@ function App() {
     setRoleAndView('employer', nextView);
   };
 
-  const goToCandidateProfile = () => {
+  const goToCandidateProfileView = () => {
+    if (role === 'candidate') {
+      setView('profile');
+    } else {
+      setRoleAndView('candidate', 'profile');
+    }
+  };
+
+  const goToCandidateProfileEdit = () => {
     if (role === 'candidate') {
       setView('find');
     } else {
@@ -1562,7 +1641,7 @@ function App() {
         onHome={backToWelcome}
         onBrowseJobs={() => goToCandidateView('jobs')}
         onMyApplications={() => goToCandidateView('applications')}
-        onMyProfile={goToCandidateProfile}
+        onMyProfile={goToCandidateProfileView}
         onMyJobs={() => goToEmployerView('jobs')}
         onCreateJob={() => goToEmployerView('create')}
         onBrowseCandidates={goToCandidateSearch}
@@ -1672,8 +1751,20 @@ function App() {
         onSaveProfile={saveCandidateProfile}
         profileSaving={candidateProfileSaving}
         profileSaved={candidateProfileSaved}
+        canSaveProfile={canSaveCandidateProfile}
         showValidation={candidateValidation}
         onViewJobs={goToJobsOverview}
+      />
+
+      <CandidateProfileView
+        view={view}
+        nav={nav}
+        profile={candidateProfileDetails}
+        loading={candidateProfileLoading}
+        error={candidateProfileError}
+        onCreateProfile={startCandidateFlow}
+        onEditProfile={goToCandidateProfileEdit}
+        onBrowseJobs={goToJobsOverview}
       />
 
       <CandidateSearchFlow view={view} nav={nav} role={role} />

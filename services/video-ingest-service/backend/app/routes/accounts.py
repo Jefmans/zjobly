@@ -158,6 +158,22 @@ def upsert_candidate_profile(
     return _build_candidate_out(profile)
 
 
+@router.get("/candidate-profile", response_model=CandidateProfileOut)
+def get_candidate_profile(
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> CandidateProfileOut:
+    profile = (
+        session.query(models.CandidateProfile)
+        .options(joinedload(models.CandidateProfile.location_ref))
+        .filter_by(user_id=current_user.id)
+        .first()
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Candidate profile not found")
+    return _build_candidate_out(profile)
+
+
 def _assert_membership(session: Session, company_id: str, user_id: str) -> models.CompanyMembership:
     membership = (
         session.query(models.CompanyMembership)

@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, RefObject, useEffect, useState } from "react";
+import { ChangeEvent, ReactNode, RefObject } from "react";
 import { formatDuration } from "../helpers";
 import { CandidateProfileInput, CandidateStep, RecordedTake, RecordingState, Status, ViewMode } from "../types";
 
@@ -38,6 +38,7 @@ type Props = {
   onSaveProfile: () => void;
   profileSaving: boolean;
   profileSaved: boolean;
+  canSaveProfile: boolean;
   showValidation: boolean;
   onViewJobs: () => void;
 };
@@ -78,22 +79,11 @@ export function CandidateProfileFlow({
   onSaveProfile,
   profileSaving,
   profileSaved,
+  canSaveProfile,
   showValidation,
   onViewJobs,
 }: Props) {
   if (view !== "find") return null;
-
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-
-  useEffect(() => {
-    if (candidateStep !== "profile") {
-      setIsEditingProfile(false);
-      return;
-    }
-    if (!profileSaved) {
-      setIsEditingProfile(true);
-    }
-  }, [candidateStep, profileSaved]);
 
   const isSavingVideo = status === "presigning" || status === "uploading" || status === "confirming";
   const videoSaved = Boolean(candidateVideoObjectKey);
@@ -138,61 +128,6 @@ export function CandidateProfileFlow({
   const showHeadlineError = showValidation && !`${profile.headline ?? ""}`.trim();
   const showLocationError = showValidation && !`${profile.location ?? ""}`.trim();
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
-  const showProfilePreview = candidateStep === "profile" && profileSaved && !isEditingProfile;
-
-  if (showProfilePreview) {
-    return (
-      <>
-        {nav}
-        <section className="hero">
-          <div className="view-pill">Find Zjob</div>
-          <p className="tag">Zjobly</p>
-          <h1>Your profile</h1>
-          <p className="lede">This is what employers will see when you appear in search.</p>
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <h2>Profile detail</h2>
-                <p className="hint">Keep these details up to date to improve matches.</p>
-              </div>
-              <button type="button" className="ghost" onClick={() => setIsEditingProfile(true)}>
-                Edit profile
-              </button>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Headline</span>
-              <span>{profile.headline || "Candidate profile"}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Location</span>
-              <span>{profile.location || "Location not provided"}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Discoverable</span>
-              <span>{profile.discoverable ? "Yes" : "No"}</span>
-            </div>
-            {profile.summary ? <p className="candidate-summary">{profile.summary}</p> : <p className="hint">Summary not provided.</p>}
-            {videoUrl ? (
-              <video
-                key={videoUrl}
-                src={videoUrl}
-                className="job-detail-video"
-                controls
-                preload="metadata"
-              />
-            ) : (
-              <p className="hint">Intro video saved. Re-record to preview here.</p>
-            )}
-            <div className="panel-actions">
-              <button type="button" className="cta secondary" onClick={onViewJobs}>
-                Browse jobs
-              </button>
-            </div>
-          </div>
-        </section>
-      </>
-    );
-  }
 
   return (
     <>
@@ -326,8 +261,8 @@ export function CandidateProfileFlow({
                     type="button"
                     className="cta primary"
                     onClick={onSaveProfile}
-                    disabled={profileSaving || !videoSaved}
-                    aria-disabled={!videoSaved}
+                    disabled={profileSaving || !canSaveProfile}
+                    aria-disabled={!canSaveProfile}
                   >
                     {profileSaving ? "Saving..." : "Save profile"}
                   </button>

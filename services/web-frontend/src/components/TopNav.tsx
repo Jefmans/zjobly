@@ -50,7 +50,11 @@ export function TopNav({
           </button>
         )}
         {showMainNav && showCandidateNav && (
-          <button type="button" className={`nav-btn ghost ${view === "find" ? "active" : ""}`} onClick={onFind}>
+          <button
+            type="button"
+            className={`nav-btn ghost ${view === "find" || view === "profile" ? "active" : ""}`}
+            onClick={onFind}
+          >
             Find Zjob
           </button>
         )}
