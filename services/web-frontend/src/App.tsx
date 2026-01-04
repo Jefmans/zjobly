@@ -3,6 +3,7 @@ import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
+import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
 import { TopNav } from './components/TopNav';
 import {
@@ -1468,6 +1469,31 @@ function App() {
     setCandidateStep(nextStep);
   };
 
+  const goToCandidateView = (nextView: ViewMode) => {
+    if (role === 'candidate') {
+      setView(nextView);
+      return;
+    }
+    setRoleAndView('candidate', nextView);
+  };
+
+  const goToEmployerView = (nextView: ViewMode) => {
+    if (role === 'employer') {
+      setView(nextView);
+      return;
+    }
+    setRoleAndView('employer', nextView);
+  };
+
+  const goToCandidateProfile = () => {
+    if (role === 'candidate') {
+      setView('find');
+    } else {
+      setRoleAndView('candidate', 'find');
+    }
+    setCandidateStep('profile');
+  };
+
   const goToJobsOverview = () => {
     setSelectedJobId(null);
     setView('jobs');
@@ -1487,19 +1513,35 @@ function App() {
     setProcessingMessage(null);
   };
 
-  const nav = showDevNav ? (
-    <TopNav
-      view={view}
-      role={role}
-      onBack={backToWelcome}
-      onCreate={startCreateFlow}
-      onFind={startCandidateFlow}
-      onJobs={() => setRoleAndView('employer', 'jobs')}
-      onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
-      onApplications={() => setRoleAndView('candidate', 'applications')}
-      onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
-    />
-  ) : null;
+  const nav = (
+    <>
+      <PrimaryNav
+        view={view}
+        role={role}
+        onHome={backToWelcome}
+        onBrowseJobs={() => goToCandidateView('jobs')}
+        onMyApplications={() => goToCandidateView('applications')}
+        onMyProfile={goToCandidateProfile}
+        onMyJobs={() => goToEmployerView('jobs')}
+        onCreateJob={() => goToEmployerView('create')}
+        onStartCandidate={startCandidateFlow}
+        onStartEmployer={startCreateFlow}
+      />
+      {showDevNav && (
+        <TopNav
+          view={view}
+          role={role}
+          onBack={backToWelcome}
+          onCreate={startCreateFlow}
+          onFind={startCandidateFlow}
+          onJobs={() => setRoleAndView('employer', 'jobs')}
+          onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
+          onApplications={() => setRoleAndView('candidate', 'applications')}
+          onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
+        />
+      )}
+    </>
+  );
 
   return (
     <main className="app-shell">

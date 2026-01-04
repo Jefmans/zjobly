@@ -46,6 +46,56 @@
   margin-bottom: 1rem;
 }
 
+.primary-nav {
+  width: 100%;
+  max-width: 780px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.primary-nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: none;
+  background: transparent;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 0.35rem 0.1rem;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6366f1, #0ea5e9);
+  display: inline-block;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+.primary-nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.primary-nav-cta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .nav-actions {
   margin-left: auto;
   display: flex;
@@ -72,6 +122,12 @@
 }
 
 .nav-btn.active {
+  border-color: #6366f1;
+  color: #4338ca;
+  background: #eef2ff;
+}
+
+.nav-btn.primary {
   border-color: #6366f1;
   color: #4338ca;
   background: #eef2ff;
