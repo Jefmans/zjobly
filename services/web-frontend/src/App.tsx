@@ -1242,6 +1242,9 @@ function App() {
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
       setCandidateStep('profile');
+      if (role !== 'candidate') {
+        persistRole('candidate');
+      }
       setView('profile');
     } catch (err) {
       console.error(err);
