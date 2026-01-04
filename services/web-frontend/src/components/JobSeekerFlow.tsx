@@ -66,7 +66,9 @@ export function JobSeekerFlow({
   const [jobApplicationsLoading, setJobApplicationsLoading] = useState(false);
   const [jobApplicationsError, setJobApplicationsError] = useState<string | null>(null);
   const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
-  const [applicationFilter, setApplicationFilter] = useState<"all" | "applied" | "withheld" | "rejected">("all");
+  const [applicationFilter, setApplicationFilter] = useState<
+    "all" | "applied" | "withheld" | "rejected" | "hired"
+  >("all");
   const [applicationUpdatingId, setApplicationUpdatingId] = useState<string | null>(null);
   const [applicationActionError, setApplicationActionError] = useState<string | null>(null);
   const [candidateApplications, setCandidateApplications] = useState<CandidateApplication[]>([]);
@@ -1047,7 +1049,7 @@ export function JobSeekerFlow({
                           value={applicationFilter}
                           onChange={(event) =>
                             setApplicationFilter(
-                              event.target.value as "all" | "applied" | "withheld" | "rejected",
+                              event.target.value as "all" | "applied" | "withheld" | "rejected" | "hired",
                             )
                           }
                         >
@@ -1055,6 +1057,7 @@ export function JobSeekerFlow({
                           <option value="applied">Applied</option>
                           <option value="withheld">Withheld</option>
                           <option value="rejected">Rejected</option>
+                          <option value="hired">Hired</option>
                         </select>
                       </div>
                       <span className="pill soft">
@@ -1114,15 +1117,28 @@ export function JobSeekerFlow({
                                       type="button"
                                       className="ghost"
                                       onClick={() => handleApplicationStatusUpdate(application.id, "reviewing")}
-                                      disabled={isUpdating || application.status === "reviewing"}
+                                      disabled={
+                                        isUpdating ||
+                                        application.status === "reviewing" ||
+                                        application.status === "rejected" ||
+                                        application.status === "hired"
+                                      }
                                     >
                                       {application.status === "reviewing" ? "Withheld" : "Withhold"}
                                     </button>
                                     <button
                                       type="button"
+                                      className="ghost success"
+                                      onClick={() => handleApplicationStatusUpdate(application.id, "hired")}
+                                      disabled={isUpdating || application.status === "hired" || application.status === "rejected"}
+                                    >
+                                      {application.status === "hired" ? "Hired" : "Hire"}
+                                    </button>
+                                    <button
+                                      type="button"
                                       className="ghost danger"
                                       onClick={() => handleApplicationStatusUpdate(application.id, "rejected")}
-                                      disabled={isUpdating || application.status === "rejected"}
+                                      disabled={isUpdating || application.status === "rejected" || application.status === "hired"}
                                     >
                                       {application.status === "rejected" ? "Rejected" : "Reject"}
                                     </button>
@@ -1158,7 +1174,11 @@ export function JobSeekerFlow({
                           : "Record a short video explaining why this role is a great fit."}
                       </p>
                     </div>
-                    {hasApplied && <span className="pill soft">Applied</span>}
+                    {hasApplied && (
+                      <span className={`application-status ${appliedStatus || "applied"}`}>
+                        {formatApplicationStatus(appliedStatus || "applied")}
+                      </span>
+                    )}
                   </div>
                   {!hasApplied && !canApply && (
                     <p className="hint">This job is not open for applications right now.</p>
