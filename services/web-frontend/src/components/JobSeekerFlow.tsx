@@ -563,6 +563,13 @@ export function JobSeekerFlow({
     stopApplyRecording(true);
     setView("jobDetail");
   };
+  const handleBackToJobs = async () => {
+    try {
+      await onRefreshJobs();
+    } finally {
+      setView("jobs");
+    }
+  };
   const handleOpenApply = async () => {
     if (!selectedJobId) return;
     setApplyAvailabilityError(null);
@@ -1024,6 +1031,7 @@ export function JobSeekerFlow({
       ? appliedJobStatusById[job.id] || (appliedJobs[job.id] ? "applied" : null)
       : null;
     const candidateApplication = job ? candidateApplicationByJobId[job.id] : null;
+    const jobClosedForCandidate = isCandidate && job && !isJobOpenForApply(job);
     return (
       <>
         {nav}
@@ -1039,6 +1047,22 @@ export function JobSeekerFlow({
           )}
           {job && (
             <>
+              {jobClosedForCandidate && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>This job is not open anymore</h2>
+                      <p className="hint">It has been unpublished and is no longer accepting applications.</p>
+                    </div>
+                    <span className="pill soft">Closed</span>
+                  </div>
+                  <div className="panel-actions">
+                    <button type="button" className="cta primary" onClick={() => void handleBackToJobs()}>
+                      Back to jobs
+                    </button>
+                  </div>
+                </div>
+              )}
               <h1>{job.title}</h1>
               <p className="lede">{job.location}</p>
               <div className="job-detail-meta">
@@ -1201,7 +1225,7 @@ export function JobSeekerFlow({
                   )}
                 </div>
               )}
-              {job && isCandidate && (
+              {job && isCandidate && !jobClosedForCandidate && (
                 <div className="panel">
                   <div className="panel-header">
                     <div>
@@ -1277,7 +1301,7 @@ export function JobSeekerFlow({
                 </div>
               )}
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => setView("jobs")}>
+                <button type="button" className="ghost" onClick={() => void handleBackToJobs()}>
                   Back to jobs
                 </button>
                 {isEmployer && (() => {
