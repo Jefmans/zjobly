@@ -1771,6 +1771,7 @@ function App() {
         audioSessionStatuses={audioSessionStatuses}
         fallbackTranscript={candidateTranscript}
         fallbackTranscriptStatus={candidateTranscriptStatus}
+        keywords={filteredCandidateKeywords}
         onSaveVideo={saveCandidateVideo}
         profile={candidateProfile}
         onProfileChange={handleCandidateProfileChange}

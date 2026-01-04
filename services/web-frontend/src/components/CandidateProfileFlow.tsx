@@ -32,6 +32,7 @@ type Props = {
   audioSessionStatuses: Record<string, "pending" | "partial" | "final">;
   fallbackTranscript?: string;
   fallbackTranscriptStatus?: "pending" | "final";
+  keywords: string[];
   onSaveVideo: () => void;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -73,6 +74,7 @@ export function CandidateProfileFlow({
   audioSessionStatuses,
   fallbackTranscript,
   fallbackTranscriptStatus,
+  keywords,
   onSaveVideo,
   profile,
   onProfileChange,
@@ -244,6 +246,21 @@ export function CandidateProfileFlow({
                   </div>
                 )}
                 <p className="hint">{transcriptStatusHint} Auto-transcribed from your intro video.</p>
+              </div>
+
+              <div className="field">
+                <label>Keywords</label>
+                {keywords.length > 0 ? (
+                  <div className="keyword-chips">
+                    {keywords.map((keyword, index) => (
+                      <span key={`candidate-keyword-${index}`} className="keyword-chip">
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="hint">Keywords will appear once the transcript is processed.</p>
+                )}
               </div>
 
               {error && <div className="error">{error}</div>}
