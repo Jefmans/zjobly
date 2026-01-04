@@ -1515,6 +1515,22 @@ function App() {
 
   const nav = (
     <>
+      {showDevNav && (
+        <div className="dev-nav-wrap">
+          <div className="dev-nav-label">Development navigation</div>
+          <TopNav
+            view={view}
+            role={role}
+            onBack={backToWelcome}
+            onCreate={startCreateFlow}
+            onFind={startCandidateFlow}
+            onJobs={() => setRoleAndView('employer', 'jobs')}
+            onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
+            onApplications={() => setRoleAndView('candidate', 'applications')}
+            onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
+          />
+        </div>
+      )}
       <PrimaryNav
         view={view}
         role={role}
@@ -1527,19 +1543,6 @@ function App() {
         onStartCandidate={startCandidateFlow}
         onStartEmployer={startCreateFlow}
       />
-      {showDevNav && (
-        <TopNav
-          view={view}
-          role={role}
-          onBack={backToWelcome}
-          onCreate={startCreateFlow}
-          onFind={startCandidateFlow}
-          onJobs={() => setRoleAndView('employer', 'jobs')}
-          onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
-          onApplications={() => setRoleAndView('candidate', 'applications')}
-          onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
-        />
-      )}
     </>
   );
 

@@ -46,6 +46,29 @@
   margin-bottom: 1rem;
 }
 
+.dev-nav-wrap {
+  width: 100%;
+  max-width: 780px;
+  border: 1px dashed #c7d2fe;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 0.75rem 1rem 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.dev-nav-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #6366f1;
+  margin-bottom: 0.5rem;
+}
+
+.dev-nav-wrap .top-nav {
+  margin-bottom: 0.5rem;
+}
+
 .primary-nav {
   width: 100%;
   max-width: 780px;
