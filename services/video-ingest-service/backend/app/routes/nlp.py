@@ -2,10 +2,13 @@ import json
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from openai import OpenAI
 
 from app import storage
@@ -156,18 +159,94 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         return result
 
 
-SYSTEM_PROMPT = (
-    "You turn raw spoken job transcripts into concise job postings. "
-    "Output JSON with keys: title (max ~12 words), description (concise 80-140 words), "
-    "and keywords (array of 3-8 short skill/location terms). "
-    "Keep the tone clear and appealing, avoid fluff, and do not invent details that are not in the transcript."
-)
+PROMPT_CONFIG_PATH = Path(__file__).resolve().parent / "prompts" / "prompts.json"
+_prompt_config_cache: dict[str, dict[str, object]] | None = None
 
-PROFILE_PROMPT = (
-    "You turn a short candidate intro transcript into a concise profile. "
-    "Output JSON with keys: headline (6-10 words, role + level + 1 hook) and summary (80-140 words, 2-3 sentences). "
-    "Keep it factual and derived from the transcript; do not invent details."
-)
+
+def _load_prompt_config() -> dict[str, dict[str, object]]:
+    global _prompt_config_cache
+    if _prompt_config_cache is not None:
+        return _prompt_config_cache
+    if not PROMPT_CONFIG_PATH.exists():
+        raise HTTPException(status_code=500, detail="Prompt config file is missing.")
+    try:
+        parsed = json.loads(PROMPT_CONFIG_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail="Prompt config JSON is invalid.") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=500, detail="Prompt config must be a JSON object.")
+    _prompt_config_cache = parsed
+    return parsed
+
+
+def _get_prompt_entry(key: str) -> dict[str, object]:
+    config = _load_prompt_config()
+    entry = config.get(key)
+    if not isinstance(entry, dict):
+        raise HTTPException(status_code=500, detail=f"Prompt '{key}' is missing or invalid.")
+    return entry
+
+
+def _require_prompt_str(entry: dict[str, object], field: str, prompt_key: str) -> str:
+    value = entry.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise HTTPException(status_code=500, detail=f"Prompt '{prompt_key}' is missing '{field}'.")
+    return value.strip()
+
+
+def _get_prompt_float(entry: dict[str, object], field: str, prompt_key: str, default: float) -> float:
+    if field not in entry:
+        return default
+    try:
+        return float(entry[field])  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Prompt '{prompt_key}' has invalid '{field}'."
+        ) from exc
+
+
+def _get_prompt_int(entry: dict[str, object], field: str, prompt_key: str, default: int | None) -> int | None:
+    if field not in entry:
+        return default
+    value = entry[field]
+    if value is None:
+        return None
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Prompt '{prompt_key}' has invalid '{field}'."
+        ) from exc
+
+
+def _build_prompt_settings(prompt_key: str) -> tuple[str, str, float, int | None, dict[str, object]]:
+    entry = _get_prompt_entry(prompt_key)
+    system_prompt = _require_prompt_str(entry, "system_prompt", prompt_key)
+    model = _require_prompt_str(entry, "model", prompt_key)
+    temperature = _get_prompt_float(entry, "temperature", prompt_key, 0.45)
+    max_tokens = _get_prompt_int(entry, "max_tokens", prompt_key, None)
+    response_format = entry.get("response_format", "json_object")
+    model_kwargs: dict[str, object] = {}
+    if response_format == "json_object":
+        model_kwargs["response_format"] = {"type": "json_object"}
+    elif response_format not in (None, "", "text"):
+        raise HTTPException(
+            status_code=500, detail=f"Prompt '{prompt_key}' has unsupported response_format."
+        )
+    return system_prompt, model, temperature, max_tokens, model_kwargs
+
+
+def _build_chat_model(prompt_key: str) -> tuple[ChatOpenAI, str]:
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+    system_prompt, model, temperature, max_tokens, model_kwargs = _build_prompt_settings(prompt_key)
+    llm = ChatOpenAI(
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        model_kwargs=model_kwargs,
+    )
+    return llm, system_prompt
 
 
 def _normalize_keywords(raw_keywords: object) -> list[str]:
@@ -241,27 +320,17 @@ def _transcribe_object(object_key: str) -> str:
 
 
 def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftResponse:
-    client = get_openai_client()
-    model = settings.LLM_MODEL or "gpt-4o-mini"
-    system_prompt = SYSTEM_PROMPT
+    llm, system_prompt = _build_chat_model("job_draft")
     if language:
-        system_prompt = f"{SYSTEM_PROMPT} Respond in {language}."
+        system_prompt = f"{system_prompt} Respond in {language}."
 
     try:
-        completion = client.chat.completions.create(
-            model=model,
-            temperature=0.45,
-            max_tokens=480,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": transcript},
-            ],
-        )
+        prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("user", "{transcript}")])
+        response = (prompt | llm).invoke({"transcript": transcript})
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail="Could not generate a draft from the transcript") from exc
 
-    content = completion.choices[0].message.content if completion.choices else None
+    content = getattr(response, "content", None)
     if not content:
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 
@@ -281,27 +350,17 @@ def _draft_from_transcript(transcript: str, language: str | None) -> JobDraftRes
 
 
 def _draft_profile_from_transcript(transcript: str, language: str | None) -> ProfileDraftResponse:
-    client = get_openai_client()
-    model = settings.LLM_MODEL or "gpt-4o-mini"
-    system_prompt = PROFILE_PROMPT
+    llm, system_prompt = _build_chat_model("profile_draft")
     if language:
-        system_prompt = f"{PROFILE_PROMPT} Respond in {language}."
+        system_prompt = f"{system_prompt} Respond in {language}."
 
     try:
-        completion = client.chat.completions.create(
-            model=model,
-            temperature=0.35,
-            max_tokens=260,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": transcript},
-            ],
-        )
+        prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("user", "{transcript}")])
+        response = (prompt | llm).invoke({"transcript": transcript})
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail="Could not generate a profile draft from the transcript") from exc
 
-    content = completion.choices[0].message.content if completion.choices else None
+    content = getattr(response, "content", None)
     if not content:
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 

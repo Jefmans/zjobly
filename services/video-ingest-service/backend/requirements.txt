@@ -10,3 +10,5 @@ pydantic==1.10.13
 sqlalchemy==2.0.23
 alembic==1.13.1
 spacy==3.7.2
+langchain-core==0.2.11
+langchain-openai==0.1.8

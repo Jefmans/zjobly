@@ -55,10 +55,18 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
 // Disable chunked audio uploads; record/upload full files only.
 const ENABLE_AUDIO_CHUNKS = false;
 const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
+  const fallback = (suggestion.location || '').trim();
   const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
     .map((p) => (p || '').trim())
     .filter(Boolean);
-  return parts.length > 0 ? parts.join(', ') : '';
+  if (parts.length === 0) return fallback;
+  if (!fallback) return parts.join(', ');
+  const fallbackLower = fallback.toLowerCase();
+  const partsLower = parts.map((part) => part.toLowerCase());
+  if (!partsLower.includes(fallbackLower)) {
+    return [fallback, ...parts].join(', ');
+  }
+  return parts.join(', ');
 };
 
 const getStoredRole = (): UserRole | null => {
