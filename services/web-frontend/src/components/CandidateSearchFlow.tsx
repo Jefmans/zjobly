@@ -107,7 +107,7 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
                 <div className="panel-header">
                   <div>
                     <h2>Candidate profile</h2>
-                    <p className="hint">Review the candidate headline and location.</p>
+                    <p className="hint">Review the candidate details below.</p>
                   </div>
                   <button type="button" className="ghost" onClick={handleBackToResults}>
                     Back to results
@@ -121,6 +121,43 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
                   <span className="detail-label">Location</span>
                   <span>{formatLocation(selectedCandidate)}</span>
                 </div>
+                {selectedCandidate.location_details && (
+                  <>
+                    {selectedCandidate.location_details.city && (
+                      <div className="detail-row">
+                        <span className="detail-label">City</span>
+                        <span>{selectedCandidate.location_details.city}</span>
+                      </div>
+                    )}
+                    {selectedCandidate.location_details.region && (
+                      <div className="detail-row">
+                        <span className="detail-label">Region</span>
+                        <span>{selectedCandidate.location_details.region}</span>
+                      </div>
+                    )}
+                    {selectedCandidate.location_details.country && (
+                      <div className="detail-row">
+                        <span className="detail-label">Country</span>
+                        <span>{selectedCandidate.location_details.country}</span>
+                      </div>
+                    )}
+                    {selectedCandidate.location_details.postal_code && (
+                      <div className="detail-row">
+                        <span className="detail-label">Postal code</span>
+                        <span>{selectedCandidate.location_details.postal_code}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="detail-row">
+                  <span className="detail-label">Discoverable</span>
+                  <span>{selectedCandidate.discoverable ? "Yes" : "No"}</span>
+                </div>
+                {selectedCandidate.summary ? (
+                  <p className="candidate-summary">{selectedCandidate.summary}</p>
+                ) : (
+                  <p className="hint">Summary not provided.</p>
+                )}
               </div>
             ) : (
               <div className="candidate-list">
