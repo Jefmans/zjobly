@@ -1450,6 +1450,7 @@ function App() {
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
+  const showDevNav = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
 
   const backToWelcome = () => {
     resetCreateState();
@@ -1486,7 +1487,7 @@ function App() {
     setProcessingMessage(null);
   };
 
-  const nav = (
+  const nav = showDevNav ? (
     <TopNav
       view={view}
       role={role}
@@ -1498,7 +1499,7 @@ function App() {
       onApplications={() => setRoleAndView('candidate', 'applications')}
       onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
     />
-  );
+  ) : null;
 
   return (
     <main className="app-shell">
