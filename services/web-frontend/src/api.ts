@@ -56,6 +56,7 @@ export type ProfileDraft = {
   headline: string;
   summary: string;
   location?: string | null;
+  keywords?: string[];
 };
 
 const LOCAL_USER_KEY = "zjobly-user-id";

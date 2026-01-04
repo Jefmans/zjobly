@@ -44,4 +44,5 @@ class ProfileDraftRequest(BaseModel):
 class ProfileDraftResponse(BaseModel):
     headline: str
     summary: str
+    keywords: List[str] = []
     location: Optional[str] = None

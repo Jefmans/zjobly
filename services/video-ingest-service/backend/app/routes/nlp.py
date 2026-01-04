@@ -372,6 +372,7 @@ def _draft_profile_from_transcript(transcript: str, language: str | None) -> Pro
     headline = (parsed.get("headline") or "").strip()
     summary = (parsed.get("summary") or parsed.get("profile") or "").strip()
     location = (parsed.get("location") or "").strip() or None
+    keywords = _normalize_keywords(parsed.get("keywords") or parsed.get("skills") or parsed.get("tags") or [])
 
     # Fallbacks to ensure summary is not identical to headline and has some length
     if summary and headline and summary.strip().lower() == headline.strip().lower():
@@ -382,7 +383,7 @@ def _draft_profile_from_transcript(transcript: str, language: str | None) -> Pro
     if not headline or not summary:
         raise HTTPException(status_code=500, detail="Missing headline or summary in the generated profile")
 
-    return ProfileDraftResponse(headline=headline, summary=summary, location=location)
+    return ProfileDraftResponse(headline=headline, summary=summary, location=location, keywords=keywords)
 
 
 @router.post("/location-from-transcript", response_model=LocationFromTranscriptResponse)

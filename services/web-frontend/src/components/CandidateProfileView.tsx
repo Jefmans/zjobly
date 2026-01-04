@@ -5,6 +5,8 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   profile: CandidateProfile | null;
+  keywords: string[];
+  videoUrl: string | null;
   loading: boolean;
   error: string | null;
   onCreateProfile: () => void;
@@ -16,6 +18,8 @@ export function CandidateProfileView({
   view,
   nav,
   profile,
+  keywords,
+  videoUrl,
   loading,
   error,
   onCreateProfile,
@@ -48,70 +52,96 @@ export function CandidateProfileView({
             <p className="hint">Loading your profile...</p>
           </div>
         ) : profile ? (
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <h2>Profile detail</h2>
-                <p className="hint">This is what employers see when they browse candidates.</p>
+          <>
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Profile detail</h2>
+                  <p className="hint">This is what employers see when they browse candidates.</p>
+                </div>
+                <button type="button" className="ghost" onClick={onEditProfile}>
+                  Edit profile
+                </button>
               </div>
-              <button type="button" className="ghost" onClick={onEditProfile}>
-                Edit profile
-              </button>
+              <div className="detail-row">
+                <span className="detail-label">Headline</span>
+                <span>{profile.headline || "Candidate profile"}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Location</span>
+                <span>{formatLocation(profile)}</span>
+              </div>
+              {profile.location_details && (
+                <>
+                  {profile.location_details.city && (
+                    <div className="detail-row">
+                      <span className="detail-label">City</span>
+                      <span>{profile.location_details.city}</span>
+                    </div>
+                  )}
+                  {profile.location_details.region && (
+                    <div className="detail-row">
+                      <span className="detail-label">Region</span>
+                      <span>{profile.location_details.region}</span>
+                    </div>
+                  )}
+                  {profile.location_details.country && (
+                    <div className="detail-row">
+                      <span className="detail-label">Country</span>
+                      <span>{profile.location_details.country}</span>
+                    </div>
+                  )}
+                  {profile.location_details.postal_code && (
+                    <div className="detail-row">
+                      <span className="detail-label">Postal code</span>
+                      <span>{profile.location_details.postal_code}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="detail-row">
+                <span className="detail-label">Discoverable</span>
+                <span>{profile.discoverable ? "Yes" : "No"}</span>
+              </div>
+              {profile.summary ? (
+                <p className="candidate-summary">{profile.summary}</p>
+              ) : (
+                <p className="hint">Summary not provided.</p>
+              )}
+              <div className="panel-actions split">
+                <button type="button" className="cta secondary" onClick={onBrowseJobs}>
+                  Browse jobs
+                </button>
+                <button type="button" className="cta primary" onClick={onEditProfile}>
+                  Edit profile
+                </button>
+              </div>
             </div>
-            <div className="detail-row">
-              <span className="detail-label">Headline</span>
-              <span>{profile.headline || "Candidate profile"}</span>
+
+            <div className="panel">
+              <h2>Intro video</h2>
+              {videoUrl ? (
+                <video key={videoUrl} src={videoUrl} className="job-detail-video" controls preload="metadata" />
+              ) : (
+                <p className="hint">No intro video available yet.</p>
+              )}
             </div>
-            <div className="detail-row">
-              <span className="detail-label">Location</span>
-              <span>{formatLocation(profile)}</span>
+
+            <div className="panel">
+              <h2>Keywords</h2>
+              {keywords.length > 0 ? (
+                <div className="keyword-chips">
+                  {keywords.map((keyword, index) => (
+                    <span key={`candidate-keyword-${index}`} className="keyword-chip">
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="hint">No keywords available yet.</p>
+              )}
             </div>
-            {profile.location_details && (
-              <>
-                {profile.location_details.city && (
-                  <div className="detail-row">
-                    <span className="detail-label">City</span>
-                    <span>{profile.location_details.city}</span>
-                  </div>
-                )}
-                {profile.location_details.region && (
-                  <div className="detail-row">
-                    <span className="detail-label">Region</span>
-                    <span>{profile.location_details.region}</span>
-                  </div>
-                )}
-                {profile.location_details.country && (
-                  <div className="detail-row">
-                    <span className="detail-label">Country</span>
-                    <span>{profile.location_details.country}</span>
-                  </div>
-                )}
-                {profile.location_details.postal_code && (
-                  <div className="detail-row">
-                    <span className="detail-label">Postal code</span>
-                    <span>{profile.location_details.postal_code}</span>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="detail-row">
-              <span className="detail-label">Discoverable</span>
-              <span>{profile.discoverable ? "Yes" : "No"}</span>
-            </div>
-            {profile.summary ? (
-              <p className="candidate-summary">{profile.summary}</p>
-            ) : (
-              <p className="hint">Summary not provided.</p>
-            )}
-            <div className="panel-actions split">
-              <button type="button" className="cta secondary" onClick={onBrowseJobs}>
-                Browse jobs
-              </button>
-              <button type="button" className="cta primary" onClick={onEditProfile}>
-                Edit profile
-              </button>
-            </div>
-          </div>
+          </>
         ) : (
           <div className="panel">
             <div className="panel-header">

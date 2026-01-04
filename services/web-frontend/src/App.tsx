@@ -164,6 +164,7 @@ function App() {
   const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
   const [candidateProfileError, setCandidateProfileError] = useState<string | null>(null);
   const [candidateProfileExists, setCandidateProfileExists] = useState(false);
+  const [candidateKeywords, setCandidateKeywords] = useState<string[]>([]);
   const [candidateVideoObjectKey, setCandidateVideoObjectKey] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -245,6 +246,7 @@ function App() {
     setCandidateProfileLoading(false);
     setCandidateProfileError(null);
     setCandidateProfileExists(false);
+    setCandidateKeywords([]);
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaving(false);
     setCandidateProfileSaved(false);
@@ -1159,6 +1161,7 @@ function App() {
     setProcessingMessage(null);
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaved(false);
+    setCandidateKeywords([]);
 
     if (!selectedTake) {
       setError('Record or upload a video before saving.');
@@ -1239,6 +1242,7 @@ function App() {
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
       setCandidateStep('profile');
+      setView('profile');
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Could not save your profile.');
@@ -1498,6 +1502,7 @@ function App() {
         if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
           setCandidateProfile((prev) => ({ ...prev, summary: draft.summary }));
         }
+        setCandidateKeywords(normalizeKeywords(draft.keywords));
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
         console.error('Candidate profile draft failed', err);
@@ -1542,6 +1547,10 @@ function App() {
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
   const showDevNav = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
+  const filteredCandidateKeywords = filterKeywordsByLocation(
+    candidateKeywords,
+    candidateProfileDetails?.location ?? candidateProfile.location,
+  );
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
   const backToWelcome = () => {
@@ -1760,6 +1769,8 @@ function App() {
         view={view}
         nav={nav}
         profile={candidateProfileDetails}
+        keywords={filteredCandidateKeywords}
+        videoUrl={videoUrl}
         loading={candidateProfileLoading}
         error={candidateProfileError}
         onCreateProfile={startCandidateFlow}
