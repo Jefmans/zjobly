@@ -159,7 +159,7 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         return result
 
 
-PROMPT_CONFIG_PATH = Path(__file__).resolve().parent / "prompts" / "prompts.json"
+PROMPT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "prompts" / "prompts.json"
 _prompt_config_cache: dict[str, dict[str, object]] | None = None
 
 
