@@ -565,6 +565,8 @@ function App() {
         if (profile) {
           setCandidateProfileDetails(profile);
           setCandidateProfileExists(true);
+          setCandidateVideoObjectKey(profile.video_object_key ?? null);
+          setCandidateKeywords(normalizeKeywords(profile.keywords));
           setCandidateProfile({
             headline: profile.headline ?? '',
             location: profile.location ?? '',
@@ -575,6 +577,8 @@ function App() {
         } else {
           setCandidateProfileDetails(null);
           setCandidateProfileExists(false);
+          setCandidateVideoObjectKey(null);
+          setCandidateKeywords([]);
         }
       } catch (err) {
         if (!isActive) return;
@@ -582,6 +586,8 @@ function App() {
         setCandidateProfileError(err instanceof Error ? err.message : 'Could not load your profile.');
         setCandidateProfileDetails(null);
         setCandidateProfileExists(false);
+        setCandidateVideoObjectKey(null);
+        setCandidateKeywords([]);
       } finally {
         if (isActive) {
           setCandidateProfileLoading(false);
@@ -1211,6 +1217,10 @@ function App() {
     const location = (candidateProfile.location ?? '').toString().trim();
     const summary = (candidateProfile.summary ?? '').toString().trim();
     const hasVideo = Boolean(candidateVideoObjectKey);
+    const keywords = candidateKeywords.length
+      ? candidateKeywords
+      : normalizeKeywords(candidateProfileDetails?.keywords);
+    const videoObjectKey = candidateVideoObjectKey || candidateProfileDetails?.video_object_key || null;
 
     if (!headline || !location || !summary || (!hasVideo && !candidateProfileExists)) {
       setCandidateValidation(true);
@@ -1226,6 +1236,8 @@ function App() {
         headline,
         location,
         summary,
+        keywords: keywords.length ? keywords : null,
+        video_object_key: videoObjectKey,
         discoverable: Boolean(candidateProfile.discoverable),
       });
       setCandidateProfileDetails(savedProfile ?? null);
@@ -1238,6 +1250,8 @@ function App() {
           summary: savedProfile.summary ?? '',
           discoverable: Boolean(savedProfile.discoverable),
         });
+        setCandidateVideoObjectKey(savedProfile.video_object_key ?? null);
+        setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
       }
       setCandidateProfileSaved(true);
       setCandidateValidation(false);

@@ -63,6 +63,8 @@ export type CandidateProfileInput = {
   location?: string | null;
   location_id?: string | null;
   summary?: string | null;
+  keywords?: string[] | null;
+  video_object_key?: string | null;
   discoverable: boolean;
 };
 
@@ -70,6 +72,7 @@ export type CandidateProfile = CandidateProfileInput & {
   id: string;
   user_id: string;
   location_details?: LocationDetails | null;
+  playback_url?: string | null;
 };
 
 export type JobStatus = 'draft' | 'open' | 'closed' | 'published';

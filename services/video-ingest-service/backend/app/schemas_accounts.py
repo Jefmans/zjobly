@@ -48,6 +48,8 @@ class CandidateProfileCreate(BaseModel):
     location: Optional[str] = None
     location_id: Optional[str] = None
     summary: Optional[str] = None
+    keywords: Optional[list[str]] = None
+    video_object_key: Optional[str] = None
     discoverable: bool = False
 
 
@@ -59,6 +61,9 @@ class CandidateProfileOut(BaseModel):
     location_id: Optional[str] = None
     location_details: Optional[LocationOut] = None
     summary: Optional[str] = None
+    keywords: Optional[list[str]] = None
+    video_object_key: Optional[str] = None
+    playback_url: Optional[str] = None
     discoverable: bool
 
     class Config:

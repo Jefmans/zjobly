@@ -35,6 +35,7 @@ export function CandidateProfileView({
     const parts = [details.city, details.region, details.country].filter(Boolean);
     return parts.length > 0 ? parts.join(", ") : "Location not provided";
   };
+  const resolvedVideoUrl = profile?.playback_url || videoUrl;
 
   return (
     <>
@@ -120,8 +121,14 @@ export function CandidateProfileView({
 
             <div className="panel">
               <h2>Intro video</h2>
-              {videoUrl ? (
-                <video key={videoUrl} src={videoUrl} className="job-detail-video" controls preload="metadata" />
+              {resolvedVideoUrl ? (
+                <video
+                  key={resolvedVideoUrl}
+                  src={resolvedVideoUrl}
+                  className="job-detail-video"
+                  controls
+                  preload="metadata"
+                />
               ) : (
                 <p className="hint">No intro video available yet.</p>
               )}

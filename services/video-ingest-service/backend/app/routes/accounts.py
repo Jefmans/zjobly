@@ -143,6 +143,8 @@ def upsert_candidate_profile(
             location=resolved_location_str,
             location_id=location_id,
             summary=payload.summary,
+            keywords=payload.keywords,
+            video_object_key=payload.video_object_key,
             discoverable=payload.discoverable,
         )
         session.add(profile)
@@ -151,6 +153,10 @@ def upsert_candidate_profile(
         profile.location = resolved_location_str
         profile.location_id = location_id
         profile.summary = payload.summary
+        if payload.keywords is not None:
+            profile.keywords = payload.keywords
+        if payload.video_object_key is not None:
+            profile.video_object_key = payload.video_object_key
         profile.discoverable = payload.discoverable
 
     session.commit()
@@ -221,6 +227,18 @@ def _build_job_out(job: models.Job) -> JobOut:
 
 
 def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOut:
+    playback_url = None
+    if profile.video_object_key:
+        try:
+            presigned = storage.presign_get_object(
+                bucket=settings.S3_BUCKET_RAW,
+                object_key=profile.video_object_key,
+                expires_in=settings.MEDIA_PLAY_SIGN_EXPIRY_SEC,
+            )
+            playback_url = presigned["play_url"]
+        except Exception:
+            playback_url = None
+
     return CandidateProfileOut(
         id=profile.id,
         user_id=profile.user_id,
@@ -229,6 +247,9 @@ def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOu
         location_id=profile.location_id,
         location_details=profile.location_ref,
         summary=profile.summary,
+        keywords=profile.keywords,
+        video_object_key=profile.video_object_key,
+        playback_url=playback_url,
         discoverable=profile.discoverable,
     )
 
