@@ -24,6 +24,7 @@ type Props = {
   setView: (v: ViewMode) => void;
   onPublishJob: (id: string) => void;
   onUnpublishJob: (id: string) => void;
+  onRefreshJobs: () => Promise<Job[]>;
   publishingJobId: string | null;
   unpublishingJobId: string | null;
 };
@@ -43,6 +44,7 @@ export function JobSeekerFlow({
   setView,
   onPublishJob,
   onUnpublishJob,
+  onRefreshJobs,
   publishingJobId,
   unpublishingJobId,
 }: Props) {
@@ -61,6 +63,8 @@ export function JobSeekerFlow({
   >("idle");
   const [applyProgress, setApplyProgress] = useState<number | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyAvailabilityChecking, setApplyAvailabilityChecking] = useState(false);
+  const [applyAvailabilityError, setApplyAvailabilityError] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
   const [jobApplications, setJobApplications] = useState<JobApplicationDetail[]>([]);
   const [jobApplicationsLoading, setJobApplicationsLoading] = useState(false);
@@ -98,9 +102,9 @@ export function JobSeekerFlow({
     });
     return map;
   }, [candidateApplications]);
-  const canApplyForSelectedJob = Boolean(
-    selectedJob && isCandidate && selectedJob.status === "open" && selectedJob.visibility === "public",
-  );
+  const isJobOpenForApply = (job?: Job) =>
+    Boolean(job && job.status === "open" && job.visibility === "public");
+  const canApplyForSelectedJob = Boolean(selectedJob && isCandidate && isJobOpenForApply(selectedJob));
   const hasAppliedForSelectedJob = Boolean(
     selectedJob && (appliedJobs[selectedJob.id] || appliedJobStatusById[selectedJob.id]),
   );
@@ -248,6 +252,8 @@ export function JobSeekerFlow({
     if (applyVideoUrl) {
       URL.revokeObjectURL(applyVideoUrl);
     }
+    setApplyAvailabilityChecking(false);
+    setApplyAvailabilityError(null);
     setApplyVideoFile(null);
     setApplyVideoUrl(null);
     setApplyDuration(null);
@@ -507,6 +513,23 @@ export function JobSeekerFlow({
 
   const handleApplyToJob = async (jobId: string) => {
     setApplyError(null);
+    setApplyAvailabilityError(null);
+    setApplyAvailabilityChecking(true);
+    try {
+      const updatedJobs = await onRefreshJobs();
+      const refreshedJob = updatedJobs.find((job) => job.id === jobId);
+      if (!refreshedJob || !isJobOpenForApply(refreshedJob)) {
+        setApplyError("This job is no longer open for applications.");
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+      setApplyError(err instanceof Error ? err.message : "Could not refresh job status.");
+      return;
+    } finally {
+      setApplyAvailabilityChecking(false);
+    }
+
     if (!applyVideoFile) {
       setApplyError("Add a short video to apply.");
       return;
@@ -539,6 +562,25 @@ export function JobSeekerFlow({
   const handleApplyCancel = () => {
     stopApplyRecording(true);
     setView("jobDetail");
+  };
+  const handleOpenApply = async () => {
+    if (!selectedJobId) return;
+    setApplyAvailabilityError(null);
+    setApplyAvailabilityChecking(true);
+    try {
+      const updatedJobs = await onRefreshJobs();
+      const refreshedJob = updatedJobs.find((job) => job.id === selectedJobId);
+      if (!refreshedJob || !isJobOpenForApply(refreshedJob)) {
+        setApplyAvailabilityError("This job is no longer open for applications.");
+        return;
+      }
+      setView("apply");
+    } catch (err) {
+      console.error(err);
+      setApplyAvailabilityError(err instanceof Error ? err.message : "Could not refresh job status.");
+    } finally {
+      setApplyAvailabilityChecking(false);
+    }
   };
   const handleApplicationStatusUpdate = async (applicationId: string, status: ApplicationStatus) => {
     if (!selectedJobId) return;
@@ -957,6 +999,7 @@ export function JobSeekerFlow({
                         !canApplyForSelectedJob ||
                         hasAppliedForSelectedJob ||
                         isApplying ||
+                        applyAvailabilityChecking ||
                         isActiveRecording ||
                         !applyVideoFile
                       }
@@ -1178,6 +1221,8 @@ export function JobSeekerFlow({
                   {!hasApplied && !canApply && (
                     <p className="hint">This job is not open for applications right now.</p>
                   )}
+                  {applyAvailabilityError && <div className="error">{applyAvailabilityError}</div>}
+                  {applyAvailabilityChecking && <div className="notice">Refreshing job status...</div>}
                   {hasApplied ? (
                     <>
                       <p className="hint">
@@ -1221,8 +1266,8 @@ export function JobSeekerFlow({
                         <button
                           type="button"
                           className="cta primary"
-                          onClick={() => setView("apply")}
-                          disabled={!canApply}
+                          onClick={() => void handleOpenApply()}
+                          disabled={!canApply || applyAvailabilityChecking}
                         >
                           {applyVideoUrl ? "Continue application" : "Apply with video"}
                         </button>

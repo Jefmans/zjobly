@@ -401,7 +401,7 @@ function App() {
     }
   };
 
-  const refreshJobs = useCallback(async () => {
+  const refreshJobs = useCallback(async (): Promise<Job[]> => {
     setJobsLoading(true);
     setJobsError(null);
     try {
@@ -412,14 +412,14 @@ function App() {
         if (!companyId) {
           setJobs([]);
           setJobsError(null);
-          return;
+          return [];
         }
         fetched = await listCompanyJobs(companyId);
       }
       if (!Array.isArray(fetched)) {
         setJobs([]);
         setJobsError('Could not load jobs.');
-        return;
+        return [];
       }
       setJobs(
         fetched.map((job) => ({
@@ -427,9 +427,11 @@ function App() {
           videoUrl: job.playback_url || jobVideoUrlsRef.current[job.id],
         })),
       );
+      return fetched;
     } catch (err) {
       console.error(err);
       setJobsError(err instanceof Error ? err.message : 'Could not load jobs.');
+      return [];
     } finally {
       setJobsLoading(false);
     }
@@ -1663,6 +1665,7 @@ function App() {
         setView={setView}
         onPublishJob={handlePublishJob}
         onUnpublishJob={handleUnpublishJob}
+        onRefreshJobs={refreshJobs}
         publishingJobId={publishingJobId}
         unpublishingJobId={unpublishingJobId}
       />
