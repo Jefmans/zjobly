@@ -15,6 +15,7 @@ type Props = {
   onMyProfile: () => void;
   onMyJobs: () => void;
   onCreateJob: () => void;
+  onBrowseCandidates: () => void;
   onStartCandidate: () => void;
   onStartEmployer: () => void;
 };
@@ -28,6 +29,7 @@ export function PrimaryNav({
   onMyProfile,
   onMyJobs,
   onCreateJob,
+  onBrowseCandidates,
   onStartCandidate,
   onStartEmployer,
 }: Props) {
@@ -57,6 +59,11 @@ export function PrimaryNav({
       label: "My jobs",
       isActive: view === "jobs" || view === "jobDetail",
       onClick: onMyJobs,
+    },
+    {
+      label: "Search candidates",
+      isActive: view === "candidates",
+      onClick: onBrowseCandidates,
     },
     {
       label: "Create job",

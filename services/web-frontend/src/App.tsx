@@ -2,6 +2,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
+import { CandidateSearchFlow } from './components/CandidateSearchFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
@@ -87,6 +88,7 @@ const getStoredView = (): ViewMode => {
     const stored = localStorage.getItem(VIEW_STORAGE_KEY);
     if (stored === 'jobs') return 'jobs';
     if (stored === 'applications' && storedRole === 'candidate') return 'applications';
+    if (stored === 'candidates' && storedRole === 'employer') return 'candidates';
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
   } catch {
@@ -113,6 +115,9 @@ const getScreenLabel = (
   if (view === 'applications') return 'Screen:FindZjob/MyApplications';
   if (view === 'jobs') {
     return role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
+  }
+  if (view === 'candidates') {
+    return 'Screen:FindCandidates/Search';
   }
   if (view === 'jobDetail') {
     return role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
@@ -517,6 +522,7 @@ function App() {
         view === 'jobs' ||
         (view === 'applications' && role === 'candidate') ||
         (view === 'create' && role === 'employer') ||
+        (view === 'candidates' && role === 'employer') ||
         (view === 'find' && role === 'candidate');
       if (shouldPersist) {
         localStorage.setItem(VIEW_STORAGE_KEY, view);
@@ -1513,6 +1519,10 @@ function App() {
     setView('jobs');
   };
 
+  const goToCandidateSearch = () => {
+    goToEmployerView('candidates');
+  };
+
   const selectTake = (id: string) => {
     const take = recordedTakes.find((t) => t.id === id);
     if (!take) return;
@@ -1540,6 +1550,7 @@ function App() {
             onFind={startCandidateFlow}
             onJobs={() => setRoleAndView('employer', 'jobs')}
             onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
+            onCandidates={() => setRoleAndView('employer', 'candidates')}
             onApplications={() => setRoleAndView('candidate', 'applications')}
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
@@ -1554,6 +1565,7 @@ function App() {
         onMyProfile={goToCandidateProfile}
         onMyJobs={() => goToEmployerView('jobs')}
         onCreateJob={() => goToEmployerView('create')}
+        onBrowseCandidates={goToCandidateSearch}
         onStartCandidate={startCandidateFlow}
         onStartEmployer={startCreateFlow}
       />
@@ -1663,6 +1675,8 @@ function App() {
         showValidation={candidateValidation}
         onViewJobs={goToJobsOverview}
       />
+
+      <CandidateSearchFlow view={view} nav={nav} role={role} />
 
       <JobSeekerFlow
         view={view}

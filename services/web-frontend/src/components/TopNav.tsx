@@ -9,6 +9,7 @@ type Props = {
   onFind: () => void;
   onJobs: () => void;
   onBrowseJobs: () => void;
+  onCandidates: () => void;
   onApplications: () => void;
   onRoleChange: (role: UserRole) => void;
 };
@@ -21,6 +22,7 @@ export function TopNav({
   onFind,
   onJobs,
   onBrowseJobs,
+  onCandidates,
   onApplications,
   onRoleChange,
 }: Props) {
@@ -29,6 +31,7 @@ export function TopNav({
   const showBack = view !== "welcome";
   const showMainNav = view !== "welcome";
   const isEmployerJobsView = (view === "jobs" || view === "jobDetail") && role === "employer";
+  const isEmployerCandidatesView = view === "candidates" && role === "employer";
   const isCandidateJobsView =
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
   const isCandidateApplicationsView = view === "applications" && role === "candidate";
@@ -54,6 +57,15 @@ export function TopNav({
         <button type="button" className={`nav-btn ghost ${isEmployerJobsView ? "active" : ""}`} onClick={onJobs}>
           Job list
         </button>
+        {showEmployerNav && (
+          <button
+            type="button"
+            className={`nav-btn ghost ${isEmployerCandidatesView ? "active" : ""}`}
+            onClick={onCandidates}
+          >
+            Browse candidates
+          </button>
+        )}
         <button
           type="button"
           className={`nav-btn ghost ${isCandidateJobsView ? "active" : ""}`}
