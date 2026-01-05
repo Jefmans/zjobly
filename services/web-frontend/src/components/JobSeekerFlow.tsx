@@ -1214,6 +1214,7 @@ export function JobSeekerFlow({
                     <div className="applications-list">
                       {filteredApplications.map((application) => {
                         const candidate = application.candidate_profile;
+                        const candidateKeywords = filterKeywordsByLocation(candidate.keywords, candidate.location);
                         const isOpen = expandedApplicationId === application.id;
                         const isUpdating = applicationUpdatingId === application.id;
                         return (
@@ -1240,11 +1241,25 @@ export function JobSeekerFlow({
                                 <div className="candidate-details">
                                   <div className="detail-row">
                                     <span className="detail-label">Headline</span>
-                                    <span>{candidate.headline || "—"}</span>
+                                    <span>{candidate.headline || "Candidate profile"}</span>
                                   </div>
                                   <div className="detail-row">
                                     <span className="detail-label">Location</span>
-                                    <span>{candidate.location || "—"}</span>
+                                    <span>{candidate.location || "Location not provided"}</span>
+                                  </div>
+                                  <div className="detail-row">
+                                    <span className="detail-label">Keywords</span>
+                                    {candidateKeywords.length > 0 ? (
+                                      <div className="keyword-chips">
+                                        {candidateKeywords.map((keyword, index) => (
+                                          <span key={`${application.id}-keyword-${index}`} className="keyword-chip">
+                                            {keyword}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span>None</span>
+                                    )}
                                   </div>
                                   {candidate.summary && <p className="candidate-summary">{candidate.summary}</p>}
                                   <div className="application-actions">

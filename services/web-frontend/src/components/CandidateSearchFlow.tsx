@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import { searchCandidates } from "../api";
+import { filterKeywordsByLocation } from "../helpers";
 import { CandidateProfile, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -63,6 +64,9 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
     const parts = [details.city, details.region, details.country].filter(Boolean);
     return parts.length > 0 ? parts.join(", ") : "Location not provided";
   };
+  const resolveKeywords = (candidate: CandidateProfile) =>
+    filterKeywordsByLocation(candidate.keywords, candidate.location);
+  const selectedCandidateKeywords = selectedCandidate ? resolveKeywords(selectedCandidate) : [];
 
   if (view !== "candidates") return null;
 
@@ -152,6 +156,20 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
                 <div className="detail-row">
                   <span className="detail-label">Discoverable</span>
                   <span>{selectedCandidate.discoverable ? "Yes" : "No"}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Keywords</span>
+                  {selectedCandidateKeywords.length > 0 ? (
+                    <div className="keyword-chips">
+                      {selectedCandidateKeywords.map((keyword, index) => (
+                        <span key={`candidate-keyword-${index}`} className="keyword-chip">
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span>None</span>
+                  )}
                 </div>
                 {selectedCandidate.summary ? (
                   <p className="candidate-summary">{selectedCandidate.summary}</p>
