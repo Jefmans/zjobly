@@ -7,20 +7,23 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   role: UserRole | null;
+  selectedCandidate: CandidateProfile | null;
+  onSelectCandidate: (candidate: CandidateProfile | null) => void;
 };
 
-export function CandidateSearchFlow({ view, nav, role }: Props) {
+export function CandidateSearchFlow({ view, nav, role, selectedCandidate, onSelectCandidate }: Props) {
   const isEmployer = role === "employer";
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
-  const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runSearch = async (term?: string) => {
+  const runSearch = async (term?: string, preserveSelection?: boolean) => {
     setLoading(true);
     setError(null);
-    setSelectedCandidate(null);
+    if (!preserveSelection) {
+      onSelectCandidate(null);
+    }
     try {
       const trimmed = (term ?? "").trim();
       const results = await searchCandidates(trimmed ? trimmed : undefined);
@@ -36,7 +39,7 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
 
   useEffect(() => {
     if (view !== "candidates" || !isEmployer) return;
-    void runSearch();
+    void runSearch(undefined, Boolean(selectedCandidate));
   }, [view, isEmployer]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -50,11 +53,11 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
   };
 
   const handleSelectCandidate = (candidate: CandidateProfile) => {
-    setSelectedCandidate(candidate);
+    onSelectCandidate(candidate);
   };
 
   const handleBackToResults = () => {
-    setSelectedCandidate(null);
+    onSelectCandidate(null);
   };
 
   const formatLocation = (candidate: CandidateProfile) => {

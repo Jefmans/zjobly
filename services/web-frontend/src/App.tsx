@@ -174,6 +174,7 @@ function App() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedCandidateProfile, setSelectedCandidateProfile] = useState<CandidateProfile | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
   const [candidateProfileDetails, setCandidateProfileDetails] = useState<CandidateProfile | null>(null);
   const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
@@ -1673,6 +1674,12 @@ function App() {
   };
 
   const goToCandidateSearch = () => {
+    setSelectedCandidateProfile(null);
+    goToEmployerView('candidates');
+  };
+
+  const openCandidateProfile = (candidate: CandidateProfile) => {
+    setSelectedCandidateProfile(candidate);
     goToEmployerView('candidates');
   };
 
@@ -1962,7 +1969,13 @@ function App() {
         onBrowseJobs={goToJobsOverview}
       />
 
-      <CandidateSearchFlow view={view} nav={nav} role={role} />
+      <CandidateSearchFlow
+        view={view}
+        nav={nav}
+        role={role}
+        selectedCandidate={selectedCandidateProfile}
+        onSelectCandidate={setSelectedCandidateProfile}
+      />
 
       <JobSeekerFlow
         view={view}
@@ -1980,6 +1993,7 @@ function App() {
         onRefreshJobs={refreshJobs}
         publishingJobId={publishingJobId}
         unpublishingJobId={unpublishingJobId}
+        onViewCandidateProfile={openCandidateProfile}
       />
     </main>
   );

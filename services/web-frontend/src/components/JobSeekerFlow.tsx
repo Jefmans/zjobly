@@ -9,7 +9,15 @@ import {
   uploadFileToUrl,
 } from "../api";
 import { filterKeywordsByLocation, formatDuration } from "../helpers";
-import { ApplicationStatus, CandidateApplication, Job, JobApplicationDetail, UserRole, ViewMode } from "../types";
+import {
+  ApplicationStatus,
+  CandidateApplication,
+  CandidateProfile,
+  Job,
+  JobApplicationDetail,
+  UserRole,
+  ViewMode,
+} from "../types";
 
 type Props = {
   view: ViewMode;
@@ -27,6 +35,7 @@ type Props = {
   onRefreshJobs: () => Promise<Job[]>;
   publishingJobId: string | null;
   unpublishingJobId: string | null;
+  onViewCandidateProfile: (candidate: CandidateProfile) => void;
 };
 
 const MAX_APPLICATION_VIDEO_SECONDS = 180;
@@ -47,6 +56,7 @@ export function JobSeekerFlow({
   onRefreshJobs,
   publishingJobId,
   unpublishingJobId,
+  onViewCandidateProfile,
 }: Props) {
   const [sortBy, setSortBy] = useState("created_desc");
   const isCandidate = role === "candidate";
@@ -1262,6 +1272,13 @@ export function JobSeekerFlow({
                                     )}
                                   </div>
                                   {candidate.summary && <p className="candidate-summary">{candidate.summary}</p>}
+                                  <button
+                                    type="button"
+                                    className="ghost"
+                                    onClick={() => onViewCandidateProfile(candidate)}
+                                  >
+                                    View full profile
+                                  </button>
                                   <div className="application-actions">
                                     <button
                                       type="button"
