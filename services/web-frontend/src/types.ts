@@ -11,7 +11,8 @@ export type ViewMode =
   | 'applications'
   | 'candidates'
   | 'candidateFavorites'
-  | 'candidateDetail';
+  | 'candidateDetail'
+  | 'invitations';
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';
@@ -81,6 +82,7 @@ export type CandidateProfile = CandidateProfileInput & {
 export type JobStatus = 'draft' | 'open' | 'closed' | 'published';
 export type JobVisibility = 'public' | 'private';
 export type ApplicationStatus = 'applied' | 'reviewing' | 'rejected' | 'hired';
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
 
 export type Job = {
   id: string;
@@ -121,4 +123,16 @@ export type JobApplicationDetail = JobApplication & {
 export type CandidateApplication = JobApplication & {
   playback_url?: string | null;
   job: Job;
+};
+
+export type CandidateInvitation = {
+  id: string;
+  company_id: string;
+  candidate_id: string;
+  status: InvitationStatus;
+  created_at?: string;
+  updated_at?: string;
+  invited_by_user_id?: string | null;
+  candidate_profile?: CandidateProfile | null;
+  company?: Company | null;
 };

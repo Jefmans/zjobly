@@ -1,6 +1,6 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import { searchCandidates } from "../api";
-import { CandidateProfile, UserRole, ViewMode } from "../types";
+import { CandidateProfile, InvitationStatus, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -12,6 +12,11 @@ type Props = {
   canFavorite: boolean;
   onAddFavorite: (candidateId: string) => void;
   onRemoveFavorite: (candidateId: string) => void;
+  invitationStatusByCandidateId: Record<string, InvitationStatus | undefined>;
+  inviteUpdatingIds: Set<string>;
+  invitationsError: string | null;
+  canInvite: boolean;
+  onInviteCandidate: (candidateId: string) => void;
   onViewCandidate: (candidate: CandidateProfile) => void;
 };
 
@@ -25,6 +30,11 @@ export function CandidateSearchFlow({
   canFavorite,
   onAddFavorite,
   onRemoveFavorite,
+  invitationStatusByCandidateId,
+  inviteUpdatingIds,
+  invitationsError,
+  canInvite,
+  onInviteCandidate,
   onViewCandidate,
 }: Props) {
   const isEmployer = role === "employer";
@@ -108,7 +118,11 @@ export function CandidateSearchFlow({
             {!canFavorite && (
               <p className="hint">Select a company to save candidates to favorites.</p>
             )}
+            {!canInvite && (
+              <p className="hint">Select a company to send candidate invitations.</p>
+            )}
             {favoritesError && <p className="error">{favoritesError}</p>}
+            {invitationsError && <p className="error">{invitationsError}</p>}
             {error && <p className="error">{error}</p>}
             {loading && <p className="hint">Loading candidates...</p>}
             {!loading && !error && candidates.length === 0 && (
@@ -126,6 +140,31 @@ export function CandidateSearchFlow({
                       {candidate.headline || "Candidate profile"}
                     </button>
                     <div className="candidate-card-actions">
+                      {(() => {
+                        const status = invitationStatusByCandidateId[candidate.id];
+                        const isUpdating = inviteUpdatingIds.has(candidate.id);
+                        const canSend =
+                          canInvite && (!status || status === "rejected") && !isUpdating;
+                        const label = isUpdating
+                          ? "Sending..."
+                          : status === "pending"
+                          ? "Invited"
+                          : status === "accepted"
+                          ? "Accepted"
+                          : status === "rejected"
+                          ? "Invite again"
+                          : "Invite";
+                        return (
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => onInviteCandidate(candidate.id)}
+                            disabled={!canSend}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })()}
                       {(() => {
                         const isFavorite = favoriteCandidateIds.has(candidate.id);
                         const isUpdating = favoriteUpdatingIds.has(candidate.id);
@@ -153,6 +192,15 @@ export function CandidateSearchFlow({
                       })()}
                     </div>
                   </div>
+                  {(() => {
+                    const status = invitationStatusByCandidateId[candidate.id];
+                    if (!status) return null;
+                    return (
+                      <span className={`invitation-status ${status}`}>
+                        {status === "pending" ? "Pending" : status === "accepted" ? "Accepted" : "Rejected"}
+                      </span>
+                    );
+                  })()}
                   <div className="candidate-meta">{formatLocation(candidate)}</div>
                 </div>
               ))}

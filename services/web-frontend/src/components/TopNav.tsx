@@ -11,6 +11,7 @@ type Props = {
   onBrowseJobs: () => void;
   onCandidates: () => void;
   onFavorites: () => void;
+  onInvitations: () => void;
   onApplications: () => void;
   onRoleChange: (role: UserRole) => void;
 };
@@ -25,6 +26,7 @@ export function TopNav({
   onBrowseJobs,
   onCandidates,
   onFavorites,
+  onInvitations,
   onApplications,
   onRoleChange,
 }: Props) {
@@ -36,9 +38,11 @@ export function TopNav({
   const isEmployerCandidatesView =
     (view === "candidates" || view === "candidateDetail") && role === "employer";
   const isEmployerFavoritesView = view === "candidateFavorites" && role === "employer";
+  const isEmployerInvitationsView = view === "invitations" && role === "employer";
   const isCandidateJobsView =
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
   const isCandidateApplicationsView = view === "applications" && role === "candidate";
+  const isCandidateInvitationsView = view === "invitations" && role === "candidate";
 
   return (
     <div className="top-nav">
@@ -83,6 +87,15 @@ export function TopNav({
             Favorites
           </button>
         )}
+        {showEmployerNav && (
+          <button
+            type="button"
+            className={`nav-btn ghost ${isEmployerInvitationsView ? "active" : ""}`}
+            onClick={onInvitations}
+          >
+            Invitations
+          </button>
+        )}
         <button
           type="button"
           className={`nav-btn ghost ${isCandidateJobsView ? "active" : ""}`}
@@ -97,6 +110,15 @@ export function TopNav({
             onClick={onApplications}
           >
             My applications
+          </button>
+        )}
+        {showCandidateNav && (
+          <button
+            type="button"
+            className={`nav-btn ghost ${isCandidateInvitationsView ? "active" : ""}`}
+            onClick={onInvitations}
+          >
+            My invitations
           </button>
         )}
         <RoleSelect variant="nav" role={role} onChange={onRoleChange} />

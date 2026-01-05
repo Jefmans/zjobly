@@ -115,6 +115,35 @@ class CandidateFavorite(Base):
     candidate: Mapped["CandidateProfile"] = relationship()
 
 
+class InvitationStatus(str, Enum):
+    pending = "pending"
+    accepted = "accepted"
+    rejected = "rejected"
+
+
+class CandidateInvitation(Base):
+    __tablename__ = "candidate_invitations"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "candidate_id",
+            name="uq_candidate_invitation_company_candidate",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("candidate_profiles.id"), index=True)
+    invited_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[InvitationStatus] = mapped_column(SAEnum(InvitationStatus), default=InvitationStatus.pending)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    company: Mapped[Company] = relationship()
+    candidate: Mapped["CandidateProfile"] = relationship()
+    invited_by: Mapped[User] = relationship()
+
+
 class Location(Base):
     __tablename__ = "locations"
 

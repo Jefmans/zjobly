@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { filterKeywordsByLocation } from "../helpers";
-import { CandidateProfile, UserRole, ViewMode } from "../types";
+import { CandidateProfile, InvitationStatus, UserRole, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -14,6 +14,11 @@ type Props = {
   favoriteUpdating: boolean;
   favoritesError: string | null;
   onToggleFavorite: () => void;
+  invitationStatus: InvitationStatus | null;
+  invitationUpdating: boolean;
+  invitationsError: string | null;
+  canInvite: boolean;
+  onInvite: () => void;
 };
 
 export function CandidateDetailView({
@@ -28,6 +33,11 @@ export function CandidateDetailView({
   favoriteUpdating,
   favoritesError,
   onToggleFavorite,
+  invitationStatus,
+  invitationUpdating,
+  invitationsError,
+  canInvite,
+  onInvite,
 }: Props) {
   if (view !== "candidateDetail") return null;
 
@@ -50,6 +60,7 @@ export function CandidateDetailView({
         <h1>Candidate profile</h1>
         <p className="lede">Review the candidate details and intro video.</p>
         {favoritesError && isEmployer && <p className="error">{favoritesError}</p>}
+        {invitationsError && isEmployer && <p className="error">{invitationsError}</p>}
         {!isEmployer ? (
           <div className="panel">
             <p className="hint">Switch to the employer role to browse candidates.</p>
@@ -84,6 +95,35 @@ export function CandidateDetailView({
                 <div className="panel-header-actions">
                   <button type="button" className="ghost" onClick={onBack}>
                     {backLabel}
+                  </button>
+                  {invitationStatus && (
+                    <span className={`invitation-status ${invitationStatus}`}>
+                      {invitationStatus === "pending"
+                        ? "Pending"
+                        : invitationStatus === "accepted"
+                        ? "Accepted"
+                        : "Rejected"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={onInvite}
+                    disabled={
+                      !canInvite ||
+                      invitationUpdating ||
+                      (invitationStatus !== null && invitationStatus !== "rejected")
+                    }
+                  >
+                    {invitationUpdating
+                      ? "Sending..."
+                      : invitationStatus === "pending"
+                      ? "Invited"
+                      : invitationStatus === "accepted"
+                      ? "Accepted"
+                      : invitationStatus === "rejected"
+                      ? "Invite again"
+                      : "Invite"}
                   </button>
                   <button
                     type="button"

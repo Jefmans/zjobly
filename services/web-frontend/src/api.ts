@@ -2,6 +2,7 @@ import type {
   CandidateProfile,
   CandidateProfileInput,
   CandidateApplication,
+  CandidateInvitation,
   CandidateDev,
   Company,
   CompanyDev,
@@ -9,6 +10,7 @@ import type {
   JobApplication,
   JobApplicationDetail,
   ApplicationStatus,
+  InvitationStatus,
   JobStatus,
   JobVisibility,
 } from "./types";
@@ -326,6 +328,39 @@ export async function updateJobApplication(
 export async function searchCandidates(query?: string): Promise<CandidateProfile[]> {
   const search = query ? `?q=${encodeURIComponent(query)}` : "";
   return requestJson<CandidateProfile[]>(`/accounts/candidates/search${search}`, { method: "GET" });
+}
+
+export async function listCompanyInvitations(companyId: string): Promise<CandidateInvitation[]> {
+  const search = new URLSearchParams({ company_id: companyId });
+  return requestJson<CandidateInvitation[]>(
+    `/accounts/candidates/invitations?${search.toString()}`,
+    { method: "GET" },
+  );
+}
+
+export async function inviteCandidate(
+  companyId: string,
+  candidateId: string,
+): Promise<CandidateInvitation> {
+  const search = new URLSearchParams({ company_id: companyId });
+  return requestJson<CandidateInvitation>(
+    `/accounts/candidates/${encodeURIComponent(candidateId)}/invitations?${search.toString()}`,
+    { method: "POST" },
+  );
+}
+
+export async function listCandidateInvitations(): Promise<CandidateInvitation[]> {
+  return requestJson<CandidateInvitation[]>("/accounts/invitations", { method: "GET" });
+}
+
+export async function updateCandidateInvitation(
+  invitationId: string,
+  status: InvitationStatus,
+): Promise<CandidateInvitation> {
+  return requestJson<CandidateInvitation>(`/accounts/invitations/${encodeURIComponent(invitationId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function listCandidateFavorites(companyId: string): Promise<CandidateProfile[]> {

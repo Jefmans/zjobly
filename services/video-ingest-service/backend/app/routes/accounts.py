@@ -17,6 +17,8 @@ from app.schemas_accounts import (
     CandidateProfileCreate,
     CandidateProfileOut,
     CandidateDevOut,
+    CandidateInvitationOut,
+    CandidateInvitationUpdate,
     CompanyCreate,
     CompanyDevOut,
     CompanyOut,
@@ -305,6 +307,26 @@ def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOu
         video_object_key=profile.video_object_key,
         playback_url=playback_url,
         discoverable=profile.discoverable,
+    )
+
+
+def _build_invitation_out(
+    invitation: models.CandidateInvitation,
+    include_candidate: bool = False,
+    include_company: bool = False,
+) -> CandidateInvitationOut:
+    return CandidateInvitationOut(
+        id=invitation.id,
+        company_id=invitation.company_id,
+        candidate_id=invitation.candidate_id,
+        status=invitation.status,
+        created_at=invitation.created_at,
+        updated_at=invitation.updated_at,
+        invited_by_user_id=invitation.invited_by_user_id,
+        candidate_profile=_build_candidate_out(invitation.candidate)
+        if include_candidate and invitation.candidate
+        else None,
+        company=invitation.company if include_company else None,
     )
 
 
@@ -698,3 +720,119 @@ def remove_candidate_favorite(
         session.commit()
 
     return FavoriteActionOut(status="removed")
+
+
+@router.get("/candidates/invitations", response_model=list[CandidateInvitationOut])
+def list_company_invitations(
+    company_id: str = Query(..., description="Company to scope invitations"),
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> list[CandidateInvitationOut]:
+    _assert_membership(session, company_id, current_user.id)
+
+    invitations = (
+        session.query(models.CandidateInvitation)
+        .options(
+            joinedload(models.CandidateInvitation.candidate).joinedload(models.CandidateProfile.location_ref)
+        )
+        .filter(models.CandidateInvitation.company_id == company_id)
+        .order_by(models.CandidateInvitation.created_at.desc())
+        .all()
+    )
+    return [
+        _build_invitation_out(invitation, include_candidate=True)
+        for invitation in invitations
+        if invitation.candidate is not None
+    ]
+
+
+@router.post("/candidates/{candidate_id}/invitations", response_model=CandidateInvitationOut)
+def create_candidate_invitation(
+    candidate_id: str,
+    company_id: str = Query(..., description="Company to scope invitations"),
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> CandidateInvitationOut:
+    _assert_membership(session, company_id, current_user.id)
+
+    candidate = (
+        session.query(models.CandidateProfile)
+        .options(joinedload(models.CandidateProfile.location_ref))
+        .filter_by(id=candidate_id)
+        .first()
+    )
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    invitation = (
+        session.query(models.CandidateInvitation)
+        .filter(
+            models.CandidateInvitation.company_id == company_id,
+            models.CandidateInvitation.candidate_id == candidate_id,
+        )
+        .first()
+    )
+    if not invitation:
+        invitation = models.CandidateInvitation(
+            company_id=company_id,
+            candidate_id=candidate_id,
+            invited_by_user_id=current_user.id,
+            status=models.InvitationStatus.pending,
+        )
+        session.add(invitation)
+        session.commit()
+        session.refresh(invitation)
+    elif invitation.status == models.InvitationStatus.rejected:
+        invitation.status = models.InvitationStatus.pending
+        invitation.invited_by_user_id = current_user.id
+        session.commit()
+        session.refresh(invitation)
+
+    invitation.candidate = candidate
+    return _build_invitation_out(invitation, include_candidate=True)
+
+
+@router.get("/invitations", response_model=list[CandidateInvitationOut])
+def list_candidate_invitations(
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> list[CandidateInvitationOut]:
+    profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        return []
+
+    invitations = (
+        session.query(models.CandidateInvitation)
+        .options(joinedload(models.CandidateInvitation.company))
+        .filter(models.CandidateInvitation.candidate_id == profile.id)
+        .order_by(models.CandidateInvitation.created_at.desc())
+        .all()
+    )
+    return [_build_invitation_out(invitation, include_company=True) for invitation in invitations]
+
+
+@router.patch("/invitations/{invitation_id}", response_model=CandidateInvitationOut)
+def update_candidate_invitation(
+    invitation_id: str,
+    payload: CandidateInvitationUpdate,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> CandidateInvitationOut:
+    profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Candidate profile not found")
+
+    invitation = session.get(models.CandidateInvitation, invitation_id)
+    if not invitation or invitation.candidate_id != profile.id:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status == payload.status:
+        return _build_invitation_out(invitation, include_company=True)
+
+    if invitation.status != models.InvitationStatus.pending:
+        raise HTTPException(status_code=400, detail="Invitation cannot be updated")
+
+    invitation.status = payload.status
+    session.commit()
+    session.refresh(invitation)
+    return _build_invitation_out(invitation, include_company=True)

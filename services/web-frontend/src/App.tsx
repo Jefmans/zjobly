@@ -4,8 +4,10 @@ import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { CandidateProfileView } from './components/CandidateProfileView';
 import { CandidateFavoritesView } from './components/CandidateFavoritesView';
+import { CandidateInvitationsView } from './components/CandidateInvitationsView';
 import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateSearchFlow } from './components/CandidateSearchFlow';
+import { EmployerInvitationsView } from './components/EmployerInvitationsView';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
@@ -25,12 +27,16 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCandidateFavorites,
+  listCandidateInvitations,
   listCompanyJobs,
+  listCompanyInvitations,
   listCandidatesForDev,
   listCompaniesForDev,
   addCandidateFavorite,
+  inviteCandidate,
   removeCandidateFavorite,
   publishJob,
+  updateCandidateInvitation,
   unpublishJob,
   searchPublicJobs,
   upsertCandidateProfile,
@@ -42,8 +48,10 @@ import {
   CandidateProfile,
   CandidateProfileInput,
   CandidateDev,
+  CandidateInvitation,
   CompanyDev,
   CreateStep,
+  InvitationStatus,
   Job,
   RecordedTake,
   RecordingState,
@@ -113,6 +121,7 @@ const getStoredView = (): ViewMode => {
     if (stored === 'applications' && storedRole === 'candidate') return 'applications';
     if (stored === 'candidates' && storedRole === 'employer') return 'candidates';
     if (stored === 'candidateFavorites' && storedRole === 'employer') return 'candidateFavorites';
+    if (stored === 'invitations' && storedRole) return 'invitations';
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'profile' && storedRole === 'candidate') return 'profile';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
@@ -151,6 +160,11 @@ const getScreenLabel = (
   if (view === 'candidateDetail') {
     return 'Screen:FindCandidates/Detail';
   }
+  if (view === 'invitations') {
+    return role === 'candidate'
+      ? 'Screen:MyInvitations/List'
+      : 'Screen:FindCandidates/Invitations';
+  }
   if (view === 'jobDetail') {
     return role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
   }
@@ -188,12 +202,22 @@ function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedCandidateProfile, setSelectedCandidateProfile] = useState<CandidateProfile | null>(null);
   const [candidateSearchOrigin, setCandidateSearchOrigin] = useState<
-    'search' | 'applications' | 'favorites'
+    'search' | 'applications' | 'favorites' | 'invitations'
   >('search');
   const [candidateFavorites, setCandidateFavorites] = useState<CandidateProfile[]>([]);
   const [candidateFavoritesLoading, setCandidateFavoritesLoading] = useState(false);
   const [candidateFavoritesError, setCandidateFavoritesError] = useState<string | null>(null);
   const [favoriteUpdatingIds, setFavoriteUpdatingIds] = useState<Set<string>>(new Set());
+  const [employerInvitations, setEmployerInvitations] = useState<CandidateInvitation[]>([]);
+  const [employerInvitationsLoading, setEmployerInvitationsLoading] = useState(false);
+  const [employerInvitationsError, setEmployerInvitationsError] = useState<string | null>(null);
+  const [inviteUpdatingIds, setInviteUpdatingIds] = useState<Set<string>>(new Set());
+  const [candidateInvitations, setCandidateInvitations] = useState<CandidateInvitation[]>([]);
+  const [candidateInvitationsLoading, setCandidateInvitationsLoading] = useState(false);
+  const [candidateInvitationsError, setCandidateInvitationsError] = useState<string | null>(null);
+  const [candidateInviteUpdatingIds, setCandidateInviteUpdatingIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
   const [candidateProfileDetails, setCandidateProfileDetails] = useState<CandidateProfile | null>(null);
   const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
@@ -530,6 +554,54 @@ function App() {
     }
   }, [companyId, role]);
 
+  const refreshEmployerInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
+    if (role !== 'employer' || !companyId) {
+      setEmployerInvitations([]);
+      setEmployerInvitationsLoading(false);
+      setEmployerInvitationsError(null);
+      return [];
+    }
+    setEmployerInvitationsLoading(true);
+    setEmployerInvitationsError(null);
+    try {
+      const invitations = await listCompanyInvitations(companyId);
+      const results = Array.isArray(invitations) ? invitations : [];
+      setEmployerInvitations(results);
+      return results;
+    } catch (err) {
+      console.error(err);
+      setEmployerInvitationsError(err instanceof Error ? err.message : 'Could not load invitations.');
+      setEmployerInvitations([]);
+      return [];
+    } finally {
+      setEmployerInvitationsLoading(false);
+    }
+  }, [companyId, role]);
+
+  const refreshCandidateInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
+    if (role !== 'candidate') {
+      setCandidateInvitations([]);
+      setCandidateInvitationsLoading(false);
+      setCandidateInvitationsError(null);
+      return [];
+    }
+    setCandidateInvitationsLoading(true);
+    setCandidateInvitationsError(null);
+    try {
+      const invitations = await listCandidateInvitations();
+      const results = Array.isArray(invitations) ? invitations : [];
+      setCandidateInvitations(results);
+      return results;
+    } catch (err) {
+      console.error(err);
+      setCandidateInvitationsError(err instanceof Error ? err.message : 'Could not load invitations.');
+      setCandidateInvitations([]);
+      return [];
+    } finally {
+      setCandidateInvitationsLoading(false);
+    }
+  }, [role]);
+
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
     setStatus('processing');
@@ -604,11 +676,28 @@ function App() {
   }, [view, refreshCandidateFavorites]);
 
   useEffect(() => {
+    const shouldLoad =
+      view === 'candidates' ||
+      view === 'candidateDetail' ||
+      view === 'candidateFavorites' ||
+      view === 'invitations';
+    if (!shouldLoad) return;
+    void refreshEmployerInvitations();
+  }, [view, refreshEmployerInvitations]);
+
+  useEffect(() => {
+    if (view !== 'invitations') return;
+    void refreshCandidateInvitations();
+  }, [view, refreshCandidateInvitations]);
+
+  useEffect(() => {
     try {
       const viewToPersist =
         view === 'candidateDetail'
           ? candidateSearchOrigin === 'favorites'
             ? 'candidateFavorites'
+            : candidateSearchOrigin === 'invitations'
+            ? 'invitations'
             : 'candidates'
           : view;
       const shouldPersist =
@@ -617,9 +706,11 @@ function App() {
         (view === 'create' && role === 'employer') ||
         ((view === 'candidates' ||
           view === 'candidateDetail' ||
-          view === 'candidateFavorites') &&
+          view === 'candidateFavorites' ||
+          view === 'invitations') &&
           role === 'employer') ||
         (view === 'find' && role === 'candidate') ||
+        (view === 'invitations' && role === 'candidate') ||
         (view === 'profile' && role === 'candidate');
       if (shouldPersist) {
         localStorage.setItem(VIEW_STORAGE_KEY, viewToPersist);
@@ -1678,11 +1769,21 @@ function App() {
   );
   const favoriteCandidateIds = new Set(candidateFavorites.map((candidate) => candidate.id));
   const canManageFavorites = role === 'employer' && Boolean(companyId);
+  const canManageInvitations = role === 'employer' && Boolean(companyId);
+  const invitationStatusByCandidateId = employerInvitations.reduce(
+    (acc, invitation) => {
+      acc[invitation.candidate_id] = invitation.status;
+      return acc;
+    },
+    {} as Record<string, InvitationStatus | undefined>,
+  );
   const candidateDetailBackLabel =
     candidateSearchOrigin === 'applications'
       ? 'Back to applications'
       : candidateSearchOrigin === 'favorites'
       ? 'Back to favorites'
+      : candidateSearchOrigin === 'invitations'
+      ? 'Back to invitations'
       : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
@@ -1752,6 +1853,24 @@ function App() {
     goToEmployerView('candidateFavorites');
   };
 
+  const goToEmployerInvitations = () => {
+    setSelectedCandidateProfile(null);
+    setCandidateSearchOrigin('invitations');
+    goToEmployerView('invitations');
+  };
+
+  const goToCandidateInvitations = () => {
+    goToCandidateView('invitations');
+  };
+
+  const goToInvitations = () => {
+    if (role === 'employer') {
+      goToEmployerInvitations();
+      return;
+    }
+    goToCandidateInvitations();
+  };
+
   const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
     setSelectedCandidateProfile(candidate);
     setCandidateSearchOrigin('search');
@@ -1761,6 +1880,12 @@ function App() {
   const openCandidateProfileFromFavorites = (candidate: CandidateProfile) => {
     setSelectedCandidateProfile(candidate);
     setCandidateSearchOrigin('favorites');
+    goToEmployerView('candidateDetail');
+  };
+
+  const openCandidateProfileFromInvitations = (candidate: CandidateProfile) => {
+    setSelectedCandidateProfile(candidate);
+    setCandidateSearchOrigin('invitations');
     goToEmployerView('candidateDetail');
   };
 
@@ -1780,6 +1905,10 @@ function App() {
       goToEmployerView('candidateFavorites');
       return;
     }
+    if (candidateSearchOrigin === 'invitations') {
+      goToEmployerView('invitations');
+      return;
+    }
     goToEmployerView('candidates');
   };
 
@@ -1790,6 +1919,30 @@ function App() {
         next.add(candidateId);
       } else {
         next.delete(candidateId);
+      }
+      return next;
+    });
+  };
+
+  const setInviteUpdating = (candidateId: string, isUpdating: boolean) => {
+    setInviteUpdatingIds((prev) => {
+      const next = new Set(prev);
+      if (isUpdating) {
+        next.add(candidateId);
+      } else {
+        next.delete(candidateId);
+      }
+      return next;
+    });
+  };
+
+  const setCandidateInviteUpdating = (invitationId: string, isUpdating: boolean) => {
+    setCandidateInviteUpdatingIds((prev) => {
+      const next = new Set(prev);
+      if (isUpdating) {
+        next.add(invitationId);
+      } else {
+        next.delete(invitationId);
       }
       return next;
     });
@@ -1843,6 +1996,52 @@ function App() {
     void handleAddCandidateFavorite(selectedCandidateProfile.id);
   };
 
+  const handleInviteCandidate = async (candidateId: string) => {
+    if (!companyId) {
+      setEmployerInvitationsError('Select a company to send invitations.');
+      return;
+    }
+    const existingStatus = invitationStatusByCandidateId[candidateId];
+    if (existingStatus && existingStatus !== 'rejected') {
+      return;
+    }
+    setEmployerInvitationsError(null);
+    setInviteUpdating(candidateId, true);
+    try {
+      const invitation = await inviteCandidate(companyId, candidateId);
+      setEmployerInvitations((prev) => {
+        const next = prev.filter((item) => item.id !== invitation.id);
+        return [invitation, ...next];
+      });
+    } catch (err) {
+      console.error(err);
+      setEmployerInvitationsError(err instanceof Error ? err.message : 'Could not send invitation.');
+    } finally {
+      setInviteUpdating(candidateId, false);
+    }
+  };
+
+  const handleCandidateInvitationUpdate = async (
+    invitationId: string,
+    status: InvitationStatus,
+  ) => {
+    setCandidateInvitationsError(null);
+    setCandidateInviteUpdating(invitationId, true);
+    try {
+      const updated = await updateCandidateInvitation(invitationId, status);
+      setCandidateInvitations((prev) =>
+        prev.map((invitation) => (invitation.id === updated.id ? updated : invitation)),
+      );
+    } catch (err) {
+      console.error(err);
+      setCandidateInvitationsError(
+        err instanceof Error ? err.message : 'Could not update invitation.',
+      );
+    } finally {
+      setCandidateInviteUpdating(invitationId, false);
+    }
+  };
+
   const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
   const selectedDevCandidate = devCandidates.find((candidate) => candidate.user_id === devUserId) ?? null;
 
@@ -1852,6 +2051,9 @@ function App() {
       setCandidateFavorites([]);
       setCandidateFavoritesError(null);
       setFavoriteUpdatingIds(new Set());
+      setEmployerInvitations([]);
+      setEmployerInvitationsError(null);
+      setInviteUpdatingIds(new Set());
       try {
         localStorage.removeItem(COMPANY_STORAGE_KEY);
       } catch {
@@ -1863,6 +2065,9 @@ function App() {
     setCandidateFavorites([]);
     setCandidateFavoritesError(null);
     setFavoriteUpdatingIds(new Set());
+    setEmployerInvitations([]);
+    setEmployerInvitationsError(null);
+    setInviteUpdatingIds(new Set());
     try {
       localStorage.setItem(COMPANY_STORAGE_KEY, company.id);
     } catch {
@@ -1938,6 +2143,7 @@ function App() {
             onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
             onCandidates={goToCandidateSearch}
             onFavorites={goToCandidateFavorites}
+            onInvitations={goToInvitations}
             onApplications={() => setRoleAndView('candidate', 'applications')}
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
@@ -2012,6 +2218,7 @@ function App() {
         onCreateJob={() => goToEmployerView('create')}
         onBrowseCandidates={goToCandidateSearch}
         onFavoriteCandidates={goToCandidateFavorites}
+        onInvitations={goToInvitations}
         onStartCandidate={startCandidateFlow}
         onStartEmployer={startCreateFlow}
       />
@@ -2153,6 +2360,20 @@ function App() {
         }
         favoritesError={candidateFavoritesError}
         onToggleFavorite={handleToggleCandidateFavorite}
+        invitationStatus={
+          selectedCandidateProfile
+            ? invitationStatusByCandidateId[selectedCandidateProfile.id] ?? null
+            : null
+        }
+        invitationUpdating={
+          selectedCandidateProfile ? inviteUpdatingIds.has(selectedCandidateProfile.id) : false
+        }
+        invitationsError={employerInvitationsError}
+        canInvite={canManageInvitations}
+        onInvite={() => {
+          if (!selectedCandidateProfile) return;
+          handleInviteCandidate(selectedCandidateProfile.id);
+        }}
       />
 
       <CandidateFavoritesView
@@ -2168,6 +2389,28 @@ function App() {
         onRemoveFavorite={handleRemoveCandidateFavorite}
       />
 
+      <EmployerInvitationsView
+        view={view}
+        nav={nav}
+        role={role}
+        invitations={employerInvitations}
+        loading={employerInvitationsLoading}
+        error={employerInvitationsError}
+        canInvite={canManageInvitations}
+        onViewCandidate={openCandidateProfileFromInvitations}
+      />
+
+      <CandidateInvitationsView
+        view={view}
+        nav={nav}
+        role={role}
+        invitations={candidateInvitations}
+        loading={candidateInvitationsLoading}
+        error={candidateInvitationsError}
+        updatingIds={candidateInviteUpdatingIds}
+        onUpdateInvitation={handleCandidateInvitationUpdate}
+      />
+
       <CandidateSearchFlow
         view={view}
         nav={nav}
@@ -2178,6 +2421,11 @@ function App() {
         canFavorite={canManageFavorites}
         onAddFavorite={handleAddCandidateFavorite}
         onRemoveFavorite={handleRemoveCandidateFavorite}
+        invitationStatusByCandidateId={invitationStatusByCandidateId}
+        inviteUpdatingIds={inviteUpdatingIds}
+        invitationsError={employerInvitationsError}
+        canInvite={canManageInvitations}
+        onInviteCandidate={handleInviteCandidate}
         onViewCandidate={openCandidateProfileFromSearch}
       />
 

@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.models import ApplicationStatus, JobStatus, JobVisibility
+from app.models import ApplicationStatus, InvitationStatus, JobStatus, JobVisibility
 
 
 class CompanyCreate(BaseModel):
@@ -77,6 +77,25 @@ class CandidateProfileOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class CandidateInvitationOut(BaseModel):
+    id: str
+    company_id: str
+    candidate_id: str
+    status: InvitationStatus
+    created_at: datetime
+    updated_at: datetime
+    invited_by_user_id: Optional[str] = None
+    candidate_profile: Optional[CandidateProfileOut] = None
+    company: Optional[CompanyOut] = None
+
+    class Config:
+        orm_mode = True
+
+
+class CandidateInvitationUpdate(BaseModel):
+    status: InvitationStatus
 
 
 class FavoriteActionOut(BaseModel):
