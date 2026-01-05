@@ -38,6 +38,16 @@ export type CompanyDev = {
   default_user_email?: string | null;
 };
 
+export type CandidateDev = {
+  id: string;
+  user_id: string;
+  user_email?: string | null;
+  headline?: string | null;
+  location?: string | null;
+  summary?: string | null;
+  discoverable?: boolean;
+};
+
 export type LocationDetails = {
   id: string;
   name: string;

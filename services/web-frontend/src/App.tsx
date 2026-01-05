@@ -23,6 +23,7 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
+  listCandidatesForDev,
   listCompaniesForDev,
   publishJob,
   unpublishJob,
@@ -35,6 +36,7 @@ import {
   CandidateStep,
   CandidateProfile,
   CandidateProfileInput,
+  CandidateDev,
   CompanyDev,
   CreateStep,
   Job,
@@ -87,6 +89,15 @@ const getStoredRole = (): UserRole | null => {
     // ignore storage failures
   }
   return null;
+};
+
+const getStoredUserId = (): string => {
+  const envId = (import.meta.env.VITE_USER_ID || '').toString().trim();
+  try {
+    return localStorage.getItem(USER_STORAGE_KEY) || envId || '';
+  } catch {
+    return envId || '';
+  }
 };
 
 const getStoredView = (): ViewMode => {
@@ -196,9 +207,13 @@ function App() {
   const [autoTranscriptSessionId, setAutoTranscriptSessionId] = useState<string | null>(null);
   const [candidateTranscript, setCandidateTranscript] = useState<string>('');
   const [candidateTranscriptStatus, setCandidateTranscriptStatus] = useState<'pending' | 'final' | undefined>(undefined);
+  const [devUserId, setDevUserId] = useState<string>(() => getStoredUserId());
   const [devCompanies, setDevCompanies] = useState<CompanyDev[]>([]);
   const [devCompaniesLoading, setDevCompaniesLoading] = useState(false);
   const [devCompaniesError, setDevCompaniesError] = useState<string | null>(null);
+  const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
+  const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
+  const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -561,20 +576,27 @@ function App() {
     if (!devNavEnabled) return;
     let isActive = true;
     setDevCompaniesLoading(true);
+    setDevCandidatesLoading(true);
     setDevCompaniesError(null);
+    setDevCandidatesError(null);
 
     void (async () => {
       try {
-        const companies = await listCompaniesForDev();
+        const [companies, candidates] = await Promise.all([listCompaniesForDev(), listCandidatesForDev()]);
         if (!isActive) return;
         setDevCompanies(Array.isArray(companies) ? companies : []);
+        setDevCandidates(Array.isArray(candidates) ? candidates : []);
       } catch (err) {
         if (!isActive) return;
         setDevCompanies([]);
-        setDevCompaniesError(err instanceof Error ? err.message : 'Could not load companies.');
+        setDevCandidates([]);
+        const message = err instanceof Error ? err.message : 'Could not load dev data.';
+        setDevCompaniesError(message);
+        setDevCandidatesError(message);
       } finally {
         if (isActive) {
           setDevCompaniesLoading(false);
+          setDevCandidatesLoading(false);
         }
       }
     })();
@@ -1655,6 +1677,7 @@ function App() {
   };
 
   const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
+  const selectedDevCandidate = devCandidates.find((candidate) => candidate.user_id === devUserId) ?? null;
 
   const applyDevCompanySelection = (company: CompanyDev | null) => {
     if (!company) {
@@ -1678,6 +1701,7 @@ function App() {
       } catch {
         // ignore storage failures
       }
+      setDevUserId(company.default_user_id);
     }
   };
 
@@ -1685,6 +1709,31 @@ function App() {
     const nextId = event.target.value;
     const nextCompany = devCompanies.find((company) => company.id === nextId) ?? null;
     applyDevCompanySelection(nextCompany);
+  };
+
+  const applyDevCandidateSelection = (candidate: CandidateDev | null) => {
+    if (!candidate) {
+      setDevUserId('');
+      try {
+        localStorage.removeItem(USER_STORAGE_KEY);
+      } catch {
+        // ignore storage failures
+      }
+      return;
+    }
+    try {
+      localStorage.setItem(USER_STORAGE_KEY, candidate.user_id);
+    } catch {
+      // ignore storage failures
+    }
+    setDevUserId(candidate.user_id);
+    setRoleAndView('candidate', 'profile');
+  };
+
+  const handleDevCandidateChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextUserId = event.target.value;
+    const nextCandidate = devCandidates.find((candidate) => candidate.user_id === nextUserId) ?? null;
+    applyDevCandidateSelection(nextCandidate);
   };
 
   const selectTake = (id: string) => {
@@ -1747,6 +1796,35 @@ function App() {
             </span>
           </div>
           {devCompaniesError && <p className="error">{devCompaniesError}</p>}
+          <div className="dev-company-row">
+            <label htmlFor="devCandidateSelect">Candidate</label>
+            <select
+              id="devCandidateSelect"
+              value={devUserId}
+              onChange={handleDevCandidateChange}
+              disabled={devCandidatesLoading}
+            >
+              <option value="">Select a candidate</option>
+              {devCandidates.map((candidate) => {
+                const headline = candidate.headline || 'Candidate';
+                const userLabel = candidate.user_email || candidate.user_id;
+                const location = candidate.location ? ` • ${candidate.location}` : '';
+                return (
+                  <option key={candidate.id} value={candidate.user_id}>
+                    {headline} ({userLabel}){location}
+                  </option>
+                );
+              })}
+            </select>
+            <span className="dev-company-meta">
+              {selectedDevCandidate
+                ? `User: ${selectedDevCandidate.user_email || selectedDevCandidate.user_id}`
+                : devCandidatesLoading
+                ? 'Loading...'
+                : ''}
+            </span>
+          </div>
+          {devCandidatesError && <p className="error">{devCandidatesError}</p>}
         </div>
       )}
       <PrimaryNav

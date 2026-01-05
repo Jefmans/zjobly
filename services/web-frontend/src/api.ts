@@ -2,6 +2,7 @@ import type {
   CandidateProfile,
   CandidateProfileInput,
   CandidateApplication,
+  CandidateDev,
   Company,
   CompanyDev,
   Job,
@@ -227,6 +228,10 @@ export async function createCompany(payload: { name: string; website?: string | 
 
 export async function listCompaniesForDev(): Promise<CompanyDev[]> {
   return requestJson<CompanyDev[]>("/accounts/companies/dev", { method: "GET" });
+}
+
+export async function listCandidatesForDev(): Promise<CandidateDev[]> {
+  return requestJson<CandidateDev[]>("/accounts/candidates/dev", { method: "GET" });
 }
 
 export async function upsertCandidateProfile(payload: CandidateProfileInput): Promise<CandidateProfile> {

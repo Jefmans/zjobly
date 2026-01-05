@@ -16,6 +16,7 @@ from app.schemas_accounts import (
     ApplicationWithJobOut,
     CandidateProfileCreate,
     CandidateProfileOut,
+    CandidateDevOut,
     CompanyCreate,
     CompanyDevOut,
     CompanyOut,
@@ -149,6 +150,30 @@ def list_companies_dev(session: Session = Depends(get_session)) -> list[CompanyD
                 website=company.website,
                 default_user_id=membership.user_id if membership else None,
                 default_user_email=membership.user.email if membership and membership.user else None,
+            )
+        )
+    return results
+
+
+@router.get("/candidates/dev", response_model=list[CandidateDevOut])
+def list_candidates_dev(session: Session = Depends(get_session)) -> list[CandidateDevOut]:
+    profiles = (
+        session.query(models.CandidateProfile)
+        .options(joinedload(models.CandidateProfile.user))
+        .order_by(models.CandidateProfile.updated_at.desc())
+        .all()
+    )
+    results: list[CandidateDevOut] = []
+    for profile in profiles:
+        results.append(
+            CandidateDevOut(
+                id=profile.id,
+                user_id=profile.user_id,
+                user_email=profile.user.email if profile.user else None,
+                headline=profile.headline,
+                location=profile.location,
+                summary=profile.summary,
+                discoverable=bool(profile.discoverable),
             )
         )
     return results

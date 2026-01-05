@@ -28,6 +28,16 @@ class CompanyDevOut(BaseModel):
     default_user_email: Optional[str] = None
 
 
+class CandidateDevOut(BaseModel):
+    id: str
+    user_id: str
+    user_email: Optional[str] = None
+    headline: Optional[str] = None
+    location: Optional[str] = None
+    summary: Optional[str] = None
+    discoverable: bool = False
+
+
 class LocationOut(BaseModel):
     id: str
     name: str
