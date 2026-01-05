@@ -23,6 +23,7 @@ import {
   finalizeAudioSession,
   getAudioSessionTranscript,
   listCompanyJobs,
+  listCompaniesForDev,
   publishJob,
   unpublishJob,
   searchPublicJobs,
@@ -34,6 +35,7 @@ import {
   CandidateStep,
   CandidateProfile,
   CandidateProfileInput,
+  CompanyDev,
   CreateStep,
   Job,
   RecordedTake,
@@ -50,6 +52,8 @@ const MIN_TRANSCRIPT_FOR_DRAFT = 30;
 const INITIAL_FORM_STATE = { title: '', location: '', description: '', companyName: '' };
 const ROLE_STORAGE_KEY = 'zjobly-user-role';
 const VIEW_STORAGE_KEY = 'zjobly-view';
+const USER_STORAGE_KEY = 'zjobly-user-id';
+const COMPANY_STORAGE_KEY = 'zjobly-company-id';
 const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   headline: '',
   location: '',
@@ -149,7 +153,7 @@ function App() {
     const envId = (import.meta.env.VITE_COMPANY_ID || '').toString().trim();
     if (envId) return envId;
     try {
-      const stored = localStorage.getItem('zjobly-company-id');
+      const stored = localStorage.getItem(COMPANY_STORAGE_KEY);
       return stored || null;
     } catch {
       return null;
@@ -192,6 +196,9 @@ function App() {
   const [autoTranscriptSessionId, setAutoTranscriptSessionId] = useState<string | null>(null);
   const [candidateTranscript, setCandidateTranscript] = useState<string>('');
   const [candidateTranscriptStatus, setCandidateTranscriptStatus] = useState<'pending' | 'final' | undefined>(undefined);
+  const [devCompanies, setDevCompanies] = useState<CompanyDev[]>([]);
+  const [devCompaniesLoading, setDevCompaniesLoading] = useState(false);
+  const [devCompaniesError, setDevCompaniesError] = useState<string | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -548,6 +555,34 @@ function App() {
       // ignore storage failures
     }
   }, [view, role]);
+
+  useEffect(() => {
+    const devNavEnabled = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
+    if (!devNavEnabled) return;
+    let isActive = true;
+    setDevCompaniesLoading(true);
+    setDevCompaniesError(null);
+
+    void (async () => {
+      try {
+        const companies = await listCompaniesForDev();
+        if (!isActive) return;
+        setDevCompanies(Array.isArray(companies) ? companies : []);
+      } catch (err) {
+        if (!isActive) return;
+        setDevCompanies([]);
+        setDevCompaniesError(err instanceof Error ? err.message : 'Could not load companies.');
+      } finally {
+        if (isActive) {
+          setDevCompaniesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (view !== 'profile' || role !== 'candidate') return;
@@ -1297,7 +1332,7 @@ function App() {
           resolvedCompanyId = company.id;
           setCompanyId(company.id);
           try {
-            localStorage.setItem('zjobly-company-id', company.id);
+            localStorage.setItem(COMPANY_STORAGE_KEY, company.id);
           } catch {
             // ignore storage failures
           }
@@ -1619,6 +1654,39 @@ function App() {
     goToEmployerView('candidates');
   };
 
+  const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
+
+  const applyDevCompanySelection = (company: CompanyDev | null) => {
+    if (!company) {
+      setCompanyId(null);
+      try {
+        localStorage.removeItem(COMPANY_STORAGE_KEY);
+      } catch {
+        // ignore storage failures
+      }
+      return;
+    }
+    setCompanyId(company.id);
+    try {
+      localStorage.setItem(COMPANY_STORAGE_KEY, company.id);
+    } catch {
+      // ignore storage failures
+    }
+    if (company.default_user_id) {
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, company.default_user_id);
+      } catch {
+        // ignore storage failures
+      }
+    }
+  };
+
+  const handleDevCompanyChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextId = event.target.value;
+    const nextCompany = devCompanies.find((company) => company.id === nextId) ?? null;
+    applyDevCompanySelection(nextCompany);
+  };
+
   const selectTake = (id: string) => {
     const take = recordedTakes.find((t) => t.id === id);
     if (!take) return;
@@ -1650,6 +1718,35 @@ function App() {
             onApplications={() => setRoleAndView('candidate', 'applications')}
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
+          <div className="dev-company-row">
+            <label htmlFor="devCompanySelect">Company</label>
+            <select
+              id="devCompanySelect"
+              value={companyId ?? ''}
+              onChange={handleDevCompanyChange}
+              disabled={devCompaniesLoading}
+            >
+              <option value="">Select a company</option>
+              {devCompanies.map((company) => {
+                const userLabel = company.default_user_email || company.default_user_id || 'user';
+                return (
+                  <option key={company.id} value={company.id}>
+                    {company.name} {company.default_user_id ? `(${userLabel})` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <span className="dev-company-meta">
+              {selectedDevCompany?.default_user_id
+                ? `User: ${selectedDevCompany.default_user_email || selectedDevCompany.default_user_id}`
+                : selectedDevCompany
+                ? 'No default user found'
+                : devCompaniesLoading
+                ? 'Loading...'
+                : ''}
+            </span>
+          </div>
+          {devCompaniesError && <p className="error">{devCompaniesError}</p>}
         </div>
       )}
       <PrimaryNav

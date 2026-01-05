@@ -17,6 +17,7 @@ from app.schemas_accounts import (
     CandidateProfileCreate,
     CandidateProfileOut,
     CompanyCreate,
+    CompanyDevOut,
     CompanyOut,
     JobCreate,
     JobOut,
@@ -124,6 +125,33 @@ def create_company(
     session.commit()
     session.refresh(company)
     return company
+
+
+@router.get("/companies/dev", response_model=list[CompanyDevOut])
+def list_companies_dev(session: Session = Depends(get_session)) -> list[CompanyDevOut]:
+    companies = (
+        session.query(models.Company)
+        .options(joinedload(models.Company.members).joinedload(models.CompanyMembership.user))
+        .order_by(models.Company.name.asc())
+        .all()
+    )
+    results: list[CompanyDevOut] = []
+    for company in companies:
+        membership = next((m for m in company.members if m.is_default), None)
+        if not membership:
+            membership = next((m for m in company.members if m.role == models.CompanyRole.admin), None)
+        if not membership and company.members:
+            membership = company.members[0]
+        results.append(
+            CompanyDevOut(
+                id=company.id,
+                name=company.name,
+                website=company.website,
+                default_user_id=membership.user_id if membership else None,
+                default_user_email=membership.user.email if membership and membership.user else None,
+            )
+        )
+    return results
 
 
 @router.post("/candidate-profile", response_model=CandidateProfileOut)

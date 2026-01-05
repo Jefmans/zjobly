@@ -30,6 +30,14 @@ export type Company = {
   website?: string | null;
 };
 
+export type CompanyDev = {
+  id: string;
+  name: string;
+  website?: string | null;
+  default_user_id?: string | null;
+  default_user_email?: string | null;
+};
+
 export type LocationDetails = {
   id: string;
   name: string;

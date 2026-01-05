@@ -3,6 +3,7 @@ import type {
   CandidateProfileInput,
   CandidateApplication,
   Company,
+  CompanyDev,
   Job,
   JobApplication,
   JobApplicationDetail,
@@ -222,6 +223,10 @@ export async function createCompany(payload: { name: string; website?: string | 
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function listCompaniesForDev(): Promise<CompanyDev[]> {
+  return requestJson<CompanyDev[]>("/accounts/companies/dev", { method: "GET" });
 }
 
 export async function upsertCandidateProfile(payload: CandidateProfileInput): Promise<CandidateProfile> {

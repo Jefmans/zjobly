@@ -20,6 +20,14 @@ class CompanyOut(BaseModel):
         orm_mode = True
 
 
+class CompanyDevOut(BaseModel):
+    id: str
+    name: str
+    website: Optional[str] = None
+    default_user_id: Optional[str] = None
+    default_user_email: Optional[str] = None
+
+
 class LocationOut(BaseModel):
     id: str
     name: str

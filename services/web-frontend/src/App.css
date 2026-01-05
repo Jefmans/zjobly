@@ -69,6 +69,33 @@
   margin-bottom: 0.5rem;
 }
 
+.dev-company-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.dev-company-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.dev-company-row select {
+  min-width: 220px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+}
+
+.dev-company-meta {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 .primary-nav {
   width: 100%;
   max-width: 780px;
