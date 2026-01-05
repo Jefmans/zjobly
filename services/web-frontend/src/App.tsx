@@ -175,6 +175,7 @@ function App() {
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedCandidateProfile, setSelectedCandidateProfile] = useState<CandidateProfile | null>(null);
+  const [candidateSearchOrigin, setCandidateSearchOrigin] = useState<'search' | 'applications'>('search');
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
   const [candidateProfileDetails, setCandidateProfileDetails] = useState<CandidateProfile | null>(null);
   const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
@@ -1675,12 +1676,23 @@ function App() {
 
   const goToCandidateSearch = () => {
     setSelectedCandidateProfile(null);
+    setCandidateSearchOrigin('search');
     goToEmployerView('candidates');
   };
 
   const openCandidateProfile = (candidate: CandidateProfile) => {
     setSelectedCandidateProfile(candidate);
+    setCandidateSearchOrigin('applications');
     goToEmployerView('candidates');
+  };
+
+  const handleCandidateSearchBack = () => {
+    if (candidateSearchOrigin === 'applications') {
+      setSelectedCandidateProfile(null);
+      setView(selectedJobId ? 'jobDetail' : 'jobs');
+      return;
+    }
+    setSelectedCandidateProfile(null);
   };
 
   const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
@@ -1975,6 +1987,7 @@ function App() {
         role={role}
         selectedCandidate={selectedCandidateProfile}
         onSelectCandidate={setSelectedCandidateProfile}
+        onBackToResults={handleCandidateSearchBack}
       />
 
       <JobSeekerFlow

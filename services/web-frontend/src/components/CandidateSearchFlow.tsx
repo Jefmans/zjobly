@@ -9,9 +9,17 @@ type Props = {
   role: UserRole | null;
   selectedCandidate: CandidateProfile | null;
   onSelectCandidate: (candidate: CandidateProfile | null) => void;
+  onBackToResults: () => void;
 };
 
-export function CandidateSearchFlow({ view, nav, role, selectedCandidate, onSelectCandidate }: Props) {
+export function CandidateSearchFlow({
+  view,
+  nav,
+  role,
+  selectedCandidate,
+  onSelectCandidate,
+  onBackToResults,
+}: Props) {
   const isEmployer = role === "employer";
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
@@ -57,7 +65,7 @@ export function CandidateSearchFlow({ view, nav, role, selectedCandidate, onSele
   };
 
   const handleBackToResults = () => {
-    onSelectCandidate(null);
+    onBackToResults();
   };
 
   const formatLocation = (candidate: CandidateProfile) => {
