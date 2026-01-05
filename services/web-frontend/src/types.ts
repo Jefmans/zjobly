@@ -9,7 +9,8 @@ export type ViewMode =
   | 'jobDetail'
   | 'apply'
   | 'applications'
-  | 'candidates';
+  | 'candidates'
+  | 'candidateDetail';
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';

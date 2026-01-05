@@ -3,6 +3,7 @@ import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { CandidateProfileView } from './components/CandidateProfileView';
+import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateSearchFlow } from './components/CandidateSearchFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
@@ -138,6 +139,9 @@ const getScreenLabel = (
   }
   if (view === 'candidates') {
     return 'Screen:FindCandidates/Search';
+  }
+  if (view === 'candidateDetail') {
+    return 'Screen:FindCandidates/Detail';
   }
   if (view === 'jobDetail') {
     return role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
@@ -556,15 +560,16 @@ function App() {
 
   useEffect(() => {
     try {
+      const viewToPersist = view === 'candidateDetail' ? 'candidates' : view;
       const shouldPersist =
         view === 'jobs' ||
         (view === 'applications' && role === 'candidate') ||
         (view === 'create' && role === 'employer') ||
-        (view === 'candidates' && role === 'employer') ||
+        ((view === 'candidates' || view === 'candidateDetail') && role === 'employer') ||
         (view === 'find' && role === 'candidate') ||
         (view === 'profile' && role === 'candidate');
       if (shouldPersist) {
-        localStorage.setItem(VIEW_STORAGE_KEY, view);
+        localStorage.setItem(VIEW_STORAGE_KEY, viewToPersist);
       } else if (view === 'welcome') {
         localStorage.removeItem(VIEW_STORAGE_KEY);
       }
@@ -1618,6 +1623,8 @@ function App() {
     candidateKeywords,
     candidateProfileDetails?.location ?? candidateProfile.location,
   );
+  const candidateDetailBackLabel =
+    candidateSearchOrigin === 'applications' ? 'Back to applications' : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
   const backToWelcome = () => {
@@ -1680,19 +1687,25 @@ function App() {
     goToEmployerView('candidates');
   };
 
-  const openCandidateProfile = (candidate: CandidateProfile) => {
+  const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
     setSelectedCandidateProfile(candidate);
-    setCandidateSearchOrigin('applications');
-    goToEmployerView('candidates');
+    setCandidateSearchOrigin('search');
+    goToEmployerView('candidateDetail');
   };
 
-  const handleCandidateSearchBack = () => {
+  const openCandidateProfileFromApplications = (candidate: CandidateProfile) => {
+    setSelectedCandidateProfile(candidate);
+    setCandidateSearchOrigin('applications');
+    goToEmployerView('candidateDetail');
+  };
+
+  const handleCandidateDetailBack = () => {
+    setSelectedCandidateProfile(null);
     if (candidateSearchOrigin === 'applications') {
-      setSelectedCandidateProfile(null);
-      setView(selectedJobId ? 'jobDetail' : 'jobs');
+      goToEmployerView(selectedJobId ? 'jobDetail' : 'jobs');
       return;
     }
-    setSelectedCandidateProfile(null);
+    goToEmployerView('candidates');
   };
 
   const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
@@ -1981,13 +1994,20 @@ function App() {
         onBrowseJobs={goToJobsOverview}
       />
 
+      <CandidateDetailView
+        view={view}
+        nav={nav}
+        role={role}
+        candidate={selectedCandidateProfile}
+        onBack={handleCandidateDetailBack}
+        backLabel={candidateDetailBackLabel}
+      />
+
       <CandidateSearchFlow
         view={view}
         nav={nav}
         role={role}
-        selectedCandidate={selectedCandidateProfile}
-        onSelectCandidate={setSelectedCandidateProfile}
-        onBackToResults={handleCandidateSearchBack}
+        onViewCandidate={openCandidateProfileFromSearch}
       />
 
       <JobSeekerFlow
@@ -2006,7 +2026,7 @@ function App() {
         onRefreshJobs={refreshJobs}
         publishingJobId={publishingJobId}
         unpublishingJobId={unpublishingJobId}
-        onViewCandidateProfile={openCandidateProfile}
+        onViewCandidateProfile={openCandidateProfileFromApplications}
       />
     </main>
   );

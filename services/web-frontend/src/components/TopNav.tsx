@@ -31,7 +31,8 @@ export function TopNav({
   const showBack = view !== "welcome";
   const showMainNav = view !== "welcome";
   const isEmployerJobsView = (view === "jobs" || view === "jobDetail") && role === "employer";
-  const isEmployerCandidatesView = view === "candidates" && role === "employer";
+  const isEmployerCandidatesView =
+    (view === "candidates" || view === "candidateDetail") && role === "employer";
   const isCandidateJobsView =
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
   const isCandidateApplicationsView = view === "applications" && role === "candidate";

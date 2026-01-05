@@ -62,7 +62,7 @@ export function PrimaryNav({
     },
     {
       label: "Search candidates",
-      isActive: view === "candidates",
+      isActive: view === "candidates" || view === "candidateDetail",
       onClick: onBrowseCandidates,
     },
     {
