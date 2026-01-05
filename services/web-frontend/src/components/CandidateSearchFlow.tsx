@@ -107,76 +107,92 @@ export function CandidateSearchFlow({ view, nav, role }: Props) {
               <p className="hint">No candidates found. Try a different search.</p>
             )}
             {selectedCandidate ? (
-              <div className="panel">
-                <div className="panel-header">
-                  <div>
-                    <h2>Candidate profile</h2>
-                    <p className="hint">Review the candidate details below.</p>
-                  </div>
-                  <button type="button" className="ghost" onClick={handleBackToResults}>
-                    Back to results
-                  </button>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Headline</span>
-                  <span>{selectedCandidate.headline || "Candidate profile"}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Location</span>
-                  <span>{formatLocation(selectedCandidate)}</span>
-                </div>
-                {selectedCandidate.location_details && (
-                  <>
-                    {selectedCandidate.location_details.city && (
-                      <div className="detail-row">
-                        <span className="detail-label">City</span>
-                        <span>{selectedCandidate.location_details.city}</span>
-                      </div>
-                    )}
-                    {selectedCandidate.location_details.region && (
-                      <div className="detail-row">
-                        <span className="detail-label">Region</span>
-                        <span>{selectedCandidate.location_details.region}</span>
-                      </div>
-                    )}
-                    {selectedCandidate.location_details.country && (
-                      <div className="detail-row">
-                        <span className="detail-label">Country</span>
-                        <span>{selectedCandidate.location_details.country}</span>
-                      </div>
-                    )}
-                    {selectedCandidate.location_details.postal_code && (
-                      <div className="detail-row">
-                        <span className="detail-label">Postal code</span>
-                        <span>{selectedCandidate.location_details.postal_code}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="detail-row">
-                  <span className="detail-label">Discoverable</span>
-                  <span>{selectedCandidate.discoverable ? "Yes" : "No"}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Keywords</span>
-                  {selectedCandidateKeywords.length > 0 ? (
-                    <div className="keyword-chips">
-                      {selectedCandidateKeywords.map((keyword, index) => (
-                        <span key={`candidate-keyword-${index}`} className="keyword-chip">
-                          {keyword}
-                        </span>
-                      ))}
+              <>
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Candidate profile</h2>
+                      <p className="hint">Review the candidate details below.</p>
                     </div>
+                    <button type="button" className="ghost" onClick={handleBackToResults}>
+                      Back to results
+                    </button>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Headline</span>
+                    <span>{selectedCandidate.headline || "Candidate profile"}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Location</span>
+                    <span>{formatLocation(selectedCandidate)}</span>
+                  </div>
+                  {selectedCandidate.location_details && (
+                    <>
+                      {selectedCandidate.location_details.city && (
+                        <div className="detail-row">
+                          <span className="detail-label">City</span>
+                          <span>{selectedCandidate.location_details.city}</span>
+                        </div>
+                      )}
+                      {selectedCandidate.location_details.region && (
+                        <div className="detail-row">
+                          <span className="detail-label">Region</span>
+                          <span>{selectedCandidate.location_details.region}</span>
+                        </div>
+                      )}
+                      {selectedCandidate.location_details.country && (
+                        <div className="detail-row">
+                          <span className="detail-label">Country</span>
+                          <span>{selectedCandidate.location_details.country}</span>
+                        </div>
+                      )}
+                      {selectedCandidate.location_details.postal_code && (
+                        <div className="detail-row">
+                          <span className="detail-label">Postal code</span>
+                          <span>{selectedCandidate.location_details.postal_code}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="detail-row">
+                    <span className="detail-label">Discoverable</span>
+                    <span>{selectedCandidate.discoverable ? "Yes" : "No"}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Keywords</span>
+                    {selectedCandidateKeywords.length > 0 ? (
+                      <div className="keyword-chips">
+                        {selectedCandidateKeywords.map((keyword, index) => (
+                          <span key={`candidate-keyword-${index}`} className="keyword-chip">
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span>None</span>
+                    )}
+                  </div>
+                  {selectedCandidate.summary ? (
+                    <p className="candidate-summary">{selectedCandidate.summary}</p>
                   ) : (
-                    <span>None</span>
+                    <p className="hint">Summary not provided.</p>
                   )}
                 </div>
-                {selectedCandidate.summary ? (
-                  <p className="candidate-summary">{selectedCandidate.summary}</p>
-                ) : (
-                  <p className="hint">Summary not provided.</p>
-                )}
-              </div>
+                <div className="panel">
+                  <h2>Profile video</h2>
+                  {selectedCandidate.playback_url ? (
+                    <video
+                      key={selectedCandidate.playback_url}
+                      src={selectedCandidate.playback_url}
+                      className="job-detail-video"
+                      controls
+                      preload="metadata"
+                    />
+                  ) : (
+                    <p className="hint">Profile video is unavailable.</p>
+                  )}
+                </div>
+              </>
             ) : (
               <div className="candidate-list">
                 {candidates.map((candidate) => (
