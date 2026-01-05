@@ -79,6 +79,10 @@ class CandidateProfileOut(BaseModel):
         orm_mode = True
 
 
+class FavoriteActionOut(BaseModel):
+    status: str
+
+
 class JobCreate(BaseModel):
     company_id: str
     title: str

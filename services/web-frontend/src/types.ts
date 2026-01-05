@@ -10,6 +10,7 @@ export type ViewMode =
   | 'apply'
   | 'applications'
   | 'candidates'
+  | 'candidateFavorites'
   | 'candidateDetail';
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';

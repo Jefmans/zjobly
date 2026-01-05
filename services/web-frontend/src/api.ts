@@ -328,6 +328,32 @@ export async function searchCandidates(query?: string): Promise<CandidateProfile
   return requestJson<CandidateProfile[]>(`/accounts/candidates/search${search}`, { method: "GET" });
 }
 
+export async function listCandidateFavorites(companyId: string): Promise<CandidateProfile[]> {
+  const search = new URLSearchParams({ company_id: companyId });
+  return requestJson<CandidateProfile[]>(`/accounts/candidates/favorites?${search.toString()}`, {
+    method: "GET",
+  });
+}
+
+export async function addCandidateFavorite(
+  companyId: string,
+  candidateId: string,
+): Promise<CandidateProfile> {
+  const search = new URLSearchParams({ company_id: companyId });
+  return requestJson<CandidateProfile>(
+    `/accounts/candidates/${encodeURIComponent(candidateId)}/favorite?${search.toString()}`,
+    { method: "POST" },
+  );
+}
+
+export async function removeCandidateFavorite(companyId: string, candidateId: string): Promise<void> {
+  const search = new URLSearchParams({ company_id: companyId });
+  await requestJson<{ status: string }>(
+    `/accounts/candidates/${encodeURIComponent(candidateId)}/favorite?${search.toString()}`,
+    { method: "DELETE" },
+  );
+}
+
 export function uploadFileToUrl(
   url: string,
   file: File,

@@ -10,6 +10,7 @@ type Props = {
   onJobs: () => void;
   onBrowseJobs: () => void;
   onCandidates: () => void;
+  onFavorites: () => void;
   onApplications: () => void;
   onRoleChange: (role: UserRole) => void;
 };
@@ -23,6 +24,7 @@ export function TopNav({
   onJobs,
   onBrowseJobs,
   onCandidates,
+  onFavorites,
   onApplications,
   onRoleChange,
 }: Props) {
@@ -33,6 +35,7 @@ export function TopNav({
   const isEmployerJobsView = (view === "jobs" || view === "jobDetail") && role === "employer";
   const isEmployerCandidatesView =
     (view === "candidates" || view === "candidateDetail") && role === "employer";
+  const isEmployerFavoritesView = view === "candidateFavorites" && role === "employer";
   const isCandidateJobsView =
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
   const isCandidateApplicationsView = view === "applications" && role === "candidate";
@@ -69,6 +72,15 @@ export function TopNav({
             onClick={onCandidates}
           >
             Browse candidates
+          </button>
+        )}
+        {showEmployerNav && (
+          <button
+            type="button"
+            className={`nav-btn ghost ${isEmployerFavoritesView ? "active" : ""}`}
+            onClick={onFavorites}
+          >
+            Favorites
           </button>
         )}
         <button

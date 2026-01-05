@@ -3,6 +3,7 @@ import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { CandidateProfileView } from './components/CandidateProfileView';
+import { CandidateFavoritesView } from './components/CandidateFavoritesView';
 import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateSearchFlow } from './components/CandidateSearchFlow';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
@@ -23,9 +24,12 @@ import {
   getProfileDraftFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
+  listCandidateFavorites,
   listCompanyJobs,
   listCandidatesForDev,
   listCompaniesForDev,
+  addCandidateFavorite,
+  removeCandidateFavorite,
   publishJob,
   unpublishJob,
   searchPublicJobs,
@@ -108,6 +112,7 @@ const getStoredView = (): ViewMode => {
     if (stored === 'jobs') return 'jobs';
     if (stored === 'applications' && storedRole === 'candidate') return 'applications';
     if (stored === 'candidates' && storedRole === 'employer') return 'candidates';
+    if (stored === 'candidateFavorites' && storedRole === 'employer') return 'candidateFavorites';
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'profile' && storedRole === 'candidate') return 'profile';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
@@ -139,6 +144,9 @@ const getScreenLabel = (
   }
   if (view === 'candidates') {
     return 'Screen:FindCandidates/Search';
+  }
+  if (view === 'candidateFavorites') {
+    return 'Screen:FindCandidates/Favorites';
   }
   if (view === 'candidateDetail') {
     return 'Screen:FindCandidates/Detail';
@@ -179,7 +187,13 @@ function App() {
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedCandidateProfile, setSelectedCandidateProfile] = useState<CandidateProfile | null>(null);
-  const [candidateSearchOrigin, setCandidateSearchOrigin] = useState<'search' | 'applications'>('search');
+  const [candidateSearchOrigin, setCandidateSearchOrigin] = useState<
+    'search' | 'applications' | 'favorites'
+  >('search');
+  const [candidateFavorites, setCandidateFavorites] = useState<CandidateProfile[]>([]);
+  const [candidateFavoritesLoading, setCandidateFavoritesLoading] = useState(false);
+  const [candidateFavoritesError, setCandidateFavoritesError] = useState<string | null>(null);
+  const [favoriteUpdatingIds, setFavoriteUpdatingIds] = useState<Set<string>>(new Set());
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileInput>({ ...INITIAL_CANDIDATE_PROFILE });
   const [candidateProfileDetails, setCandidateProfileDetails] = useState<CandidateProfile | null>(null);
   const [candidateProfileLoading, setCandidateProfileLoading] = useState(false);
@@ -492,6 +506,30 @@ function App() {
     }
   }, [companyId, role]);
 
+  const refreshCandidateFavorites = useCallback(async (): Promise<CandidateProfile[]> => {
+    if (role !== 'employer' || !companyId) {
+      setCandidateFavorites([]);
+      setCandidateFavoritesLoading(false);
+      setCandidateFavoritesError(null);
+      return [];
+    }
+    setCandidateFavoritesLoading(true);
+    setCandidateFavoritesError(null);
+    try {
+      const favorites = await listCandidateFavorites(companyId);
+      const results = Array.isArray(favorites) ? favorites : [];
+      setCandidateFavorites(results);
+      return results;
+    } catch (err) {
+      console.error(err);
+      setCandidateFavoritesError(err instanceof Error ? err.message : 'Could not load favorites.');
+      setCandidateFavorites([]);
+      return [];
+    } finally {
+      setCandidateFavoritesLoading(false);
+    }
+  }, [companyId, role]);
+
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
     setStatus('processing');
@@ -559,13 +597,28 @@ function App() {
   }, [refreshJobs]);
 
   useEffect(() => {
+    const shouldLoad =
+      view === 'candidates' || view === 'candidateDetail' || view === 'candidateFavorites';
+    if (!shouldLoad) return;
+    void refreshCandidateFavorites();
+  }, [view, refreshCandidateFavorites]);
+
+  useEffect(() => {
     try {
-      const viewToPersist = view === 'candidateDetail' ? 'candidates' : view;
+      const viewToPersist =
+        view === 'candidateDetail'
+          ? candidateSearchOrigin === 'favorites'
+            ? 'candidateFavorites'
+            : 'candidates'
+          : view;
       const shouldPersist =
         view === 'jobs' ||
         (view === 'applications' && role === 'candidate') ||
         (view === 'create' && role === 'employer') ||
-        ((view === 'candidates' || view === 'candidateDetail') && role === 'employer') ||
+        ((view === 'candidates' ||
+          view === 'candidateDetail' ||
+          view === 'candidateFavorites') &&
+          role === 'employer') ||
         (view === 'find' && role === 'candidate') ||
         (view === 'profile' && role === 'candidate');
       if (shouldPersist) {
@@ -576,7 +629,7 @@ function App() {
     } catch {
       // ignore storage failures
     }
-  }, [view, role]);
+  }, [view, role, candidateSearchOrigin]);
 
   useEffect(() => {
     const devNavEnabled = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
@@ -1623,8 +1676,14 @@ function App() {
     candidateKeywords,
     candidateProfileDetails?.location ?? candidateProfile.location,
   );
+  const favoriteCandidateIds = new Set(candidateFavorites.map((candidate) => candidate.id));
+  const canManageFavorites = role === 'employer' && Boolean(companyId);
   const candidateDetailBackLabel =
-    candidateSearchOrigin === 'applications' ? 'Back to applications' : 'Back to results';
+    candidateSearchOrigin === 'applications'
+      ? 'Back to applications'
+      : candidateSearchOrigin === 'favorites'
+      ? 'Back to favorites'
+      : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
   const backToWelcome = () => {
@@ -1687,9 +1746,21 @@ function App() {
     goToEmployerView('candidates');
   };
 
+  const goToCandidateFavorites = () => {
+    setSelectedCandidateProfile(null);
+    setCandidateSearchOrigin('favorites');
+    goToEmployerView('candidateFavorites');
+  };
+
   const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
     setSelectedCandidateProfile(candidate);
     setCandidateSearchOrigin('search');
+    goToEmployerView('candidateDetail');
+  };
+
+  const openCandidateProfileFromFavorites = (candidate: CandidateProfile) => {
+    setSelectedCandidateProfile(candidate);
+    setCandidateSearchOrigin('favorites');
     goToEmployerView('candidateDetail');
   };
 
@@ -1705,7 +1776,71 @@ function App() {
       goToEmployerView(selectedJobId ? 'jobDetail' : 'jobs');
       return;
     }
+    if (candidateSearchOrigin === 'favorites') {
+      goToEmployerView('candidateFavorites');
+      return;
+    }
     goToEmployerView('candidates');
+  };
+
+  const setFavoriteUpdating = (candidateId: string, isUpdating: boolean) => {
+    setFavoriteUpdatingIds((prev) => {
+      const next = new Set(prev);
+      if (isUpdating) {
+        next.add(candidateId);
+      } else {
+        next.delete(candidateId);
+      }
+      return next;
+    });
+  };
+
+  const handleAddCandidateFavorite = async (candidateId: string) => {
+    if (!companyId) {
+      setCandidateFavoritesError('Select a company to save favorites.');
+      return;
+    }
+    setCandidateFavoritesError(null);
+    setFavoriteUpdating(candidateId, true);
+    try {
+      const added = await addCandidateFavorite(companyId, candidateId);
+      setCandidateFavorites((prev) => {
+        if (prev.some((candidate) => candidate.id === added.id)) return prev;
+        return [added, ...prev];
+      });
+    } catch (err) {
+      console.error(err);
+      setCandidateFavoritesError(err instanceof Error ? err.message : 'Could not save favorite.');
+    } finally {
+      setFavoriteUpdating(candidateId, false);
+    }
+  };
+
+  const handleRemoveCandidateFavorite = async (candidateId: string) => {
+    if (!companyId) {
+      setCandidateFavoritesError('Select a company to manage favorites.');
+      return;
+    }
+    setCandidateFavoritesError(null);
+    setFavoriteUpdating(candidateId, true);
+    try {
+      await removeCandidateFavorite(companyId, candidateId);
+      setCandidateFavorites((prev) => prev.filter((candidate) => candidate.id !== candidateId));
+    } catch (err) {
+      console.error(err);
+      setCandidateFavoritesError(err instanceof Error ? err.message : 'Could not remove favorite.');
+    } finally {
+      setFavoriteUpdating(candidateId, false);
+    }
+  };
+
+  const handleToggleCandidateFavorite = () => {
+    if (!selectedCandidateProfile) return;
+    if (favoriteCandidateIds.has(selectedCandidateProfile.id)) {
+      void handleRemoveCandidateFavorite(selectedCandidateProfile.id);
+      return;
+    }
+    void handleAddCandidateFavorite(selectedCandidateProfile.id);
   };
 
   const selectedDevCompany = devCompanies.find((company) => company.id === companyId) ?? null;
@@ -1714,6 +1849,9 @@ function App() {
   const applyDevCompanySelection = (company: CompanyDev | null) => {
     if (!company) {
       setCompanyId(null);
+      setCandidateFavorites([]);
+      setCandidateFavoritesError(null);
+      setFavoriteUpdatingIds(new Set());
       try {
         localStorage.removeItem(COMPANY_STORAGE_KEY);
       } catch {
@@ -1722,6 +1860,9 @@ function App() {
       return;
     }
     setCompanyId(company.id);
+    setCandidateFavorites([]);
+    setCandidateFavoritesError(null);
+    setFavoriteUpdatingIds(new Set());
     try {
       localStorage.setItem(COMPANY_STORAGE_KEY, company.id);
     } catch {
@@ -1795,7 +1936,8 @@ function App() {
             onFind={startCandidateFlow}
             onJobs={() => setRoleAndView('employer', 'jobs')}
             onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
-            onCandidates={() => setRoleAndView('employer', 'candidates')}
+            onCandidates={goToCandidateSearch}
+            onFavorites={goToCandidateFavorites}
             onApplications={() => setRoleAndView('candidate', 'applications')}
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
@@ -1869,6 +2011,7 @@ function App() {
         onMyJobs={() => goToEmployerView('jobs')}
         onCreateJob={() => goToEmployerView('create')}
         onBrowseCandidates={goToCandidateSearch}
+        onFavoriteCandidates={goToCandidateFavorites}
         onStartCandidate={startCandidateFlow}
         onStartEmployer={startCreateFlow}
       />
@@ -2001,12 +2144,40 @@ function App() {
         candidate={selectedCandidateProfile}
         onBack={handleCandidateDetailBack}
         backLabel={candidateDetailBackLabel}
+        canFavorite={canManageFavorites}
+        isFavorite={
+          selectedCandidateProfile ? favoriteCandidateIds.has(selectedCandidateProfile.id) : false
+        }
+        favoriteUpdating={
+          selectedCandidateProfile ? favoriteUpdatingIds.has(selectedCandidateProfile.id) : false
+        }
+        favoritesError={candidateFavoritesError}
+        onToggleFavorite={handleToggleCandidateFavorite}
+      />
+
+      <CandidateFavoritesView
+        view={view}
+        nav={nav}
+        role={role}
+        favorites={candidateFavorites}
+        loading={candidateFavoritesLoading}
+        error={candidateFavoritesError}
+        canFavorite={canManageFavorites}
+        favoriteUpdatingIds={favoriteUpdatingIds}
+        onViewCandidate={openCandidateProfileFromFavorites}
+        onRemoveFavorite={handleRemoveCandidateFavorite}
       />
 
       <CandidateSearchFlow
         view={view}
         nav={nav}
         role={role}
+        favoriteCandidateIds={favoriteCandidateIds}
+        favoriteUpdatingIds={favoriteUpdatingIds}
+        favoritesError={candidateFavoritesError}
+        canFavorite={canManageFavorites}
+        onAddFavorite={handleAddCandidateFavorite}
+        onRemoveFavorite={handleRemoveCandidateFavorite}
         onViewCandidate={openCandidateProfileFromSearch}
       />
 

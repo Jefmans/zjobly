@@ -1144,6 +1144,21 @@ button[type='submit']:disabled {
   gap: 0.5rem;
 }
 
+.candidate-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.candidate-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .candidate-link {
   border: none;
   background: transparent;

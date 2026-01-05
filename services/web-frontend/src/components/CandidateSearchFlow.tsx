@@ -6,10 +6,27 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   role: UserRole | null;
+  favoriteCandidateIds: Set<string>;
+  favoriteUpdatingIds: Set<string>;
+  favoritesError: string | null;
+  canFavorite: boolean;
+  onAddFavorite: (candidateId: string) => void;
+  onRemoveFavorite: (candidateId: string) => void;
   onViewCandidate: (candidate: CandidateProfile) => void;
 };
 
-export function CandidateSearchFlow({ view, nav, role, onViewCandidate }: Props) {
+export function CandidateSearchFlow({
+  view,
+  nav,
+  role,
+  favoriteCandidateIds,
+  favoriteUpdatingIds,
+  favoritesError,
+  canFavorite,
+  onAddFavorite,
+  onRemoveFavorite,
+  onViewCandidate,
+}: Props) {
   const isEmployer = role === "employer";
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
@@ -88,6 +105,10 @@ export function CandidateSearchFlow({ view, nav, role, onViewCandidate }: Props)
                 </div>
               </div>
             </form>
+            {!canFavorite && (
+              <p className="hint">Select a company to save candidates to favorites.</p>
+            )}
+            {favoritesError && <p className="error">{favoritesError}</p>}
             {error && <p className="error">{error}</p>}
             {loading && <p className="hint">Loading candidates...</p>}
             {!loading && !error && candidates.length === 0 && (
@@ -96,13 +117,42 @@ export function CandidateSearchFlow({ view, nav, role, onViewCandidate }: Props)
             <div className="candidate-list">
               {candidates.map((candidate) => (
                 <div key={candidate.id} className="candidate-card">
-                  <button
-                    type="button"
-                    className="candidate-link"
-                    onClick={() => onViewCandidate(candidate)}
-                  >
-                    {candidate.headline || "Candidate profile"}
-                  </button>
+                  <div className="candidate-card-header">
+                    <button
+                      type="button"
+                      className="candidate-link"
+                      onClick={() => onViewCandidate(candidate)}
+                    >
+                      {candidate.headline || "Candidate profile"}
+                    </button>
+                    <div className="candidate-card-actions">
+                      {(() => {
+                        const isFavorite = favoriteCandidateIds.has(candidate.id);
+                        const isUpdating = favoriteUpdatingIds.has(candidate.id);
+                        const label = isUpdating
+                          ? isFavorite
+                            ? "Removing..."
+                            : "Saving..."
+                          : isFavorite
+                          ? "Remove favorite"
+                          : "Add to favorites";
+                        return (
+                          <button
+                            type="button"
+                            className={`ghost ${isFavorite ? "success" : ""}`}
+                            onClick={() =>
+                              isFavorite
+                                ? onRemoveFavorite(candidate.id)
+                                : onAddFavorite(candidate.id)
+                            }
+                            disabled={!canFavorite || isUpdating}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  </div>
                   <div className="candidate-meta">{formatLocation(candidate)}</div>
                 </div>
               ))}

@@ -20,6 +20,7 @@ from app.schemas_accounts import (
     CompanyCreate,
     CompanyDevOut,
     CompanyOut,
+    FavoriteActionOut,
     JobCreate,
     JobOut,
     JobWithCountsOut,
@@ -605,3 +606,95 @@ def search_candidates(
         query = query.filter(models.CandidateProfile.headline.ilike(ilike))
     results = query.order_by(models.CandidateProfile.updated_at.desc()).limit(50).all()
     return [_build_candidate_out(profile) for profile in results]
+
+
+@router.get("/candidates/favorites", response_model=list[CandidateProfileOut])
+def list_candidate_favorites(
+    company_id: str = Query(..., description="Company to scope favorites"),
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> list[CandidateProfileOut]:
+    _assert_membership(session, company_id, current_user.id)
+
+    favorites = (
+        session.query(models.CandidateFavorite)
+        .options(
+            joinedload(models.CandidateFavorite.candidate).joinedload(models.CandidateProfile.location_ref)
+        )
+        .filter(
+            models.CandidateFavorite.user_id == current_user.id,
+            models.CandidateFavorite.company_id == company_id,
+        )
+        .order_by(models.CandidateFavorite.created_at.desc())
+        .all()
+    )
+    return [
+        _build_candidate_out(favorite.candidate)
+        for favorite in favorites
+        if favorite.candidate is not None
+    ]
+
+
+@router.post("/candidates/{candidate_id}/favorite", response_model=CandidateProfileOut)
+def add_candidate_favorite(
+    candidate_id: str,
+    company_id: str = Query(..., description="Company to scope favorites"),
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> CandidateProfileOut:
+    _assert_membership(session, company_id, current_user.id)
+
+    candidate = (
+        session.query(models.CandidateProfile)
+        .options(joinedload(models.CandidateProfile.location_ref))
+        .filter_by(id=candidate_id)
+        .first()
+    )
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    existing = (
+        session.query(models.CandidateFavorite)
+        .filter(
+            models.CandidateFavorite.user_id == current_user.id,
+            models.CandidateFavorite.company_id == company_id,
+            models.CandidateFavorite.candidate_id == candidate_id,
+        )
+        .first()
+    )
+    if not existing:
+        session.add(
+            models.CandidateFavorite(
+                user_id=current_user.id,
+                company_id=company_id,
+                candidate_id=candidate_id,
+            )
+        )
+        session.commit()
+
+    return _build_candidate_out(candidate)
+
+
+@router.delete("/candidates/{candidate_id}/favorite", response_model=FavoriteActionOut)
+def remove_candidate_favorite(
+    candidate_id: str,
+    company_id: str = Query(..., description="Company to scope favorites"),
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> FavoriteActionOut:
+    _assert_membership(session, company_id, current_user.id)
+
+    favorite = (
+        session.query(models.CandidateFavorite)
+        .filter(
+            models.CandidateFavorite.user_id == current_user.id,
+            models.CandidateFavorite.company_id == company_id,
+            models.CandidateFavorite.candidate_id == candidate_id,
+        )
+        .first()
+    )
+    if favorite:
+        session.delete(favorite)
+        session.commit()
+
+    return FavoriteActionOut(status="removed")

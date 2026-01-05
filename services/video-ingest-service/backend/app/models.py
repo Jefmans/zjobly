@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -91,6 +91,28 @@ class CandidateProfile(Base):
     user: Mapped[User] = relationship(back_populates="candidate_profile")
     applications: Mapped[list["Application"]] = relationship(back_populates="candidate")
     location_ref: Mapped[Optional["Location"]] = relationship(back_populates="candidates")
+
+
+class CandidateFavorite(Base):
+    __tablename__ = "candidate_favorites"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "company_id",
+            "candidate_id",
+            name="uq_candidate_favorite_user_company_candidate",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("candidate_profiles.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped[User] = relationship()
+    company: Mapped[Company] = relationship()
+    candidate: Mapped["CandidateProfile"] = relationship()
 
 
 class Location(Base):

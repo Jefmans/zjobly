@@ -9,6 +9,11 @@ type Props = {
   candidate: CandidateProfile | null;
   onBack: () => void;
   backLabel?: string;
+  canFavorite: boolean;
+  isFavorite: boolean;
+  favoriteUpdating: boolean;
+  favoritesError: string | null;
+  onToggleFavorite: () => void;
 };
 
 export function CandidateDetailView({
@@ -18,6 +23,11 @@ export function CandidateDetailView({
   candidate,
   onBack,
   backLabel = "Back",
+  canFavorite,
+  isFavorite,
+  favoriteUpdating,
+  favoritesError,
+  onToggleFavorite,
 }: Props) {
   if (view !== "candidateDetail") return null;
 
@@ -39,6 +49,7 @@ export function CandidateDetailView({
         <p className="tag">Zjobly</p>
         <h1>Candidate profile</h1>
         <p className="lede">Review the candidate details and intro video.</p>
+        {favoritesError && isEmployer && <p className="error">{favoritesError}</p>}
         {!isEmployer ? (
           <div className="panel">
             <p className="hint">Switch to the employer role to browse candidates.</p>
@@ -55,9 +66,11 @@ export function CandidateDetailView({
                 <h2>No candidate selected</h2>
                 <p className="hint">Choose a candidate from the search results.</p>
               </div>
-              <button type="button" className="ghost" onClick={onBack}>
-                {backLabel}
-              </button>
+              <div className="panel-header-actions">
+                <button type="button" className="ghost" onClick={onBack}>
+                  {backLabel}
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -68,9 +81,25 @@ export function CandidateDetailView({
                   <h2>{candidate.headline || "Candidate profile"}</h2>
                   <p className="hint">Full candidate profile details.</p>
                 </div>
-                <button type="button" className="ghost" onClick={onBack}>
-                  {backLabel}
-                </button>
+                <div className="panel-header-actions">
+                  <button type="button" className="ghost" onClick={onBack}>
+                    {backLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className={`ghost ${isFavorite ? "success" : ""}`}
+                    onClick={onToggleFavorite}
+                    disabled={!canFavorite || favoriteUpdating}
+                  >
+                    {favoriteUpdating
+                      ? isFavorite
+                        ? "Removing..."
+                        : "Saving..."
+                      : isFavorite
+                      ? "Remove favorite"
+                      : "Add to favorites"}
+                  </button>
+                </div>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Headline</span>
