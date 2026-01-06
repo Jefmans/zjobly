@@ -2164,15 +2164,6 @@ function App() {
                 );
               })}
             </select>
-            <span className="dev-company-meta">
-              {selectedDevCompany?.default_user_id
-                ? 'Default user set'
-                : selectedDevCompany
-                ? 'No default user found'
-                : devCompaniesLoading
-                ? 'Loading...'
-                : ''}
-            </span>
           </div>
           {devCompaniesError && <p className="error">{devCompaniesError}</p>}
           <div className="dev-company-row">
@@ -2195,15 +2186,6 @@ function App() {
                 );
               })}
             </select>
-            <span className="dev-company-meta">
-              {selectedDevCandidate?.headline
-                ? selectedDevCandidate.headline
-                : selectedDevCandidate
-                ? 'Candidate selected'
-                : devCandidatesLoading
-                ? 'Loading...'
-                : ''}
-            </span>
           </div>
           {devCandidatesError && <p className="error">{devCandidatesError}</p>}
         </div>
