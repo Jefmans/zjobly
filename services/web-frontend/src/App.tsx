@@ -2157,17 +2157,16 @@ function App() {
             >
               <option value="">Select a company</option>
               {devCompanies.map((company) => {
-                const userLabel = company.default_user_email || company.default_user_id || 'user';
                 return (
                   <option key={company.id} value={company.id}>
-                    {company.name} {company.default_user_id ? `(${userLabel})` : ''}
+                    {company.name}
                   </option>
                 );
               })}
             </select>
             <span className="dev-company-meta">
               {selectedDevCompany?.default_user_id
-                ? `User: ${selectedDevCompany.default_user_email || selectedDevCompany.default_user_id}`
+                ? 'Default user set'
                 : selectedDevCompany
                 ? 'No default user found'
                 : devCompaniesLoading
@@ -2187,18 +2186,20 @@ function App() {
               <option value="">Select a candidate</option>
               {devCandidates.map((candidate) => {
                 const headline = candidate.headline || 'Candidate';
-                const userLabel = candidate.user_email || candidate.user_id;
                 const location = candidate.location ? ` • ${candidate.location}` : '';
                 return (
                   <option key={candidate.id} value={candidate.user_id}>
-                    {headline} ({userLabel}){location}
+                    {headline}
+                    {location}
                   </option>
                 );
               })}
             </select>
             <span className="dev-company-meta">
-              {selectedDevCandidate
-                ? `User: ${selectedDevCandidate.user_email || selectedDevCandidate.user_id}`
+              {selectedDevCandidate?.headline
+                ? selectedDevCandidate.headline
+                : selectedDevCandidate
+                ? 'Candidate selected'
                 : devCandidatesLoading
                 ? 'Loading...'
                 : ''}
