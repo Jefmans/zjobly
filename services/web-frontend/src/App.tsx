@@ -2177,11 +2177,10 @@ function App() {
               <option value="">Select a candidate</option>
               {devCandidates.map((candidate) => {
                 const headline = candidate.headline || 'Candidate';
-                const location = candidate.location ? ` • ${candidate.location}` : '';
+                const displayName = headline.length > 20 ? headline.slice(0, 20) : headline;
                 return (
                   <option key={candidate.id} value={candidate.user_id}>
-                    {headline}
-                    {location}
+                    {displayName}
                   </option>
                 );
               })}
