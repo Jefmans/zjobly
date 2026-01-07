@@ -1186,6 +1186,8 @@ button[type='submit']:disabled {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   padding: 0.9rem 1rem;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
@@ -1596,6 +1598,7 @@ button[type='submit']:disabled {
 
 .job-card-left {
   text-align: left;
+  min-width: 0;
 }
 
 .job-card-right {
@@ -1604,4 +1607,19 @@ button[type='submit']:disabled {
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .job-card {
+    align-items: flex-start;
+  }
+
+  .job-card-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .job-application-counts {
+    text-align: left;
+  }
 }
