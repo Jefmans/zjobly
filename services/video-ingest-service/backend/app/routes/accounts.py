@@ -8,6 +8,16 @@ from app.database import get_session
 from app import models
 from app import storage
 from app.config import settings
+from app.search import (
+    build_candidate_search_text,
+    build_job_search_text,
+    get_default_radius_km,
+    get_location_point,
+    index_candidate,
+    index_job,
+    search_candidate_ids,
+    search_job_ids,
+)
 from app.schemas_accounts import (
     ApplicationCreate,
     ApplicationDetailOut,
@@ -217,6 +227,7 @@ def upsert_candidate_profile(
 
     session.commit()
     session.refresh(profile)
+    index_candidate(profile)
     return _build_candidate_out(profile)
 
 
@@ -408,6 +419,7 @@ def create_job(
     session.add(job)
     session.commit()
     session.refresh(job)
+    index_job(job)
     return _build_job_out(job)
 
 
@@ -533,6 +545,7 @@ def publish_job(
     job.visibility = models.JobVisibility.public
     session.commit()
     session.refresh(job)
+    index_job(job)
     return _build_job_out(job)
 
 
@@ -551,6 +564,7 @@ def unpublish_job(
     job.visibility = models.JobVisibility.private
     session.commit()
     session.refresh(job)
+    index_job(job)
     return _build_job_out(job)
 
 
@@ -598,8 +612,42 @@ def list_company_jobs(
 @router.get("/jobs/search", response_model=list[JobOut])
 def search_jobs(
     q: Optional[str] = Query(None, description="Search term across title"),
+    lat: Optional[float] = Query(None, description="Latitude for distance boost"),
+    lon: Optional[float] = Query(None, description="Longitude for distance boost"),
+    radius_km: Optional[float] = Query(None, description="Distance scale in kilometers"),
     session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
 ) -> list[JobOut]:
+    query_text = (q or "").strip()
+    location_point: dict[str, float] | None = None
+    effective_radius = radius_km if radius_km is not None else get_default_radius_km()
+
+    if lat is not None and lon is not None:
+        location_point = {"lat": float(lat), "lon": float(lon)}
+    if not query_text:
+        profile = (
+            session.query(models.CandidateProfile)
+            .options(joinedload(models.CandidateProfile.location_ref))
+            .filter_by(user_id=current_user.id)
+            .first()
+        )
+        if profile:
+            query_text = build_candidate_search_text(profile)
+            if location_point is None:
+                location_point = get_location_point(profile.location_ref)
+
+    if query_text:
+        job_ids = search_job_ids(query_text, location_point, effective_radius)
+        if job_ids:
+            jobs = (
+                session.query(models.Job)
+                .options(joinedload(models.Job.location_ref))
+                .filter(models.Job.id.in_(job_ids))
+                .all()
+            )
+            job_map = {job.id: job for job in jobs}
+            return [_build_job_out(job_map[job_id]) for job_id in job_ids if job_id in job_map]
+
     query = session.query(models.Job).filter(
         models.Job.status == models.JobStatus.open,
         models.Job.visibility == models.JobVisibility.public,
@@ -614,6 +662,10 @@ def search_jobs(
 @router.get("/candidates/search", response_model=list[CandidateProfileOut])
 def search_candidates(
     q: Optional[str] = Query(None, description="Search term across headline"),
+    job_id: Optional[str] = Query(None, description="Match candidates to a specific job"),
+    lat: Optional[float] = Query(None, description="Latitude for distance boost"),
+    lon: Optional[float] = Query(None, description="Longitude for distance boost"),
+    radius_km: Optional[float] = Query(None, description="Distance scale in kilometers"),
     session: Session = Depends(get_session),
     current_user: models.User = Depends(get_current_user),
 ) -> list[CandidateProfileOut]:
@@ -621,6 +673,43 @@ def search_candidates(
     membership = session.query(models.CompanyMembership).filter_by(user_id=current_user.id).first()
     if not membership:
         raise HTTPException(status_code=403, detail="Join a company to search candidates")
+
+    query_text = (q or "").strip()
+    location_point: dict[str, float] | None = None
+    effective_radius = radius_km if radius_km is not None else get_default_radius_km()
+
+    if lat is not None and lon is not None:
+        location_point = {"lat": float(lat), "lon": float(lon)}
+
+    if job_id:
+        job = (
+            session.query(models.Job)
+            .options(joinedload(models.Job.location_ref))
+            .filter_by(id=job_id)
+            .first()
+        )
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        _assert_membership(session, job.company_id, current_user.id)
+        query_text = build_job_search_text(job)
+        if location_point is None:
+            location_point = get_location_point(job.location_ref)
+
+    if query_text:
+        candidate_ids = search_candidate_ids(query_text, location_point, effective_radius)
+        if candidate_ids:
+            profiles = (
+                session.query(models.CandidateProfile)
+                .options(joinedload(models.CandidateProfile.location_ref))
+                .filter(models.CandidateProfile.id.in_(candidate_ids))
+                .all()
+            )
+            profile_map = {profile.id: profile for profile in profiles}
+            return [
+                _build_candidate_out(profile_map[candidate_id])
+                for candidate_id in candidate_ids
+                if candidate_id in profile_map
+            ]
 
     query = session.query(models.CandidateProfile).filter(models.CandidateProfile.discoverable.is_(True))
     if q:

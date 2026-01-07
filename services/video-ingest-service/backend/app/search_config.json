@@ -1,0 +1,9 @@
+{
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimensions": 1536,
+  "default_radius_km": 50,
+  "distance_scale_km": 50,
+  "job_index": "zjobly-jobs",
+  "candidate_index": "zjobly-candidates",
+  "max_results": 50
+}
