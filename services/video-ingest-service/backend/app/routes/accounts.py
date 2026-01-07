@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_session
@@ -638,14 +638,26 @@ def list_candidate_favorites(
 ) -> list[CandidateProfileOut]:
     _assert_membership(session, company_id, current_user.id)
 
+    accepted_invite = (
+        session.query(models.CandidateInvitation.id)
+        .filter(
+            models.CandidateInvitation.company_id == company_id,
+            models.CandidateInvitation.candidate_id == models.CandidateProfile.id,
+            models.CandidateInvitation.status == models.InvitationStatus.accepted,
+        )
+        .exists()
+    )
+
     favorites = (
         session.query(models.CandidateFavorite)
         .options(
             joinedload(models.CandidateFavorite.candidate).joinedload(models.CandidateProfile.location_ref)
         )
+        .join(models.CandidateFavorite.candidate)
         .filter(
             models.CandidateFavorite.user_id == current_user.id,
             models.CandidateFavorite.company_id == company_id,
+            or_(models.CandidateProfile.discoverable.is_(True), accepted_invite),
         )
         .order_by(models.CandidateFavorite.created_at.desc())
         .all()
