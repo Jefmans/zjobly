@@ -32,6 +32,7 @@ type Props = {
   audioSessionStatuses: Record<string, "pending" | "partial" | "final">;
   fallbackTranscript?: string;
   fallbackTranscriptStatus?: "pending" | "final";
+  isEditingProfile: boolean;
   keywords: string[];
   onSaveVideo: () => void;
   profile: CandidateProfileInput;
@@ -74,6 +75,7 @@ export function CandidateProfileFlow({
   audioSessionStatuses,
   fallbackTranscript,
   fallbackTranscriptStatus,
+  isEditingProfile,
   keywords,
   onSaveVideo,
   profile,
@@ -130,6 +132,8 @@ export function CandidateProfileFlow({
   const showHeadlineError = showValidation && !`${profile.headline ?? ""}`.trim();
   const showLocationError = showValidation && !`${profile.location ?? ""}`.trim();
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
+  const showTranscript = !isEditingProfile;
+  const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
 
   return (
     <>
@@ -168,7 +172,7 @@ export function CandidateProfileFlow({
                   <p className="hint">Tell employers where you are, what you do, and if you want to be discoverable.</p>
                 </div>
                 <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                  Back to select video
+                  {backToVideoLabel}
                 </button>
               </div>
 
@@ -236,17 +240,19 @@ export function CandidateProfileFlow({
                 </label>
               </div>
 
-              <div className="field">
-                <label>Transcript</label>
-                {transcript ? (
-                  <textarea value={transcript} readOnly rows={7} />
-                ) : (
-                  <div className="transcript-placeholder" aria-live="polite">
-                    {transcriptPlaceholder}
-                  </div>
-                )}
-                <p className="hint">{transcriptStatusHint} Auto-transcribed from your intro video.</p>
-              </div>
+              {showTranscript && (
+                <div className="field">
+                  <label>Transcript</label>
+                  {transcript ? (
+                    <textarea value={transcript} readOnly rows={7} />
+                  ) : (
+                    <div className="transcript-placeholder" aria-live="polite">
+                      {transcriptPlaceholder}
+                    </div>
+                  )}
+                  <p className="hint">{transcriptStatusHint} Auto-transcribed from your intro video.</p>
+                </div>
+              )}
 
               <div className="field">
                 <label>Keywords</label>
@@ -268,7 +274,7 @@ export function CandidateProfileFlow({
 
               <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                  Back to select video
+                  {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
                   <button type="button" className="cta secondary" onClick={onViewJobs}>

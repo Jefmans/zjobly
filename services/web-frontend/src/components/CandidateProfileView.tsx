@@ -60,9 +60,12 @@ export function CandidateProfileView({
                   <h2>Profile detail</h2>
                   <p className="hint">This is what employers see when they browse candidates.</p>
                 </div>
-                <button type="button" className="ghost" onClick={onEditProfile}>
-                  Edit profile
-                </button>
+                <div className="panel-header-actions">
+                  <span className="pill soft">Discoverable: {profile.discoverable ? "Yes" : "No"}</span>
+                  <button type="button" className="ghost" onClick={onEditProfile}>
+                    Edit profile
+                  </button>
+                </div>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Headline</span>
