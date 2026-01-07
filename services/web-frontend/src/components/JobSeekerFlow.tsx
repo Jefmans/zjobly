@@ -58,9 +58,10 @@ export function JobSeekerFlow({
   unpublishingJobId,
   onViewCandidateProfile,
 }: Props) {
-  const [sortBy, setSortBy] = useState("created_desc");
+  const [sortBy, setSortBy] = useState(() => (role === "candidate" ? "relevant" : "created_desc"));
   const isCandidate = role === "candidate";
   const isEmployer = role === "employer";
+  const prevRoleRef = useRef<UserRole | null>(role);
   const [applyVideoFile, setApplyVideoFile] = useState<File | null>(null);
   const [applyVideoUrl, setApplyVideoUrl] = useState<string | null>(null);
   const [applyDuration, setApplyDuration] = useState<number | null>(null);
@@ -142,6 +143,16 @@ export function JobSeekerFlow({
     if (status === "reviewing") return "Withheld";
     return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
   };
+
+  useEffect(() => {
+    const prevRole = prevRoleRef.current;
+    if (role === "candidate" && prevRole !== "candidate") {
+      setSortBy("relevant");
+    } else if (role === "employer" && prevRole !== "employer" && sortBy === "relevant") {
+      setSortBy("created_desc");
+    }
+    prevRoleRef.current = role;
+  }, [role, sortBy]);
 
   const sortedJobs = useMemo(() => {
     const items = [...jobs];
