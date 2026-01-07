@@ -159,6 +159,8 @@ export function JobSeekerFlow({
     const getPublishedTime = (job: Job) => (job.status === "open" || job.status === "published" ? dateValue(job.created_at) : 0);
 
     switch (sortBy) {
+      case "relevant":
+        return items;
       case "created_asc":
         return items.sort((a, b) => dateValue(a.created_at) - dateValue(b.created_at));
       case "published_desc":
@@ -681,6 +683,7 @@ export function JobSeekerFlow({
             <div className="field">
               <label htmlFor="jobSort">Sort by</label>
               <select id="jobSort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                {isCandidate && <option value="relevant">Relevant</option>}
                 <option value="created_desc">Date created (newest)</option>
                 <option value="created_asc">Date created (oldest)</option>
                 <option value="published_desc">Date published (newest)</option>
