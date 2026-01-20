@@ -36,6 +36,7 @@ type Props = {
   publishingJobId: string | null;
   unpublishingJobId: string | null;
   onViewCandidateProfile: (candidate: CandidateProfile) => void;
+  onViewMatches: (jobId: string) => void;
 };
 
 const MAX_APPLICATION_VIDEO_SECONDS = 180;
@@ -57,6 +58,7 @@ export function JobSeekerFlow({
   publishingJobId,
   unpublishingJobId,
   onViewCandidateProfile,
+  onViewMatches,
 }: Props) {
   const [sortBy, setSortBy] = useState(() => (role === "candidate" ? "relevant" : "created_desc"));
   const isCandidate = role === "candidate";
@@ -1111,9 +1113,9 @@ export function JobSeekerFlow({
     return (
       <>
         {nav}
-        <section className="hero">
-          <div className="view-pill">{isCandidate ? "Zjob Detail" : "Job Detail"}</div>
-          <p className="tag">Zjobly</p>
+      <section className="hero">
+        <div className="view-pill">{isCandidate ? "Zjob Detail" : "Job Detail"}</div>
+        <p className="tag">Zjobly</p>
           {jobsLoading && <p className="hint">Loading jobs...</p>}
           {jobsError && <p className="error">{jobsError}</p>}
           {!job && !jobsLoading && (
@@ -1190,6 +1192,19 @@ export function JobSeekerFlow({
                         {keyword}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+              {job && isEmployer && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Matched candidates</h2>
+                      <p className="hint">See who matches this job based on skills and location.</p>
+                    </div>
+                    <button type="button" className="ghost" onClick={() => onViewMatches(job.id)}>
+                      View matches
+                    </button>
                   </div>
                 </div>
               )}

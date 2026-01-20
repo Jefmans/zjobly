@@ -12,7 +12,8 @@ export type ViewMode =
   | 'candidates'
   | 'candidateFavorites'
   | 'candidateDetail'
-  | 'invitations';
+  | 'invitations'
+  | 'jobMatches';
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';

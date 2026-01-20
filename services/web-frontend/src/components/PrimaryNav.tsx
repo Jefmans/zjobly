@@ -66,7 +66,7 @@ export function PrimaryNav({
   const employerItems: NavItem[] = [
     {
       label: "My jobs",
-      isActive: view === "jobs" || view === "jobDetail",
+      isActive: view === "jobs" || view === "jobDetail" || view === "jobMatches",
       onClick: onMyJobs,
     },
     {

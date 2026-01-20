@@ -3,6 +3,7 @@ import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
 import { CandidateProfileView } from './components/CandidateProfileView';
+import { CandidateMatchesView } from './components/CandidateMatchesView';
 import { CandidateFavoritesView } from './components/CandidateFavoritesView';
 import { CandidateInvitationsView } from './components/CandidateInvitationsView';
 import { CandidateDetailView } from './components/CandidateDetailView';
@@ -121,6 +122,7 @@ const getStoredView = (): ViewMode => {
     if (stored === 'applications' && storedRole === 'candidate') return 'applications';
     if (stored === 'candidates' && storedRole === 'employer') return 'candidates';
     if (stored === 'candidateFavorites' && storedRole === 'employer') return 'candidateFavorites';
+    if (stored === 'jobMatches' && storedRole === 'employer') return 'jobMatches';
     if (stored === 'invitations' && storedRole) return 'invitations';
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'profile' && storedRole === 'candidate') return 'profile';
@@ -159,6 +161,9 @@ const getScreenLabel = (
   }
   if (view === 'candidateDetail') {
     return 'Screen:FindCandidates/Detail';
+  }
+  if (view === 'jobMatches') {
+    return 'Screen:MyJobs/Matches';
   }
   if (view === 'invitations') {
     return role === 'candidate'
@@ -202,7 +207,7 @@ function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedCandidateProfile, setSelectedCandidateProfile] = useState<CandidateProfile | null>(null);
   const [candidateSearchOrigin, setCandidateSearchOrigin] = useState<
-    'search' | 'applications' | 'favorites' | 'invitations'
+    'search' | 'applications' | 'favorites' | 'invitations' | 'matches'
   >('search');
   const [candidateFavorites, setCandidateFavorites] = useState<CandidateProfile[]>([]);
   const [candidateFavoritesLoading, setCandidateFavoritesLoading] = useState(false);
@@ -670,7 +675,10 @@ function App() {
 
   useEffect(() => {
     const shouldLoad =
-      view === 'candidates' || view === 'candidateDetail' || view === 'candidateFavorites';
+      view === 'candidates' ||
+      view === 'candidateDetail' ||
+      view === 'candidateFavorites' ||
+      view === 'jobMatches';
     if (!shouldLoad) return;
     void refreshCandidateFavorites();
   }, [view, refreshCandidateFavorites]);
@@ -680,6 +688,7 @@ function App() {
       view === 'candidates' ||
       view === 'candidateDetail' ||
       view === 'candidateFavorites' ||
+      view === 'jobMatches' ||
       view === 'invitations';
     if (!shouldLoad) return;
     void refreshEmployerInvitations();
@@ -698,6 +707,8 @@ function App() {
             ? 'candidateFavorites'
             : candidateSearchOrigin === 'invitations'
             ? 'invitations'
+            : candidateSearchOrigin === 'matches'
+            ? 'jobMatches'
             : 'candidates'
           : view;
       const shouldPersist =
@@ -707,6 +718,7 @@ function App() {
         ((view === 'candidates' ||
           view === 'candidateDetail' ||
           view === 'candidateFavorites' ||
+          view === 'jobMatches' ||
           view === 'invitations') &&
           role === 'employer') ||
         (view === 'find' && role === 'candidate') ||
@@ -1770,6 +1782,8 @@ function App() {
   const favoriteCandidateIds = new Set(candidateFavorites.map((candidate) => candidate.id));
   const canManageFavorites = role === 'employer' && Boolean(companyId);
   const canManageInvitations = role === 'employer' && Boolean(companyId);
+  const selectedJobForMatches =
+    selectedJobId ? jobs.find((job) => job.id === selectedJobId) ?? null : null;
   const invitationStatusByCandidateId = employerInvitations.reduce(
     (acc, invitation) => {
       acc[invitation.candidate_id] = invitation.status;
@@ -1782,6 +1796,8 @@ function App() {
       ? 'Back to applications'
       : candidateSearchOrigin === 'favorites'
       ? 'Back to favorites'
+      : candidateSearchOrigin === 'matches'
+      ? 'Back to matches'
       : candidateSearchOrigin === 'invitations'
       ? 'Back to invitations'
       : 'Back to results';
@@ -1841,6 +1857,15 @@ function App() {
     setView('jobs');
   };
 
+  const openJobMatches = (jobId: string) => {
+    setSelectedJobId(jobId);
+    goToEmployerView('jobMatches');
+  };
+
+  const backToJobDetail = () => {
+    goToEmployerView(selectedJobId ? 'jobDetail' : 'jobs');
+  };
+
   const goToCandidateSearch = () => {
     setSelectedCandidateProfile(null);
     setCandidateSearchOrigin('search');
@@ -1895,6 +1920,12 @@ function App() {
     goToEmployerView('candidateDetail');
   };
 
+  const openCandidateProfileFromMatches = (candidate: CandidateProfile) => {
+    setSelectedCandidateProfile(candidate);
+    setCandidateSearchOrigin('matches');
+    goToEmployerView('candidateDetail');
+  };
+
   const handleCandidateDetailBack = () => {
     setSelectedCandidateProfile(null);
     if (candidateSearchOrigin === 'applications') {
@@ -1903,6 +1934,10 @@ function App() {
     }
     if (candidateSearchOrigin === 'favorites') {
       goToEmployerView('candidateFavorites');
+      return;
+    }
+    if (candidateSearchOrigin === 'matches') {
+      goToEmployerView('jobMatches');
       return;
     }
     if (candidateSearchOrigin === 'invitations') {
@@ -2412,6 +2447,26 @@ function App() {
         onViewCandidate={openCandidateProfileFromSearch}
       />
 
+      <CandidateMatchesView
+        view={view}
+        nav={nav}
+        role={role}
+        job={selectedJobForMatches}
+        favoriteCandidateIds={favoriteCandidateIds}
+        favoriteUpdatingIds={favoriteUpdatingIds}
+        favoritesError={candidateFavoritesError}
+        canFavorite={canManageFavorites}
+        onAddFavorite={handleAddCandidateFavorite}
+        onRemoveFavorite={handleRemoveCandidateFavorite}
+        invitationStatusByCandidateId={invitationStatusByCandidateId}
+        inviteUpdatingIds={inviteUpdatingIds}
+        invitationsError={employerInvitationsError}
+        canInvite={canManageInvitations}
+        onInviteCandidate={handleInviteCandidate}
+        onViewCandidate={openCandidateProfileFromMatches}
+        onBackToJob={backToJobDetail}
+      />
+
       <JobSeekerFlow
         view={view}
         nav={nav}
@@ -2429,6 +2484,7 @@ function App() {
         publishingJobId={publishingJobId}
         unpublishingJobId={unpublishingJobId}
         onViewCandidateProfile={openCandidateProfileFromApplications}
+        onViewMatches={openJobMatches}
       />
     </main>
   );
