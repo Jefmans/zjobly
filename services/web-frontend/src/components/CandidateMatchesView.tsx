@@ -71,6 +71,9 @@ export function CandidateMatchesView({
     const parts = [details.city, details.region, details.country].filter(Boolean);
     return parts.length > 0 ? parts.join(", ") : "Location not provided";
   };
+  const uniqueErrors = Array.from(
+    new Set([favoritesError, invitationsError, error].filter(Boolean) as string[]),
+  );
 
   if (view !== "jobMatches") return null;
 
@@ -101,9 +104,11 @@ export function CandidateMatchesView({
           <>
             {!canFavorite && <p className="hint">Select a company to save favorites.</p>}
             {!canInvite && <p className="hint">Select a company to send invitations.</p>}
-            {favoritesError && <p className="error">{favoritesError}</p>}
-            {invitationsError && <p className="error">{invitationsError}</p>}
-            {error && <p className="error">{error}</p>}
+            {uniqueErrors.map((message) => (
+              <p key={message} className="error">
+                {message}
+              </p>
+            ))}
             {loading && <p className="hint">Loading matched candidates...</p>}
             {!loading && !error && candidates.length === 0 && (
               <p className="hint">No matches yet. Try updating the job description or keywords.</p>
