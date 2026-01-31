@@ -1596,6 +1596,35 @@ button[type='submit']:disabled {
   color: #cbd5e1;
 }
 
+.question-card {
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.question-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.question-text {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.question-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .job-card-left {
   text-align: left;
   min-width: 0;

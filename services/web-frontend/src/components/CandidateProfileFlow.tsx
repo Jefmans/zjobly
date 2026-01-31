@@ -1,5 +1,6 @@
-import { ChangeEvent, ReactNode, RefObject } from "react";
+import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from "react";
 import { formatDuration } from "../helpers";
+import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { CandidateProfileInput, CandidateStep, RecordedTake, RecordingState, Status, ViewMode } from "../types";
 
 type Props = {
@@ -134,6 +135,24 @@ export function CandidateProfileFlow({
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
   const showTranscript = !isEditingProfile;
   const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
+  const candidateQuestionSet = useMemo(
+    () => getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile),
+    [],
+  );
+  const candidateQuestions = candidateQuestionSet?.questions ?? [];
+  const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
+  const hasCandidateQuestions = candidateQuestions.length > 0;
+  const candidateQuestion =
+    hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
+      ? candidateQuestions[candidateQuestionIndex]
+      : "";
+  const canPrevCandidateQuestion = candidateQuestionIndex > 0;
+  const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
+
+  useEffect(() => {
+    if (candidateStep !== "record") return;
+    setCandidateQuestionIndex(0);
+  }, [candidateStep, candidateQuestionSet?.variant.id]);
 
   return (
     <>
@@ -379,6 +398,38 @@ export function CandidateProfileFlow({
                 </div>
 
                 <div className="panel record-panel">
+                  {hasCandidateQuestions && (
+                    <div className="question-card">
+                      <p className="question-label">
+                        Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
+                      </p>
+                      <p className="question-text">{candidateQuestion}</p>
+                      <div className="question-actions">
+                        <button
+                          type="button"
+                          className="ghost dark"
+                          onClick={() =>
+                            setCandidateQuestionIndex((prev) => Math.max(0, prev - 1))
+                          }
+                          disabled={!canPrevCandidateQuestion}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost dark"
+                          onClick={() =>
+                            setCandidateQuestionIndex((prev) =>
+                              Math.min(candidateQuestions.length - 1, prev + 1),
+                            )
+                          }
+                          disabled={!canNextCandidateQuestion}
+                        >
+                          Next question
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="panel-header">
                     <div>
                       <h2>Video recording</h2>

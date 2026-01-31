@@ -18,6 +18,7 @@ import {
   UserRole,
   ViewMode,
 } from "../types";
+import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 
 type Props = {
   view: ViewMode;
@@ -106,6 +107,19 @@ export function JobSeekerFlow({
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
   const displayJob = selectedJob ?? selectedJobSnapshot ?? undefined;
+  const applicationQuestionSet = useMemo(
+    () => getQuestionSet(VIDEO_QUESTION_CONFIG.application, { jobId: selectedJob?.id ?? null }),
+    [selectedJob?.id],
+  );
+  const applicationQuestions = applicationQuestionSet?.questions ?? [];
+  const [applyQuestionIndex, setApplyQuestionIndex] = useState(0);
+  const hasApplicationQuestions = applicationQuestions.length > 0;
+  const applicationQuestion =
+    hasApplicationQuestions && applyQuestionIndex < applicationQuestions.length
+      ? applicationQuestions[applyQuestionIndex]
+      : "";
+  const canPrevApplicationQuestion = applyQuestionIndex > 0;
+  const canNextApplicationQuestion = applyQuestionIndex < applicationQuestions.length - 1;
   const candidateApplicationByJobId = useMemo(() => {
     const map: Record<string, CandidateApplication> = {};
     candidateApplications.forEach((application) => {
@@ -319,6 +333,10 @@ export function JobSeekerFlow({
       resetApplyState();
     }
   }, [view]);
+  useEffect(() => {
+    if (view !== "apply") return;
+    setApplyQuestionIndex(0);
+  }, [view, applicationQuestionSet?.variant.id]);
   useEffect(() => {
     if (view !== "apply") return;
     if (!canApplyForSelectedJob || hasAppliedForSelectedJob) return;
@@ -1017,6 +1035,36 @@ export function JobSeekerFlow({
                 </div>
 
                 <div className="panel record-panel">
+                  {hasApplicationQuestions && (
+                    <div className="question-card">
+                      <p className="question-label">
+                        Question {applyQuestionIndex + 1} of {applicationQuestions.length}
+                      </p>
+                      <p className="question-text">{applicationQuestion}</p>
+                      <div className="question-actions">
+                        <button
+                          type="button"
+                          className="ghost dark"
+                          onClick={() => setApplyQuestionIndex((prev) => Math.max(0, prev - 1))}
+                          disabled={!canPrevApplicationQuestion}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost dark"
+                          onClick={() =>
+                            setApplyQuestionIndex((prev) =>
+                              Math.min(applicationQuestions.length - 1, prev + 1),
+                            )
+                          }
+                          disabled={!canNextApplicationQuestion}
+                        >
+                          Next question
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="panel-header">
                     <div>
                       <h2>Application video</h2>
