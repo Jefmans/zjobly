@@ -380,6 +380,10 @@ p {
   overflow: hidden;
 }
 
+.fullscreen-recorder .record-stage {
+  max-height: 60vh;
+}
+
 .record-placeholder {
   min-height: 360px;
   display: grid;
@@ -948,6 +952,10 @@ button[type='submit']:disabled {
   overflow: hidden;
   min-height: 320px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.fullscreen-recorder .record-screen {
+  height: min(60vh, 520px);
 }
 
 .live-video {
