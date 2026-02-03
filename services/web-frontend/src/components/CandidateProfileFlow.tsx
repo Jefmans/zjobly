@@ -142,6 +142,7 @@ export function CandidateProfileFlow({
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
+  const [showQuestionPrompt, setShowQuestionPrompt] = useState(true);
   const hasCandidateQuestions = candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
@@ -149,10 +150,15 @@ export function CandidateProfileFlow({
       : "";
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
   const canStartCountdown = questionCountdown === null;
+  const questionActionLabel = canNextCandidateQuestion ? "Next question" : "Restart question";
   const handleNextQuestion = () => {
+    if (recordingState === "recording") {
+      pauseRecording();
+    }
     setCandidateQuestionIndex((prev) =>
       canNextCandidateQuestion ? Math.min(candidateQuestions.length - 1, prev + 1) : prev,
     );
+    setShowQuestionPrompt(true);
     setQuestionCountdown(3);
   };
 
@@ -160,11 +166,13 @@ export function CandidateProfileFlow({
     if (candidateStep !== "record") return;
     setCandidateQuestionIndex(0);
     setQuestionCountdown(null);
+    setShowQuestionPrompt(true);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
   useEffect(() => {
     if (questionCountdown === null) return;
     if (questionCountdown <= 0) {
       setQuestionCountdown(null);
+      setShowQuestionPrompt(false);
       if (recordingState === "paused") {
         resumeRecording();
       } else if (recordingState === "idle") {
@@ -177,6 +185,12 @@ export function CandidateProfileFlow({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [questionCountdown, recordingState, resumeRecording, startRecording]);
+  useEffect(() => {
+    if (!hasCandidateQuestions) return;
+    if (recordingState === "recording" && questionCountdown === null) {
+      setShowQuestionPrompt(false);
+    }
+  }, [recordingState, questionCountdown, hasCandidateQuestions]);
 
   return (
     <>
@@ -371,7 +385,7 @@ export function CandidateProfileFlow({
                             <span className="record-max">/ 3:00</span>
                           </div>
                         </div>
-                        {hasCandidateQuestions && (
+                        {hasCandidateQuestions && showQuestionPrompt && (
                           <div className="overlay-center">
                             <div className="question-overlay">
                               <p className="question-label">
@@ -384,19 +398,21 @@ export function CandidateProfileFlow({
                                   <span className="question-countdown-value">{questionCountdown}</span>
                                 </div>
                               )}
+                            </div>
+                          </div>
+                        )}
+                        <div className="overlay-bottom">
+                          <div className="overlay-actions-left">
+                            {hasCandidateQuestions && (
                               <button
                                 type="button"
                                 className="cta primary question-cta"
                                 onClick={handleNextQuestion}
                                 disabled={!canStartCountdown}
                               >
-                                {canNextCandidateQuestion ? "Next question" : "Restart question"}
+                                {questionActionLabel}
                               </button>
-                            </div>
-                          </div>
-                        )}
-                        <div className="overlay-bottom">
-                          <div className="overlay-actions-left">
+                            )}
                             <button type="button" className="ghost dark" onClick={onBackToWelcome}>
                               Cancel
                             </button>
