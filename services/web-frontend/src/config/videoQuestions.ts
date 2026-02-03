@@ -14,6 +14,12 @@ export type VideoQuestionConfig = {
   jobVariantOverrides?: Record<string, string>;
 };
 
+export type JobQuestionOverride = {
+  enabled: boolean;
+  questions: string[];
+  updatedAt?: string;
+};
+
 const candidateProfileQuestions: VideoQuestionConfig = {
   enabled: true,
   storageKey: "candidate-profile",
@@ -57,6 +63,51 @@ export const VIDEO_QUESTION_CONFIG = {
 };
 
 const STORAGE_PREFIX = "zjobly-question-variant:";
+const JOB_OVERRIDE_PREFIX = "zjobly-job-questions:";
+
+const isJobOverride = (value: unknown): value is JobQuestionOverride => {
+  if (!value || typeof value !== "object") return false;
+  const record = value as { enabled?: unknown; questions?: unknown };
+  if (typeof record.enabled !== "boolean") return false;
+  if (!Array.isArray(record.questions)) return false;
+  return record.questions.every((question) => typeof question === "string");
+};
+
+export const getJobQuestionOverride = (jobId: string): JobQuestionOverride | null => {
+  if (!jobId) return null;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${JOB_OVERRIDE_PREFIX}${jobId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return isJobOverride(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveJobQuestionOverride = (
+  jobId: string,
+  override: JobQuestionOverride | null,
+): void => {
+  if (!jobId) return;
+  if (typeof window === "undefined") return;
+  try {
+    if (!override) {
+      window.localStorage.removeItem(`${JOB_OVERRIDE_PREFIX}${jobId}`);
+      return;
+    }
+    window.localStorage.setItem(
+      `${JOB_OVERRIDE_PREFIX}${jobId}`,
+      JSON.stringify({
+        ...override,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // ignore storage failures
+  }
+};
 
 const getEnabledVariants = (config: VideoQuestionConfig) =>
   config.variants.filter((variant) => (variant.enabled ?? true) && variant.questions.length > 0);
@@ -88,8 +139,14 @@ const pickAssignedVariant = (config: VideoQuestionConfig, variants: VideoQuestio
 
 export const getQuestionSet = (
   config: VideoQuestionConfig,
-  options?: { jobId?: string | null },
+  options?: { jobId?: string | null; jobOverride?: JobQuestionOverride | null },
 ): { variant: VideoQuestionVariant; questions: string[] } | null => {
+  if (options?.jobOverride?.enabled && options.jobOverride.questions.length > 0) {
+    return {
+      variant: { id: "job-override", label: "Job override", questions: options.jobOverride.questions },
+      questions: options.jobOverride.questions,
+    };
+  }
   if (!config.enabled) return null;
   const variants = getEnabledVariants(config);
   if (variants.length === 0) return null;

@@ -18,7 +18,12 @@ import {
   UserRole,
   ViewMode,
 } from "../types";
-import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
+import {
+  getJobQuestionOverride,
+  getQuestionSet,
+  saveJobQuestionOverride,
+  VIDEO_QUESTION_CONFIG,
+} from "../config/videoQuestions";
 
 type Props = {
   view: ViewMode;
@@ -93,6 +98,10 @@ export function JobSeekerFlow({
   const [candidateApplicationsLoading, setCandidateApplicationsLoading] = useState(false);
   const [candidateApplicationsError, setCandidateApplicationsError] = useState<string | null>(null);
   const [selectedJobSnapshot, setSelectedJobSnapshot] = useState<Job | null>(null);
+  const [jobQuestionText, setJobQuestionText] = useState("");
+  const [jobQuestionEnabled, setJobQuestionEnabled] = useState(false);
+  const [jobQuestionError, setJobQuestionError] = useState<string | null>(null);
+  const [jobQuestionSaved, setJobQuestionSaved] = useState(false);
   const [candidateJobAvailability, setCandidateJobAvailability] = useState<"unknown" | "open" | "closed">("unknown");
   const [candidateJobAvailabilityChecking, setCandidateJobAvailabilityChecking] = useState(false);
   const [candidateJobAvailabilityError, setCandidateJobAvailabilityError] = useState<string | null>(null);
@@ -107,9 +116,17 @@ export function JobSeekerFlow({
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
   const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
   const displayJob = selectedJob ?? selectedJobSnapshot ?? undefined;
-  const applicationQuestionSet = useMemo(
-    () => getQuestionSet(VIDEO_QUESTION_CONFIG.application, { jobId: selectedJob?.id ?? null }),
+  const jobQuestionOverride = useMemo(
+    () => (selectedJob ? getJobQuestionOverride(selectedJob.id) : null),
     [selectedJob?.id],
+  );
+  const applicationQuestionSet = useMemo(
+    () =>
+      getQuestionSet(VIDEO_QUESTION_CONFIG.application, {
+        jobId: selectedJob?.id ?? null,
+        jobOverride: jobQuestionOverride,
+      }),
+    [selectedJob?.id, jobQuestionOverride],
   );
   const applicationQuestions = applicationQuestionSet?.questions ?? [];
   const [applyQuestionIndex, setApplyQuestionIndex] = useState(0);
@@ -317,6 +334,26 @@ export function JobSeekerFlow({
       openJobDetail(jobId);
     }
   };
+  const parseJobQuestions = (value: string) =>
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  const handleSaveJobQuestions = () => {
+    if (!selectedJob) return;
+    setJobQuestionError(null);
+    setJobQuestionSaved(false);
+    const questions = parseJobQuestions(jobQuestionText);
+    if (jobQuestionEnabled && questions.length === 0) {
+      setJobQuestionError("Add at least one question or disable the job-specific set.");
+      return;
+    }
+    saveJobQuestionOverride(selectedJob.id, {
+      enabled: jobQuestionEnabled,
+      questions,
+    });
+    setJobQuestionSaved(true);
+  };
 
   useEffect(() => {
     resetApplyState();
@@ -327,6 +364,20 @@ export function JobSeekerFlow({
       setSelectedJobSnapshot(selectedJob);
     }
   }, [selectedJob]);
+  useEffect(() => {
+    if (!selectedJob) {
+      setJobQuestionText("");
+      setJobQuestionEnabled(false);
+      setJobQuestionError(null);
+      setJobQuestionSaved(false);
+      return;
+    }
+    const override = getJobQuestionOverride(selectedJob.id);
+    setJobQuestionText(override?.questions.join("\n") ?? "");
+    setJobQuestionEnabled(override?.enabled ?? false);
+    setJobQuestionError(null);
+    setJobQuestionSaved(false);
+  }, [selectedJob?.id]);
 
   useEffect(() => {
     if (view !== "jobDetail" && view !== "apply") {
@@ -1240,6 +1291,67 @@ export function JobSeekerFlow({
                         {keyword}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+              {job && isEmployer && (
+                <div className="panel">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Application questions</h2>
+                      <p className="hint">
+                        Customize the questions candidates see while recording their application.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="field checkbox-field">
+                    <label htmlFor="jobQuestionEnabled" className="toggle">
+                      <input
+                        id="jobQuestionEnabled"
+                        name="jobQuestionEnabled"
+                        type="checkbox"
+                        checked={jobQuestionEnabled}
+                        onChange={(event) => {
+                          setJobQuestionEnabled(event.target.checked);
+                          setJobQuestionSaved(false);
+                        }}
+                      />
+                      <span className="toggle-track" aria-hidden="true">
+                        <span className="toggle-thumb" />
+                      </span>
+                      <span className="toggle-copy">
+                        <span className="toggle-title">Enable job-specific questions</span>
+                        <span className="toggle-sub">
+                          Overrides the default application question set for this job.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="jobQuestionText">Questions (one per line)</label>
+                    <textarea
+                      id="jobQuestionText"
+                      name="jobQuestionText"
+                      rows={5}
+                      value={jobQuestionText}
+                      onChange={(event) => {
+                        setJobQuestionText(event.target.value);
+                        setJobQuestionSaved(false);
+                      }}
+                      placeholder="Add one question per line"
+                    />
+                    <p className="hint">
+                      Candidates will navigate these while recording their application video.
+                    </p>
+                  </div>
+                  {jobQuestionError && <p className="error">{jobQuestionError}</p>}
+                  {jobQuestionSaved && (
+                    <p className="success">Saved. Candidates will see the updated questions.</p>
+                  )}
+                  <div className="panel-actions">
+                    <button type="button" className="cta primary" onClick={handleSaveJobQuestions}>
+                      Save questions
+                    </button>
                   </div>
                 </div>
               )}
