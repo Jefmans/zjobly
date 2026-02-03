@@ -1,4 +1,4 @@
-import rawConfig from "../../../../config/appConfig.json";
+import rawConfig from "./appConfig.json";
 
 export type AppConfig = typeof rawConfig;
 
