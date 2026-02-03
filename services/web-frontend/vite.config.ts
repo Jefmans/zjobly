@@ -9,7 +9,7 @@ export default defineConfig({
     port: 5173,
     allowedHosts: ['zjobly.com', 'www.zjobly.com'],
     fs: {
-      allow: [path.resolve(__dirname, '..', '..', 'config')],
+      allow: [path.resolve(__dirname), path.resolve(__dirname, '..', '..', 'config')],
     },
   },
 });
