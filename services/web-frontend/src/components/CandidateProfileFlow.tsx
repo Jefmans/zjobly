@@ -141,18 +141,42 @@ export function CandidateProfileFlow({
   );
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
+  const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const hasCandidateQuestions = candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
       : "";
-  const canPrevCandidateQuestion = candidateQuestionIndex > 0;
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
+  const canStartCountdown = questionCountdown === null;
+  const handleNextQuestion = () => {
+    setCandidateQuestionIndex((prev) =>
+      canNextCandidateQuestion ? Math.min(candidateQuestions.length - 1, prev + 1) : prev,
+    );
+    setQuestionCountdown(3);
+  };
 
   useEffect(() => {
     if (candidateStep !== "record") return;
     setCandidateQuestionIndex(0);
+    setQuestionCountdown(null);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
+  useEffect(() => {
+    if (questionCountdown === null) return;
+    if (questionCountdown <= 0) {
+      setQuestionCountdown(null);
+      if (recordingState === "paused") {
+        resumeRecording();
+      } else if (recordingState === "idle") {
+        startRecording();
+      }
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setQuestionCountdown((prev) => (prev === null ? null : prev - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [questionCountdown, recordingState, resumeRecording, startRecording]);
 
   return (
     <>
@@ -347,6 +371,30 @@ export function CandidateProfileFlow({
                             <span className="record-max">/ 3:00</span>
                           </div>
                         </div>
+                        {hasCandidateQuestions && (
+                          <div className="overlay-center">
+                            <div className="question-overlay">
+                              <p className="question-label">
+                                Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
+                              </p>
+                              <p className="question-text">{candidateQuestion}</p>
+                              {questionCountdown !== null && (
+                                <div className="question-countdown">
+                                  <span className="question-countdown-label">Starting in</span>
+                                  <span className="question-countdown-value">{questionCountdown}</span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="cta primary question-cta"
+                                onClick={handleNextQuestion}
+                                disabled={!canStartCountdown}
+                              >
+                                {canNextCandidateQuestion ? "Next question" : "Restart question"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         <div className="overlay-bottom">
                           <div className="overlay-actions-left">
                             <button type="button" className="ghost dark" onClick={onBackToWelcome}>
@@ -398,38 +446,6 @@ export function CandidateProfileFlow({
                 </div>
 
                 <div className="panel record-panel">
-                  {hasCandidateQuestions && (
-                    <div className="question-card">
-                      <p className="question-label">
-                        Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
-                      </p>
-                      <p className="question-text">{candidateQuestion}</p>
-                      <div className="question-actions">
-                        <button
-                          type="button"
-                          className="ghost dark"
-                          onClick={() =>
-                            setCandidateQuestionIndex((prev) => Math.max(0, prev - 1))
-                          }
-                          disabled={!canPrevCandidateQuestion}
-                        >
-                          Previous
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost dark"
-                          onClick={() =>
-                            setCandidateQuestionIndex((prev) =>
-                              Math.min(candidateQuestions.length - 1, prev + 1),
-                            )
-                          }
-                          disabled={!canNextCandidateQuestion}
-                        >
-                          Next question
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   <div className="panel-header">
                     <div>
                       <h2>Video recording</h2>

@@ -990,6 +990,12 @@ button[type='submit']:disabled {
   pointer-events: auto;
 }
 
+.overlay-center {
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -1602,6 +1608,54 @@ button[type='submit']:disabled {
 
 .record-panel .hint {
   color: #cbd5e1;
+}
+
+.question-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem 1.5rem;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  max-width: min(520px, 90%);
+}
+
+.question-overlay .question-label {
+  color: #cbd5e1;
+}
+
+.question-overlay .question-text {
+  color: #f8fafc;
+  font-size: 1.15rem;
+}
+
+.question-countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.question-countdown-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+}
+
+.question-countdown-value {
+  font-size: 2rem;
+}
+
+.question-cta {
+  width: min(260px, 100%);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
 }
 
 .question-card {
