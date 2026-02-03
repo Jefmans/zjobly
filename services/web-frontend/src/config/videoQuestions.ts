@@ -1,3 +1,5 @@
+import { appConfig } from "./appConfig";
+
 export type VideoQuestionVariant = {
   id: string;
   label: string;
@@ -21,39 +23,25 @@ export type JobQuestionOverride = {
 };
 
 const candidateProfileQuestions: VideoQuestionConfig = {
-  enabled: true,
+  enabled: Boolean(appConfig.questions.candidateProfile.enabled),
   storageKey: "candidate-profile",
-  assignment: "fixed",
-  variants: [
-    {
-      id: "baseline",
-      label: "Baseline",
-      questions: [
-        "Where are you looking for a job?",
-        "What is your education? Where did you study?",
-        "What do you like in a job?",
-        "What are your strengths and weaknesses?",
-        "What are your strongest skills?",
-      ],
-    },
-  ],
+  assignment: appConfig.questions.candidateProfile.assignment === "random" ? "random" : "fixed",
+  variants: appConfig.questions.candidateProfile.variants.map((variant) => ({
+    id: variant.id,
+    label: variant.label,
+    questions: variant.questions,
+  })),
 };
 
 const applicationQuestions: VideoQuestionConfig = {
-  enabled: false,
+  enabled: Boolean(appConfig.questions.application.enabled),
   storageKey: "application-video",
-  assignment: "fixed",
-  variants: [
-    {
-      id: "baseline",
-      label: "Baseline",
-      questions: [
-        "Why do you want this job?",
-        "What would your first 90 days look like?",
-        "Which skills make you a strong fit?",
-      ],
-    },
-  ],
+  assignment: appConfig.questions.application.assignment === "random" ? "random" : "fixed",
+  variants: appConfig.questions.application.variants.map((variant) => ({
+    id: variant.id,
+    label: variant.label,
+    questions: variant.questions,
+  })),
   jobVariantOverrides: {},
 };
 
