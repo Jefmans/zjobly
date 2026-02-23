@@ -24,7 +24,6 @@ type Props = {
   goToStep: (step: CreateStep) => void;
   onSaveVideo: () => void;
   onSaveJob: (publish: boolean) => void;
-  onBackToWelcome: () => void;
   recorderOpen: boolean;
   recordingState: RecordingState;
   videoUrl: string | null;
@@ -66,7 +65,6 @@ export function JobCreationFlow({
   goToStep,
   onSaveVideo,
   onSaveJob,
-  onBackToWelcome,
   recorderOpen,
   recordingState,
   videoUrl,
@@ -322,11 +320,6 @@ export function JobCreationFlow({
                           </div>
                         </div>
                         <div className="overlay-bottom">
-                          <div className="overlay-actions-left">
-                            <button type="button" className="ghost dark" onClick={onBackToWelcome}>
-                              Cancel
-                            </button>
-                          </div>
                           <div className="overlay-actions-right">
                             <div className="record-controls">
                               <button
@@ -401,9 +394,6 @@ export function JobCreationFlow({
                   <p className="hint">Choose a take or upload a file, then save it.</p>
                   {videoSaved && <span className="pill">Video saved</span>}
                 </div>
-                <button type="button" className="ghost" onClick={onBackToWelcome}>
-                  Cancel
-                </button>
               </div>
 
               <div className="video-preview">
@@ -442,7 +432,7 @@ export function JobCreationFlow({
                   <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
                   <div className="upload-copy">
                     <strong>Select a video file</strong>
-                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                    <span>MP4, MOV, WEBM - up to {maxVideoLabel}</span>
                   </div>
                 </div>
               </div>

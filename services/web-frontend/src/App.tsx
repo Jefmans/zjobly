@@ -2302,7 +2302,6 @@ function App() {
         goToStep={goToStep}
         onSaveVideo={saveVideo}
         onSaveJob={saveJob}
-        onBackToWelcome={backToWelcome}
         recorderOpen={recorderOpen}
         recordingState={recordingState}
         videoUrl={videoUrl}

@@ -551,7 +551,7 @@ export function CandidateProfileFlow({
                   <input id="candidate-video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
                   <div className="upload-copy">
                     <strong>Select a video file</strong>
-                    <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                    <span>MP4, MOV, WEBM - up to {maxVideoLabel}</span>
                   </div>
                 </div>
               </div>
@@ -574,9 +574,6 @@ export function CandidateProfileFlow({
                 <div className="notice">
                   {processingMessage || "Processing your video (transcription/indexing) ..."}
                 </div>
-              )}
-              {status === "success" && (
-                null
               )}
 
               <div className="panel-actions split">

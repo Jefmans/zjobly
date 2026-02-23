@@ -1151,7 +1151,7 @@ export function JobSeekerFlow({
                     />
                     <div className="upload-copy">
                       <strong>Select a video file</strong>
-                      <span>MP4, MOV, WEBM - up to 3 minutes</span>
+                      <span>MP4, MOV, WEBM - up to {maxVideoLabel}</span>
                     </div>
                   </div>
                   {applyDuration !== null && (
