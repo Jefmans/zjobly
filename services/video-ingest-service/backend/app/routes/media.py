@@ -43,7 +43,7 @@ async def create_upload_url(payload: UploadUrlRequest) -> UploadUrlResponse:
 
 @router.post("/confirm-upload", response_model=ConfirmUploadResponse)
 async def confirm_upload(payload: ConfirmUploadRequest) -> ConfirmUploadResponse:
-    # Enqueue processing; the task is a placeholder until the pipeline is implemented.
+    # Enqueue media processing for transcription/indexing.
     celery_app.send_task(
         "media.process_upload",
         args=[payload.object_key, settings.S3_BUCKET_RAW],
@@ -69,7 +69,7 @@ def _pick_chunk_filename(chunk_index: int, file_name: str | None, content_type: 
             ext = "ogg"
         elif content_type and "wav" in content_type:
             ext = "wav"
-        elif content_type and "mp4" in content_type or (content_type and "aac" in content_type):
+        elif content_type and ("mp4" in content_type or "aac" in content_type):
             ext = "m4a"
         else:
             ext = "webm"
@@ -118,6 +118,8 @@ async def confirm_audio_chunk(payload: AudioChunkConfirmRequest) -> AudioChunkCo
             kwargs={"bucket": settings.S3_BUCKET_RAW},
         )
         return AudioChunkConfirmResponse(status="queued", object_key=payload.object_key)
+    except HTTPException:
+        raise
     except Exception as exc:  # pragma: no cover - defensive wrapper
         raise HTTPException(status_code=500, detail="Could not queue audio chunk") from exc
 
