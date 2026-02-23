@@ -9,6 +9,7 @@ from openai import OpenAI
 
 from app import storage
 from app.config import settings
+from app.system_config import get_runtime_float, get_runtime_int
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,8 @@ celery_app.conf.task_default_queue = "media"
 _openai_client: Optional[OpenAI] = None
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
 DEFAULT_CHUNK_SECONDS = 5.0
+OPENAI_MAX_BYTES = get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
+DEFAULT_CHUNK_SECONDS = get_runtime_float(("workers", "audioChunkFallbackSeconds"), DEFAULT_CHUNK_SECONDS)
 
 
 def get_openai_client() -> OpenAI:

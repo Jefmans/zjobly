@@ -1,0 +1,63 @@
+{
+  "questions": {
+    "candidateProfile": {
+      "enabled": true,
+      "assignment": "fixed",
+      "variants": [
+        {
+          "id": "baseline",
+          "label": "Baseline",
+          "questions": [
+            {
+              "id": "candidate-job-type",
+              "text": "What kind of job are you looking for?",
+              "goals": ["role_preferences"]
+            },
+            {
+              "id": "candidate-location",
+              "text": "Where are you looking for a job?",
+              "goals": ["location"]
+            },
+            {
+              "id": "candidate-education",
+              "text": "What is your education? Where did you study?",
+              "goals": ["education"]
+            },
+            {
+              "id": "candidate-job-values",
+              "text": "What do you like in a job?",
+              "goals": ["preferences"]
+            }
+          ]
+        }
+      ]
+    },
+    "application": {
+      "enabled": false,
+      "assignment": "fixed",
+      "variants": [
+        {
+          "id": "baseline",
+          "label": "Baseline",
+          "questions": [
+            {
+              "id": "application-motivation",
+              "text": "Why do you want this job?",
+              "goals": ["motivation"]
+            },
+            {
+              "id": "application-first-90-days",
+              "text": "What would your first 90 days look like?",
+              "goals": ["plan"]
+            },
+            {
+              "id": "application-skills-fit",
+              "text": "Which skills make you a strong fit?",
+              "goals": ["skills"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "video": {
+    "maxDurationSeconds": 180,
+    "questionCountdownSeconds": 1,
+    "audioChunkMs": 5000,
+    "audioTranscriptPollMs": 3000,
+    "enableAudioChunks": false
+  },
+  "transcript": {
+    "autoDraftMinChars": 30,
+    "jobDraftMinChars": 30,
+    "profileDraftMinChars": 20
+  },
+  "workers": {
+    "openAiMaxUploadBytes": 26214400,
+    "audioChunkFallbackSeconds": 5.0
+  },
+  "processing": {
+    "stubPollIntervalMs": 2000,
+    "stubSuccessAfterAttempts": 3
+  }
+}

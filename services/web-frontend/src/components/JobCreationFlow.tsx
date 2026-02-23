@@ -7,6 +7,7 @@ import {
   ViewMode,
 } from "../types";
 import { formatDuration } from "../helpers";
+import { runtimeConfig } from "../config/runtimeConfig";
 
 type Props = {
   view: ViewMode;
@@ -118,6 +119,8 @@ export function JobCreationFlow({
   const canStop = recordingState === "recording" || recordingState === "paused";
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
+  const maxVideoLabel =
+    formatDuration(runtimeConfig.video?.maxDurationSeconds ?? 180) ?? "3:00";
 
   return (
     <>
@@ -127,7 +130,7 @@ export function JobCreationFlow({
         <p className="tag">Zjobly</p>
         <h1>Post a role with a video intro</h1>
         <p className="lede">
-          Record a quick clip (hard stop at 3:00), select the take you want, save it, then complete and save the job details.
+          Record a quick clip (hard stop at {maxVideoLabel}), select the take you want, save it, then complete and save the job details.
         </p>
 
         <div className="stepper">
@@ -315,7 +318,7 @@ export function JobCreationFlow({
                             <span>
                               {isActiveRecording ? recordLabel ?? "0:00" : durationLabel ?? recordLabel ?? "0:00"}
                             </span>
-                            <span className="record-max">/ 3:00</span>
+                            <span className="record-max">/ {maxVideoLabel}</span>
                           </div>
                         </div>
                         <div className="overlay-bottom">
@@ -434,7 +437,7 @@ export function JobCreationFlow({
               </div>
 
               <div className="field">
-                <label htmlFor="video">Upload instead (max 3:00)</label>
+                <label htmlFor="video">Upload instead (max {maxVideoLabel})</label>
                 <div className="upload-box">
                   <input id="video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
                   <div className="upload-copy">

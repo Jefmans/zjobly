@@ -13,6 +13,7 @@ import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
 import { TopNav } from './components/TopNav';
+import { runtimeConfig } from './config/runtimeConfig';
 import {
   confirmUpload,
   confirmAudioChunk,
@@ -61,10 +62,24 @@ import {
   ViewMode,
 } from './types';
 
-const MAX_VIDEO_SECONDS = 180; // Hard 3-minute cap for recordings/uploads
-const AUDIO_CHUNK_MS = 5000; // Chunk audio every 5s for faster partial transcripts
-const AUDIO_TRANSCRIPT_POLL_MS = 3000;
-const MIN_TRANSCRIPT_FOR_DRAFT = 30;
+const getPositiveNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const MAX_VIDEO_SECONDS = getPositiveNumber(
+  runtimeConfig.video?.maxDurationSeconds,
+  180,
+);
+const AUDIO_CHUNK_MS = getPositiveNumber(runtimeConfig.video?.audioChunkMs, 5000);
+const AUDIO_TRANSCRIPT_POLL_MS = getPositiveNumber(
+  runtimeConfig.video?.audioTranscriptPollMs,
+  3000,
+);
+const MIN_TRANSCRIPT_FOR_DRAFT = getPositiveNumber(
+  runtimeConfig.transcript?.autoDraftMinChars,
+  30,
+);
 const INITIAL_FORM_STATE = { title: '', location: '', description: '', companyName: '' };
 const ROLE_STORAGE_KEY = 'zjobly-user-role';
 const VIEW_STORAGE_KEY = 'zjobly-view';
@@ -76,8 +91,15 @@ const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   summary: '',
   discoverable: true,
 };
-// Disable chunked audio uploads; record/upload full files only.
-const ENABLE_AUDIO_CHUNKS = false;
+const ENABLE_AUDIO_CHUNKS = Boolean(runtimeConfig.video?.enableAudioChunks);
+const PROCESSING_STUB_INTERVAL_MS = getPositiveNumber(
+  runtimeConfig.processing?.stubPollIntervalMs,
+  2000,
+);
+const PROCESSING_STUB_SUCCESS_AFTER_ATTEMPTS = getPositiveNumber(
+  runtimeConfig.processing?.stubSuccessAfterAttempts,
+  3,
+);
 const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
   const fallback = (suggestion.location || '').trim();
   const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
@@ -616,7 +638,7 @@ function App() {
     processingTimerRef.current = window.setInterval(() => {
       attempts += 1;
       // Stubbed status: after a few ticks, mark as ready. Replace with a real status endpoint.
-      if (attempts >= 3) {
+      if (attempts >= PROCESSING_STUB_SUCCESS_AFTER_ATTEMPTS) {
         clearProcessingTimer();
         setProcessingMessage('Processing complete (stub). Ready for job details.');
         setStatus('success');
@@ -624,7 +646,7 @@ function App() {
         setProcessingMessage('Processing your video (stub status)...');
         setStatus('processing');
       }
-    }, 2000);
+    }, PROCESSING_STUB_INTERVAL_MS);
   };
 
   useEffect(() => {

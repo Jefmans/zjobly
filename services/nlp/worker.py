@@ -15,8 +15,60 @@ celery_app = Celery(
 # Listen on a dedicated queue to avoid consuming media/transcription messages.
 celery_app.conf.task_default_queue = "nlp"
 
-PROMPT_CONFIG_PATH = Path(__file__).resolve().parent / "prompts" / "prompts.json"
+def _resolve_config_dir() -> Path:
+    explicit = (os.getenv("ZJOBLY_CONFIG_DIR") or "").strip()
+    if explicit:
+        return Path(explicit)
+    mounted = Path("/config")
+    if mounted.exists():
+        return mounted
+    repo_root = Path(__file__).resolve().parents[2]
+    root_config = repo_root / "config"
+    if root_config.exists():
+        return root_config
+    return Path(__file__).resolve().parent / "config"
+
+
+CONFIG_DIR = _resolve_config_dir()
+PROMPT_CONFIG_PATH = CONFIG_DIR / "prompts.json"
+RUNTIME_CONFIG_PATH = CONFIG_DIR / "runtime.json"
 _prompt_config_cache: dict[str, dict[str, object]] | None = None
+_runtime_config_cache: dict[str, object] | None = None
+
+
+def _load_runtime_config() -> dict[str, object]:
+    global _runtime_config_cache
+    if _runtime_config_cache is not None:
+        return _runtime_config_cache
+    if not RUNTIME_CONFIG_PATH.exists():
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    try:
+        parsed = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    if not isinstance(parsed, dict):
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    _runtime_config_cache = parsed
+    return _runtime_config_cache
+
+
+def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
+    current: object = _load_runtime_config()
+    for key in keys:
+        if not isinstance(current, dict):
+            return fallback
+        current = current.get(key)
+    try:
+        parsed = int(current)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
+
+
+JOB_DRAFT_MIN_TRANSCRIPT_CHARS = _get_runtime_int(("transcript", "jobDraftMinChars"), 30)
 
 
 def _load_prompt_config() -> dict[str, dict[str, object]]:
@@ -124,7 +176,7 @@ def _normalize_keywords(raw_keywords: object) -> list[str]:
 
 def generate_job_draft(transcript: str) -> dict[str, object]:
     transcript_clean = (transcript or "").strip()
-    if len(transcript_clean) < 30:
+    if len(transcript_clean) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
         raise ValueError("Transcript too short to generate a draft")
 
     llm, system_prompt = _build_chat_model("job_draft")

@@ -1,6 +1,7 @@
 import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from "react";
 import { formatDuration } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
+import { runtimeConfig } from "../config/runtimeConfig";
 import { CandidateProfileInput, CandidateStep, RecordedTake, RecordingState, Status, ViewMode } from "../types";
 
 type Props = {
@@ -98,6 +99,12 @@ export function CandidateProfileFlow({
   const canRecord = recordingState === "idle" || recordingState === "paused";
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
+  const questionCountdownSeconds = Math.max(
+    1,
+    Number(runtimeConfig.video?.questionCountdownSeconds) || 3,
+  );
+  const maxVideoLabel =
+    formatDuration(runtimeConfig.video?.maxDurationSeconds ?? 180) ?? "3:00";
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
   const transcriptSessionId = selectedTake?.audioSessionId;
   const transcript = transcriptSessionId
@@ -144,7 +151,7 @@ export function CandidateProfileFlow({
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
-      : "";
+      : null;
   const canPrevCandidateQuestion = candidateQuestionIndex > 0;
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
   const canStartCountdown = questionCountdown === null;
@@ -156,7 +163,7 @@ export function CandidateProfileFlow({
       pauseRecording();
     }
     setCandidateQuestionIndex((prev) => Math.max(0, prev - 1));
-    setQuestionCountdown(3);
+    setQuestionCountdown(questionCountdownSeconds);
   };
   const handleNextQuestion = () => {
     if (!canNextCandidateQuestion) {
@@ -167,7 +174,7 @@ export function CandidateProfileFlow({
       pauseRecording();
     }
     setCandidateQuestionIndex((prev) => Math.min(candidateQuestions.length - 1, prev + 1));
-    setQuestionCountdown(3);
+    setQuestionCountdown(questionCountdownSeconds);
   };
   const handleRecordAction = () => {
     if (!hasCandidateQuestions) {
@@ -175,7 +182,7 @@ export function CandidateProfileFlow({
       return;
     }
     if (!canStartCountdown) return;
-    setQuestionCountdown(3);
+    setQuestionCountdown(questionCountdownSeconds);
   };
 
   useEffect(() => {
@@ -390,7 +397,7 @@ export function CandidateProfileFlow({
                             <span>
                               {isActiveRecording ? recordLabel ?? "0:00" : durationLabel ?? recordLabel ?? "0:00"}
                             </span>
-                            <span className="record-max">/ 3:00</span>
+                            <span className="record-max">/ {maxVideoLabel}</span>
                           </div>
                         </div>
                         {hasCandidateQuestions && questionCountdown !== null && (
@@ -399,7 +406,7 @@ export function CandidateProfileFlow({
                               <p className="question-label">
                                 Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
                               </p>
-                              <p className="question-text">{candidateQuestion}</p>
+                              <p className="question-text">{candidateQuestion?.text ?? ""}</p>
                               <div className="question-countdown">
                                 <span className="question-countdown-label">Starting in</span>
                                 <span className="question-countdown-value">{questionCountdown}</span>
@@ -539,7 +546,7 @@ export function CandidateProfileFlow({
               </div>
 
               <div className="field">
-                <label htmlFor="candidate-video">Upload instead (max 3:00)</label>
+                <label htmlFor="candidate-video">Upload instead (max {maxVideoLabel})</label>
                 <div className="upload-box">
                   <input id="candidate-video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
                   <div className="upload-copy">

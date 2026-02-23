@@ -24,6 +24,7 @@ import {
   saveJobQuestionOverride,
   VIDEO_QUESTION_CONFIG,
 } from "../config/videoQuestions";
+import { runtimeConfig } from "../config/runtimeConfig";
 
 type Props = {
   view: ViewMode;
@@ -45,7 +46,10 @@ type Props = {
   onViewMatches: (jobId: string) => void;
 };
 
-const MAX_APPLICATION_VIDEO_SECONDS = 180;
+const MAX_APPLICATION_VIDEO_SECONDS = Math.max(
+  1,
+  Number(runtimeConfig.video?.maxDurationSeconds) || 180,
+);
 
 export function JobSeekerFlow({
   view,
@@ -134,7 +138,7 @@ export function JobSeekerFlow({
   const applicationQuestion =
     hasApplicationQuestions && applyQuestionIndex < applicationQuestions.length
       ? applicationQuestions[applyQuestionIndex]
-      : "";
+      : null;
   const canPrevApplicationQuestion = applyQuestionIndex > 0;
   const canNextApplicationQuestion = applyQuestionIndex < applicationQuestions.length - 1;
   const candidateApplicationByJobId = useMemo(() => {
@@ -978,6 +982,7 @@ export function JobSeekerFlow({
     const recorderOpen = Boolean(applyStream || applyVideoUrl);
     const recordLabel = formatDuration(applyRecordDuration) ?? "0:00";
     const durationLabel = formatDuration(applyDuration) ?? "0:00";
+    const maxVideoLabel = formatDuration(MAX_APPLICATION_VIDEO_SECONDS) ?? "3:00";
 
     return (
       <>
@@ -1027,7 +1032,7 @@ export function JobSeekerFlow({
                           </span>
                           <div className="record-timer">
                             <span>{isActiveRecording ? recordLabel : durationLabel}</span>
-                            <span className="record-max">/ 3:00</span>
+                            <span className="record-max">/ {maxVideoLabel}</span>
                           </div>
                         </div>
                         <div className="overlay-bottom">
@@ -1091,7 +1096,7 @@ export function JobSeekerFlow({
                       <p className="question-label">
                         Question {applyQuestionIndex + 1} of {applicationQuestions.length}
                       </p>
-                      <p className="question-text">{applicationQuestion}</p>
+                      <p className="question-text">{applicationQuestion?.text ?? ""}</p>
                       <div className="question-actions">
                         <button
                           type="button"

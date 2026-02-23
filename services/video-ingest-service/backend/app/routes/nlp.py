@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -13,6 +12,7 @@ from openai import OpenAI
 
 from app import storage
 from app.config import settings
+from app.system_config import get_prompts_config, get_runtime_int
 import spacy
 from spacy.language import Language
 
@@ -32,6 +32,9 @@ _openai_client: OpenAI | None = None
 _spacy_nlp_cache: dict[str, Language] = {}
 
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
+OPENAI_MAX_BYTES = get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
+JOB_DRAFT_MIN_TRANSCRIPT_CHARS = get_runtime_int(("transcript", "jobDraftMinChars"), 30)
+PROFILE_DRAFT_MIN_TRANSCRIPT_CHARS = get_runtime_int(("transcript", "profileDraftMinChars"), 20)
 
 
 def get_openai_client() -> OpenAI:
@@ -154,23 +157,10 @@ def _geocode_location(location: str) -> dict[str, Optional[str]]:
         return result
 
 
-PROMPT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "prompts" / "prompts.json"
-_prompt_config_cache: dict[str, dict[str, object]] | None = None
-
-
 def _load_prompt_config() -> dict[str, dict[str, object]]:
-    global _prompt_config_cache
-    if _prompt_config_cache is not None:
-        return _prompt_config_cache
-    if not PROMPT_CONFIG_PATH.exists():
-        raise HTTPException(status_code=500, detail="Prompt config file is missing.")
-    try:
-        parsed = json.loads(PROMPT_CONFIG_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail="Prompt config JSON is invalid.") from exc
-    if not isinstance(parsed, dict):
+    parsed = get_prompts_config()
+    if not parsed:
         raise HTTPException(status_code=500, detail="Prompt config must be a JSON object.")
-    _prompt_config_cache = parsed
     return parsed
 
 
@@ -408,7 +398,7 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
 @router.post("/job-draft", response_model=JobDraftResponse)
 def generate_job_draft(payload: JobDraftRequest) -> JobDraftResponse:
     transcript = payload.transcript.strip()
-    if len(transcript) < 30:
+    if len(transcript) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
 
     return _draft_from_transcript(transcript, payload.language)
@@ -421,7 +411,7 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
         raise HTTPException(status_code=400, detail="Missing object key")
 
     transcript = _transcribe_object(object_key).strip()
-    if len(transcript) < 30:
+    if len(transcript) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
 
     draft = _draft_from_transcript(transcript, payload.language)
@@ -432,6 +422,6 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
 @router.post("/profile-draft", response_model=ProfileDraftResponse)
 def generate_profile_draft(payload: ProfileDraftRequest) -> ProfileDraftResponse:
     transcript = payload.transcript.strip()
-    if len(transcript) < 20:
+    if len(transcript) < PROFILE_DRAFT_MIN_TRANSCRIPT_CHARS:
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a profile draft")
     return _draft_profile_from_transcript(transcript, payload.language)

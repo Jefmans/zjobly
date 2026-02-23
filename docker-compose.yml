@@ -132,6 +132,7 @@ services:
       context: ./services/web-frontend
     volumes:
       - ./services/web-frontend:/app
+      - ./config:/config:ro
       - frontend_node_modules:/app/node_modules
     command: npm run dev -- --host --port 5173
     labels:
@@ -164,6 +165,8 @@ services:
     environment:
       API_PREFIX: /videos
     depends_on: [postgres, redis, minio]
+    volumes:
+      - ./config:/config:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s
@@ -197,6 +200,8 @@ services:
     env_file:
       - ./.env
     depends_on: [postgres, redis, minio]
+    volumes:
+      - ./config:/config:ro
     deploy:
       resources:
         limits:
@@ -223,6 +228,8 @@ services:
       PGPASSWORD: app
       PGDATABASE: app
     depends_on: [redis, minio, postgres]
+    volumes:
+      - ./config:/config:ro
     labels:
       - traefik.enable=false
     restart: unless-stopped
@@ -242,6 +249,8 @@ services:
       PGPASSWORD: app
       PGDATABASE: app
     depends_on: [redis, postgres, elasticsearch]
+    volumes:
+      - ./config:/config:ro
     labels:
       - traefik.enable=false
     restart: unless-stopped

@@ -1,6 +1,8 @@
 import io
+import json
 import logging
 import os
+from pathlib import Path
 
 import boto3
 from botocore.client import BaseClient, Config
@@ -11,6 +13,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 DEFAULT_MEDIA_BUCKET = os.getenv("MINIO_BUCKET", "media")
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
+_runtime_config_cache: dict[str, object] | None = None
 
 celery_app = Celery(
     "transcription",
@@ -23,6 +26,58 @@ celery_app.conf.task_default_queue = "transcription"
 # OpenAI + MinIO clients are created lazily to keep workers reusable.
 _openai_client: OpenAI | None = None
 _s3_client: BaseClient | None = None
+
+
+def _resolve_config_dir() -> Path:
+    explicit = (os.getenv("ZJOBLY_CONFIG_DIR") or "").strip()
+    if explicit:
+        return Path(explicit)
+    mounted = Path("/config")
+    if mounted.exists():
+        return mounted
+    repo_root = Path(__file__).resolve().parents[2]
+    root_config = repo_root / "config"
+    if root_config.exists():
+        return root_config
+    return Path(__file__).resolve().parent / "config"
+
+
+RUNTIME_CONFIG_PATH = _resolve_config_dir() / "runtime.json"
+
+
+def _load_runtime_config() -> dict[str, object]:
+    global _runtime_config_cache
+    if _runtime_config_cache is not None:
+        return _runtime_config_cache
+    if not RUNTIME_CONFIG_PATH.exists():
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    try:
+        parsed = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    if not isinstance(parsed, dict):
+        _runtime_config_cache = {}
+        return _runtime_config_cache
+    _runtime_config_cache = parsed
+    return _runtime_config_cache
+
+
+def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
+    current: object = _load_runtime_config()
+    for key in keys:
+        if not isinstance(current, dict):
+            return fallback
+        current = current.get(key)
+    try:
+        parsed = int(current)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
+
+
+OPENAI_MAX_BYTES = _get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
 
 
 def get_openai_client() -> OpenAI:
