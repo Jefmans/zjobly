@@ -118,7 +118,7 @@ const normalizeVariants = (
         id,
         label,
         questions,
-        enabled: variant.enabled === false ? false : true,
+        enabled: variant.enabled !== false,
       } as VideoQuestionVariant;
     })
     .filter((variant): variant is VideoQuestionVariant => Boolean(variant));
@@ -130,7 +130,7 @@ const createQuestionConfig = (
   fallbackPrefix: string,
 ): VideoQuestionConfig => {
   return {
-    enabled: rawSet?.enabled === false ? false : true,
+    enabled: rawSet?.enabled !== false,
     storageKey,
     assignment: rawSet?.assignment === "random" ? "random" : "fixed",
     variants: normalizeVariants(rawSet?.variants, fallbackPrefix),
@@ -206,11 +206,11 @@ const getEnabledVariants = (config: VideoQuestionConfig) =>
   config.variants.filter((variant) => (variant.enabled ?? true) && variant.questions.length > 0);
 
 const pickVariantById = (variants: VideoQuestionVariant[], id?: string) =>
-  id ? variants.find((variant) => variant.id === id) ?? null : null;
+  variants.find((variant) => variant.id === id) ?? null;
 
 const pickAssignedVariant = (config: VideoQuestionConfig, variants: VideoQuestionVariant[]) => {
   const defaultVariant =
-    pickVariantById(variants, config.defaultVariantId) ?? (variants.length > 0 ? variants[0] : null);
+    pickVariantById(variants, config.defaultVariantId) ?? variants[0] ?? null;
   if (!defaultVariant) return null;
   if (config.assignment !== "random" || variants.length < 2) return defaultVariant;
 

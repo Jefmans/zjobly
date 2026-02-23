@@ -422,7 +422,7 @@ export function CandidateProfileFlow({
                                   type="button"
                                   className="ghost dark question-cta"
                                   onClick={handlePreviousQuestion}
-                                  disabled={!canPrevCandidateQuestion || !canStartCountdown}
+                                  disabled={!canPrevCandidateQuestion}
                                 >
                                   Previous
                                 </button>
@@ -430,7 +430,6 @@ export function CandidateProfileFlow({
                                   type="button"
                                   className="cta primary question-cta"
                                   onClick={handleNextQuestion}
-                                  disabled={!canStartCountdown}
                                 >
                                   {questionActionLabel}
                                 </button>

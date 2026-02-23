@@ -118,7 +118,7 @@ export function JobSeekerFlow({
   const applyDiscardRecordingRef = useRef<boolean>(false);
   const applyLiveVideoRef = useRef<HTMLVideoElement | null>(null);
   const applyPercent = typeof applyProgress === "number" ? Math.max(0, Math.min(100, applyProgress)) : null;
-  const selectedJob = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : undefined;
+  const selectedJob = jobs.find((job) => job.id === selectedJobId);
   const displayJob = selectedJob ?? selectedJobSnapshot ?? undefined;
   const jobQuestionOverride = useMemo(
     () => (selectedJob ? getJobQuestionOverride(selectedJob.id) : null),

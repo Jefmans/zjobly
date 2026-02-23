@@ -1805,8 +1805,7 @@ function App() {
   const favoriteCandidateIds = new Set(candidateFavorites.map((candidate) => candidate.id));
   const canManageFavorites = role === 'employer' && Boolean(companyId);
   const canManageInvitations = role === 'employer' && Boolean(companyId);
-  const selectedJobForMatches =
-    selectedJobId ? jobs.find((job) => job.id === selectedJobId) ?? null : null;
+  const selectedJobForMatches = jobs.find((job) => job.id === selectedJobId) ?? null;
   const invitationStatusByCandidateId = employerInvitations.reduce(
     (acc, invitation) => {
       acc[invitation.candidate_id] = invitation.status;
