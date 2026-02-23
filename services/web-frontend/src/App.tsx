@@ -100,6 +100,8 @@ const PROCESSING_STUB_SUCCESS_AFTER_ATTEMPTS = getPositiveNumber(
   runtimeConfig.processing?.stubSuccessAfterAttempts,
   3,
 );
+const SHOW_DEVELOPMENT_NAVIGATION =
+  runtimeConfig.ui?.showDevelopmentNavigation !== false;
 const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
   const fallback = (suggestion.location || '').trim();
   const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
@@ -757,8 +759,7 @@ function App() {
   }, [view, role, candidateSearchOrigin]);
 
   useEffect(() => {
-    const devNavEnabled = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
-    if (!devNavEnabled) return;
+    if (!SHOW_DEVELOPMENT_NAVIGATION) return;
     let isActive = true;
     setDevCompaniesLoading(true);
     setDevCandidatesLoading(true);
@@ -1795,7 +1796,7 @@ function App() {
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
-  const showDevNav = (import.meta.env.VITE_DEV_NAV ?? 'true').toString().toLowerCase() === 'true';
+  const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
   const filteredCandidateKeywords = filterKeywordsByLocation(
     candidateKeywords,

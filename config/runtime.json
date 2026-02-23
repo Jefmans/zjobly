@@ -18,5 +18,8 @@
   "processing": {
     "stubPollIntervalMs": 2000,
     "stubSuccessAfterAttempts": 3
+  },
+  "ui": {
+    "showDevelopmentNavigation": false
   }
 }
