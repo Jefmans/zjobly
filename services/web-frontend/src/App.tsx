@@ -2311,7 +2311,6 @@ function App() {
         nav={nav}
         candidateStep={candidateStep}
         goToStep={goToCandidateStep}
-        onBackToWelcome={backToWelcome}
         recorderOpen={recorderOpen}
         recordingState={recordingState}
         videoUrl={videoUrl}

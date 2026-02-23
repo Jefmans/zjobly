@@ -8,7 +8,6 @@ type Props = {
   nav: ReactNode;
   candidateStep: CandidateStep;
   goToStep: (step: CandidateStep) => void;
-  onBackToWelcome: () => void;
   recorderOpen: boolean;
   recordingState: RecordingState;
   videoUrl: string | null;
@@ -51,7 +50,6 @@ export function CandidateProfileFlow({
   nav,
   candidateStep,
   goToStep,
-  onBackToWelcome,
   recorderOpen,
   recordingState,
   videoUrl,
@@ -147,17 +145,28 @@ export function CandidateProfileFlow({
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
       : "";
+  const canPrevCandidateQuestion = candidateQuestionIndex > 0;
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
   const canStartCountdown = questionCountdown === null;
-  const questionActionLabel = canNextCandidateQuestion ? "Next question" : "Restart question";
-  const canShowNextQuestion = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
-  const handleNextQuestion = () => {
+  const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
+  const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
+  const handlePreviousQuestion = () => {
+    if (!canPrevCandidateQuestion) return;
     if (recordingState === "recording") {
       pauseRecording();
     }
-    setCandidateQuestionIndex((prev) =>
-      canNextCandidateQuestion ? Math.min(candidateQuestions.length - 1, prev + 1) : prev,
-    );
+    setCandidateQuestionIndex((prev) => Math.max(0, prev - 1));
+    setQuestionCountdown(3);
+  };
+  const handleNextQuestion = () => {
+    if (!canNextCandidateQuestion) {
+      stopRecording();
+      return;
+    }
+    if (recordingState === "recording") {
+      pauseRecording();
+    }
+    setCandidateQuestionIndex((prev) => Math.min(candidateQuestions.length - 1, prev + 1));
     setQuestionCountdown(3);
   };
   const handleRecordAction = () => {
@@ -400,19 +409,26 @@ export function CandidateProfileFlow({
                         )}
                         <div className="overlay-bottom">
                           <div className="overlay-actions-left">
-                            {canShowNextQuestion && (
-                              <button
-                                type="button"
-                                className="cta primary question-cta"
-                                onClick={handleNextQuestion}
-                                disabled={!canStartCountdown}
-                              >
-                                {questionActionLabel}
-                              </button>
+                            {canShowQuestionActions && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="ghost dark question-cta"
+                                  onClick={handlePreviousQuestion}
+                                  disabled={!canPrevCandidateQuestion || !canStartCountdown}
+                                >
+                                  Previous
+                                </button>
+                                <button
+                                  type="button"
+                                  className="cta primary question-cta"
+                                  onClick={handleNextQuestion}
+                                  disabled={!canStartCountdown}
+                                >
+                                  {questionActionLabel}
+                                </button>
+                              </>
                             )}
-                            <button type="button" className="ghost dark" onClick={onBackToWelcome}>
-                              Cancel
-                            </button>
                           </div>
                           <div className="overlay-actions-right">
                             <div className="record-controls">

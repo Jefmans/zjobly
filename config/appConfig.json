@@ -13,11 +13,10 @@
           "id": "baseline",
           "label": "Baseline",
           "questions": [
+            "What kind of job are you looking for?",
             "Where are you looking for a job?",
             "What is your education? Where did you study?",
-            "What do you like in a job?",
-            "What are your strengths and weaknesses?",
-            "What are your strongest skills?"
+            "What do you like in a job?"
           ]
         }
       ]
