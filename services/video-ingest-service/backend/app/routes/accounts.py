@@ -1,12 +1,20 @@
+from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_session
 from app import models
 from app import storage
+from app.auth import (
+    generate_session_token,
+    hash_password,
+    hash_session_token,
+    normalize_username,
+    verify_password,
+)
 from app.config import settings
 from app.search import (
     build_candidate_search_text,
@@ -37,29 +45,160 @@ from app.schemas_accounts import (
     JobOut,
     JobWithCountsOut,
 )
+from app.schemas_auth import AuthCredentialsIn, AuthStatusOut, AuthUserOut
 from app.routes import nlp as nlp_routes
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+AUTH_SESSION_MAX_AGE_SECONDS = max(1, settings.AUTH_SESSION_TTL_DAYS) * 24 * 60 * 60
+
+
+def _auth_user_out(user: models.User) -> AuthUserOut:
+    username = (user.username or "").strip()
+    name = (user.full_name or username).strip() or username
+    return AuthUserOut(
+        id=user.id,
+        username=username,
+        name=name,
+    )
+
+
+def _set_auth_cookie(response: Response, request: Request, token: str) -> None:
+    secure = settings.AUTH_COOKIE_SECURE or request.url.scheme == "https"
+    response.set_cookie(
+        key=settings.AUTH_COOKIE_NAME,
+        value=token,
+        max_age=AUTH_SESSION_MAX_AGE_SECONDS,
+        expires=AUTH_SESSION_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+
+
+def _clear_auth_cookie(response: Response, request: Request) -> None:
+    secure = settings.AUTH_COOKIE_SECURE or request.url.scheme == "https"
+    response.delete_cookie(
+        key=settings.AUTH_COOKIE_NAME,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+
+
+def _create_user_session(session: Session, user: models.User) -> str:
+    token = generate_session_token()
+    token_hash = hash_session_token(token)
+    expires_at = datetime.utcnow() + timedelta(seconds=AUTH_SESSION_MAX_AGE_SECONDS)
+    session.add(
+        models.AuthSession(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+    )
+    return token
 
 
 def get_current_user(
+    request: Request,
     session: Session = Depends(get_session),
-    user_id: Optional[str] = Header(None, alias="X-User-Id"),
-    user_email: Optional[str] = Header(None, alias="X-User-Email"),
 ) -> models.User:
-    """
-    Simple header-based auth stub. In production, replace with JWT/OIDC.
-    """
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Missing X-User-Id header")
+    token = (request.cookies.get(settings.AUTH_COOKIE_NAME) or "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = session.get(models.User, user_id)
-    if not user:
-        user = models.User(id=user_id, email=user_email)
-        session.add(user)
+    token_hash = hash_session_token(token)
+    auth_session = (
+        session.query(models.AuthSession)
+        .options(joinedload(models.AuthSession.user))
+        .filter(models.AuthSession.token_hash == token_hash)
+        .first()
+    )
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    if auth_session.expires_at <= datetime.utcnow():
+        session.delete(auth_session)
         session.commit()
-        session.refresh(user)
-    return user
+        raise HTTPException(status_code=401, detail="Session expired")
+    if not auth_session.user or not auth_session.user.is_active:
+        raise HTTPException(status_code=401, detail="User is inactive")
+    return auth_session.user
+
+
+@router.post("/auth/register", response_model=AuthUserOut)
+def register_auth_user(
+    payload: AuthCredentialsIn,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> AuthUserOut:
+    username = normalize_username(payload.name)
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Name must be at least 3 characters")
+
+    existing = session.query(models.User).filter(models.User.username == username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this name already exists")
+
+    user = models.User(
+        username=username,
+        full_name=" ".join(payload.name.strip().split()),
+        password_hash=hash_password(payload.password),
+    )
+    session.add(user)
+    session.flush()
+
+    token = _create_user_session(session, user)
+    session.commit()
+    session.refresh(user)
+    _set_auth_cookie(response, request, token)
+    return _auth_user_out(user)
+
+
+@router.post("/auth/login", response_model=AuthUserOut)
+def login_auth_user(
+    payload: AuthCredentialsIn,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> AuthUserOut:
+    username = normalize_username(payload.name)
+    user = session.query(models.User).filter(models.User.username == username).first()
+    if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid name or password")
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="User is inactive")
+
+    token = _create_user_session(session, user)
+    session.commit()
+    _set_auth_cookie(response, request, token)
+    return _auth_user_out(user)
+
+
+@router.post("/auth/logout", response_model=AuthStatusOut)
+def logout_auth_user(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> AuthStatusOut:
+    token = (request.cookies.get(settings.AUTH_COOKIE_NAME) or "").strip()
+    if token:
+        token_hash = hash_session_token(token)
+        (
+            session.query(models.AuthSession)
+            .filter(models.AuthSession.token_hash == token_hash)
+            .delete(synchronize_session=False)
+        )
+        session.commit()
+    _clear_auth_cookie(response, request)
+    return AuthStatusOut(status="logged_out")
+
+
+@router.get("/auth/me", response_model=AuthUserOut)
+def get_auth_me(current_user: models.User = Depends(get_current_user)) -> AuthUserOut:
+    return _auth_user_out(current_user)
 
 
 def _resolve_location_payload(

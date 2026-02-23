@@ -1705,6 +1705,19 @@ button[type='submit']:disabled {
   justify-content: flex-end;
 }
 
+.auth-session-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.auth-form {
+  width: min(560px, 100%);
+  margin: 0 auto;
+}
+
 @media (max-width: 640px) {
   .job-card {
     align-items: flex-start;

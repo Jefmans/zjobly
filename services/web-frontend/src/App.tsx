@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
@@ -21,10 +21,13 @@ import {
   createJob,
   createAudioChunkUrl,
   createUploadUrl,
+  getCurrentAuthUser,
   generateJobDraftFromTranscript,
   generateJobDraftFromVideo,
   getCandidateProfile,
   getLocationFromTranscript,
+  loginAccount,
+  logoutAccount,
   getProfileDraftFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
@@ -38,6 +41,7 @@ import {
   inviteCandidate,
   removeCandidateFavorite,
   publishJob,
+  registerAccount,
   updateCandidateInvitation,
   unpublishJob,
   searchPublicJobs,
@@ -46,6 +50,7 @@ import {
 } from './api';
 import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
 import {
+  AuthUser,
   CandidateStep,
   CandidateProfile,
   CandidateProfileInput,
@@ -164,50 +169,55 @@ const getScreenLabel = (
   step: CreateStep,
   candidateStep: CandidateStep,
   role: UserRole | null,
+  authenticated: boolean,
 ): string => {
-  if (view === 'welcome') return 'Screen:Welcome';
-  if (view === 'find') {
-    if (candidateStep === 'record') return 'Screen:FindZjob/RecordVideo';
-    if (candidateStep === 'select') return 'Screen:FindZjob/SelectVideo';
-    return 'Screen:FindZjob/ProfileDetail';
-  }
-  if (view === 'profile') return 'Screen:MyProfile/Detail';
-  if (view === 'apply') return 'Screen:FindZjob/ApplyVideo';
-  if (view === 'applications') return 'Screen:FindZjob/MyApplications';
-  if (view === 'jobs') {
-    return role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
-  }
-  if (view === 'candidates') {
-    return 'Screen:FindCandidates/Search';
-  }
-  if (view === 'candidateFavorites') {
-    return 'Screen:FindCandidates/Favorites';
-  }
-  if (view === 'candidateDetail') {
-    return 'Screen:FindCandidates/Detail';
-  }
-  if (view === 'jobMatches') {
-    return 'Screen:MyJobs/Matches';
-  }
-  if (view === 'invitations') {
-    return role === 'candidate'
+  let base = 'Screen:Unknown';
+  if (view === 'welcome') {
+    base = 'Screen:Welcome';
+  } else if (view === 'find') {
+    if (candidateStep === 'record') base = 'Screen:FindZjob/RecordVideo';
+    else if (candidateStep === 'select') base = 'Screen:FindZjob/SelectVideo';
+    else base = 'Screen:FindZjob/ProfileDetail';
+  } else if (view === 'profile') {
+    base = 'Screen:MyProfile/Detail';
+  } else if (view === 'apply') {
+    base = 'Screen:FindZjob/ApplyVideo';
+  } else if (view === 'applications') {
+    base = 'Screen:FindZjob/MyApplications';
+  } else if (view === 'jobs') {
+    base = role === 'candidate' ? 'Screen:FindZjob/JobsList' : 'Screen:MyJobs/List';
+  } else if (view === 'candidates') {
+    base = 'Screen:FindCandidates/Search';
+  } else if (view === 'candidateFavorites') {
+    base = 'Screen:FindCandidates/Favorites';
+  } else if (view === 'candidateDetail') {
+    base = 'Screen:FindCandidates/Detail';
+  } else if (view === 'jobMatches') {
+    base = 'Screen:MyJobs/Matches';
+  } else if (view === 'invitations') {
+    base = role === 'candidate'
       ? 'Screen:MyInvitations/List'
       : 'Screen:FindCandidates/Invitations';
+  } else if (view === 'jobDetail') {
+    base = role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
+  } else if (view === 'create') {
+    if (step === 'record') base = 'Screen:CreateZjob/RecordVideo';
+    else if (step === 'select') base = 'Screen:CreateZjob/SelectVideo';
+    else base = 'Screen:CreateZjob/JobDetails';
   }
-  if (view === 'jobDetail') {
-    return role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
-  }
-  if (view === 'create') {
-    if (step === 'record') return 'Screen:CreateZjob/RecordVideo';
-    if (step === 'select') return 'Screen:CreateZjob/SelectVideo';
-    return 'Screen:CreateZjob/JobDetails';
-  }
-  return 'Screen:Unknown';
+  return `${base}/${authenticated ? 'LoggedIn' : 'LoggedOut'}`;
 };
 
 function App() {
-  const [view, setView] = useState<ViewMode>(() => getStoredView());
-  const [role, setRole] = useState<UserRole | null>(() => getStoredRole());
+  const [view, setView] = useState<ViewMode>('welcome');
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authName, setAuthName] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
@@ -328,6 +338,37 @@ function App() {
       // ignore storage failures
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const current = await getCurrentAuthUser();
+        if (cancelled) return;
+        setAuthUser(current);
+        if (current) {
+          const storedRole = getStoredRole();
+          persistRole(storedRole ?? 'candidate');
+          setView(getStoredView());
+        } else {
+          persistRole(null);
+          setView('welcome');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setAuthError(err instanceof Error ? err.message : 'Could not verify your login session.');
+        persistRole(null);
+        setView('welcome');
+      } finally {
+        if (!cancelled) {
+          setAuthLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const resetCandidateFlow = () => {
     clearVideoSelection();
@@ -1795,7 +1836,7 @@ function App() {
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const screenLabel = getScreenLabel(view, createStep, candidateStep, role);
+  const screenLabel = getScreenLabel(view, createStep, candidateStep, role, Boolean(authUser));
   const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
   const filteredCandidateKeywords = filterKeywordsByLocation(
@@ -1825,10 +1866,56 @@ function App() {
       : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
 
+  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = authName.trim();
+    const password = authPassword;
+    if (!name || !password) {
+      setAuthError('Enter your name and password.');
+      return;
+    }
+    setAuthSubmitting(true);
+    setAuthError(null);
+    try {
+      const user =
+        authMode === 'login'
+          ? await loginAccount(name, password)
+          : await registerAccount(name, password);
+      setAuthUser(user);
+      setAuthPassword('');
+      const nextRole = role ?? getStoredRole() ?? 'candidate';
+      persistRole(nextRole);
+      setView(getStoredView());
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Could not authenticate your account.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
   const backToWelcome = () => {
     resetCreateState();
     resetCandidateFlow();
     setView('welcome');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutAccount();
+    } catch (err) {
+      console.error(err);
+    }
+    setAuthUser(null);
+    setAuthPassword('');
+    setAuthError(null);
+    persistRole(null);
+    setCompanyId(null);
+    try {
+      localStorage.removeItem(COMPANY_STORAGE_KEY);
+    } catch {
+      // ignore storage failures
+    }
+    backToWelcome();
   };
 
   const goToStep = (nextStep: CreateStep) => {
@@ -2246,6 +2333,14 @@ function App() {
           {devCandidatesError && <p className="error">{devCandidatesError}</p>}
         </div>
       )}
+      {authUser && (
+        <div className="auth-session-row">
+          <span className="hint">Signed in as {authUser.name}</span>
+          <button type="button" className="ghost" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      )}
       <PrimaryNav
         view={view}
         role={role}
@@ -2263,6 +2358,76 @@ function App() {
       />
     </>
   );
+
+  if (authLoading) {
+    return (
+      <main className="app-shell">
+        <ScreenLabel label="Screen:Auth/Loading/LoggedOut" />
+        <section className="hero welcome">
+          <p className="tag">Zjobly</p>
+          <h1>Checking your session...</h1>
+          <p className="lede">Please wait while we verify your login.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <main className="app-shell">
+        <ScreenLabel label="Screen:Auth/Login/LoggedOut" />
+        <section className="hero welcome">
+          <p className="tag">Zjobly</p>
+          <h1>{authMode === 'login' ? 'Sign in' : 'Create account'}</h1>
+          <p className="lede">Use your name and password to continue.</p>
+          <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
+            <div className="panel">
+              <div className="field">
+                <label htmlFor="authName">Name</label>
+                <input
+                  id="authName"
+                  name="authName"
+                  value={authName}
+                  onChange={(event) => setAuthName(event.target.value)}
+                  autoComplete="username"
+                  placeholder="Your name"
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="authPassword">Password</label>
+                <input
+                  id="authPassword"
+                  name="authPassword"
+                  type="password"
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder="At least 8 characters"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {authError && <div className="error">{authError}</div>}
+              <div className="panel-actions split">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+                  disabled={authSubmitting}
+                >
+                  {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
+                </button>
+                <button type="submit" className="cta primary" disabled={authSubmitting}>
+                  {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">

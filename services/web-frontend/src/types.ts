@@ -18,6 +18,12 @@ export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';
 
+export type AuthUser = {
+  id: string;
+  username: string;
+  name: string;
+};
+
 export type RecordedTake = {
   id: string;
   file: File;

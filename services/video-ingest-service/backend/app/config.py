@@ -1,5 +1,12 @@
 import os
 
+
+def _to_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     REDIS_URL: str = os.getenv("REDIS_URL")
@@ -27,5 +34,8 @@ class Settings:
     API_BASE_PATH: str = os.getenv("API_BASE_PATH", "")
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")
     API_PREFIX: str = os.getenv("API_PREFIX", API_BASE_PATH)
+    AUTH_COOKIE_NAME: str = os.getenv("AUTH_COOKIE_NAME", "zjobly_session")
+    AUTH_SESSION_TTL_DAYS: int = int(os.getenv("AUTH_SESSION_TTL_DAYS", "30"))
+    AUTH_COOKIE_SECURE: bool = _to_bool(os.getenv("AUTH_COOKIE_SECURE"), False)
 
 settings = Settings()

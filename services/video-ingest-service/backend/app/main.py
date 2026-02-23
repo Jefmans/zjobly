@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
-        allow_credentials=False,
+        allow_credentials=True,
     )
 
     @app.middleware("http")
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
             response.headers.setdefault("Vary", "Origin")
             response.headers.setdefault("Access-Control-Allow-Headers", "*")
             response.headers.setdefault("Access-Control-Allow-Methods", "*")
+            response.headers.setdefault("Access-Control-Allow-Credentials", "true")
         else:
             response.headers.setdefault("Access-Control-Allow-Origin", "*")
             response.headers.setdefault("Access-Control-Allow-Headers", "*")

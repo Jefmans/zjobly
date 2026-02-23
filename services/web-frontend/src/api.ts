@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   CandidateProfile,
   CandidateProfileInput,
   CandidateApplication,
@@ -63,8 +64,6 @@ export type ProfileDraft = {
   keywords?: string[];
 };
 
-const LOCAL_USER_KEY = "zjobly-user-id";
-
 const apiBase = () => {
   const base = (import.meta.env.VITE_API_URL || "").toString().trim();
   if (!base) {
@@ -73,47 +72,17 @@ const apiBase = () => {
   return base.replace(/\/$/, "");
 };
 
-const normalizeUserId = (id: string) => {
-  const clean = id.replace(/[^a-zA-Z0-9]/g, "");
-  if (clean) return clean.slice(0, 32);
-  return (crypto.randomUUID?.().replace(/-/g, "") || `user${Date.now()}`).slice(0, 32);
-};
-
-const resolveUserId = (): string => {
-  const envId = (import.meta.env.VITE_USER_ID || "").toString().trim();
-  const normalizedEnv = envId ? normalizeUserId(envId) : null;
-  const generateId = () => normalizeUserId(crypto.randomUUID?.() || `user${Date.now()}`);
-  try {
-    const cached = localStorage.getItem(LOCAL_USER_KEY);
-    if (cached) return normalizeUserId(cached);
-    const resolved = normalizedEnv || generateId();
-    localStorage.setItem(LOCAL_USER_KEY, resolved);
-    return resolved;
-  } catch {
-    return normalizedEnv || generateId();
-  }
-};
-
-
-const resolveUserEmail = (): string | undefined => {
-  const envEmail = (import.meta.env.VITE_USER_EMAIL || "").toString().trim();
-  return envEmail || undefined;
-};
-
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${apiBase()}${path}`;
-  const userId = resolveUserId();
-  const userEmail = resolveUserEmail();
   const initHeaders =
     init.headers instanceof Headers ? Object.fromEntries(init.headers.entries()) : (init.headers as Record<string, string> | undefined) || {};
 
   const res = await fetch(url, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...initHeaders,
-      ...(userId ? { "X-User-Id": userId } : {}),
-      ...(userEmail ? { "X-User-Email": userEmail } : {}),
     },
   });
 
@@ -130,6 +99,40 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   }
 
   return body as T;
+}
+
+export async function registerAccount(name: string, password: string): Promise<AuthUser> {
+  return requestJson<AuthUser>("/accounts/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ name, password }),
+  });
+}
+
+export async function loginAccount(name: string, password: string): Promise<AuthUser> {
+  return requestJson<AuthUser>("/accounts/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ name, password }),
+  });
+}
+
+export async function logoutAccount(): Promise<void> {
+  await requestJson<{ status: string }>("/accounts/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function getCurrentAuthUser(): Promise<AuthUser | null> {
+  try {
+    return await requestJson<AuthUser>("/accounts/auth/me", { method: "GET" });
+  } catch (err) {
+    const rawMessage = err instanceof Error ? err.message : "";
+    const message = rawMessage.toLowerCase();
+    if (message.includes("401") || message.includes("not authenticated") || message.includes("invalid session")) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function createUploadUrl(file: File): Promise<UploadUrlResponse> {
