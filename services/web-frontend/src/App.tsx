@@ -222,6 +222,14 @@ type AuthPromptOptions = {
   returnToHomeOnSuccess?: boolean;
 };
 
+type DevAuthPreviewMode = 'real' | 'loggedOut' | 'loggedIn';
+
+const DEV_PREVIEW_AUTH_USER: AuthUser = {
+  id: 'dev-preview-user',
+  username: 'dev-preview',
+  name: 'Dev preview user',
+};
+
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
@@ -312,6 +320,7 @@ function App() {
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
+  const [devAuthPreviewMode, setDevAuthPreviewMode] = useState<DevAuthPreviewMode>('real');
   const authUserRef = useRef<AuthUser | null>(null);
   const authRequestResolverRef = useRef<((authenticated: boolean) => void) | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
@@ -342,6 +351,12 @@ function App() {
   });
   const candidateLocationAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
+  const previewAuthUser =
+    devAuthPreviewMode === 'loggedOut'
+      ? null
+      : authUser ?? (devAuthPreviewMode === 'loggedIn' ? DEV_PREVIEW_AUTH_USER : null);
+  const previewAuthenticated = Boolean(previewAuthUser);
+  const canUseAuthenticatedApi = Boolean(authUser) && devAuthPreviewMode !== 'loggedOut';
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -381,7 +396,7 @@ function App() {
   };
 
   const ensureAuthenticated = (options: AuthPromptOptions): Promise<boolean> => {
-    if (authUserRef.current) {
+    if (previewAuthenticated) {
       return Promise.resolve(true);
     }
     resolveAuthRequest(false);
@@ -646,7 +661,7 @@ function App() {
       if (role === 'candidate') {
         fetched = await searchPublicJobs();
       } else {
-        if (!authUserRef.current) {
+        if (!canUseAuthenticatedApi) {
           setJobs([]);
           setJobsError(null);
           return [];
@@ -677,10 +692,10 @@ function App() {
     } finally {
       setJobsLoading(false);
     }
-  }, [companyId, role, authUser]);
+  }, [canUseAuthenticatedApi, companyId, role]);
 
   const refreshCandidateFavorites = useCallback(async (): Promise<CandidateProfile[]> => {
-    if (role !== 'employer' || !companyId || !authUserRef.current) {
+    if (role !== 'employer' || !companyId || !canUseAuthenticatedApi) {
       setCandidateFavorites([]);
       setCandidateFavoritesLoading(false);
       setCandidateFavoritesError(null);
@@ -701,10 +716,10 @@ function App() {
     } finally {
       setCandidateFavoritesLoading(false);
     }
-  }, [companyId, role, authUser]);
+  }, [canUseAuthenticatedApi, companyId, role]);
 
   const refreshEmployerInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
-    if (role !== 'employer' || !companyId || !authUserRef.current) {
+    if (role !== 'employer' || !companyId || !canUseAuthenticatedApi) {
       setEmployerInvitations([]);
       setEmployerInvitationsLoading(false);
       setEmployerInvitationsError(null);
@@ -725,10 +740,10 @@ function App() {
     } finally {
       setEmployerInvitationsLoading(false);
     }
-  }, [companyId, role, authUser]);
+  }, [canUseAuthenticatedApi, companyId, role]);
 
   const refreshCandidateInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
-    if (role !== 'candidate' || !authUserRef.current) {
+    if (role !== 'candidate' || !canUseAuthenticatedApi) {
       setCandidateInvitations([]);
       setCandidateInvitationsLoading(false);
       setCandidateInvitationsError(null);
@@ -749,7 +764,7 @@ function App() {
     } finally {
       setCandidateInvitationsLoading(false);
     }
-  }, [role, authUser]);
+  }, [canUseAuthenticatedApi, role]);
 
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
@@ -913,7 +928,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view !== 'profile' || role !== 'candidate' || !authUser) return;
+    if (view !== 'profile' || role !== 'candidate' || !canUseAuthenticatedApi) return;
 
     const controller = new AbortController();
     let isActive = true;
@@ -961,7 +976,7 @@ function App() {
       isActive = false;
       controller.abort();
     };
-  }, [view, role, authUser]);
+  }, [view, role, canUseAuthenticatedApi]);
 
   useEffect(() => {
     if (createStep !== 'details') {
@@ -1952,7 +1967,7 @@ function App() {
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const screenLabel = getScreenLabel(view, createStep, candidateStep, role, Boolean(authUser));
+  const screenLabel = getScreenLabel(view, createStep, candidateStep, role, previewAuthenticated);
   const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
   const filteredCandidateKeywords = filterKeywordsByLocation(
@@ -2514,6 +2529,22 @@ function App() {
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
           <div className="dev-company-row">
+            <label htmlFor="devAuthPreviewSelect">Auth preview</label>
+            <select
+              id="devAuthPreviewSelect"
+              value={devAuthPreviewMode}
+              onChange={(event) => setDevAuthPreviewMode(event.target.value as DevAuthPreviewMode)}
+            >
+              <option value="real">Real auth</option>
+              <option value="loggedOut">Force logged out</option>
+              <option value="loggedIn">Force logged in</option>
+            </select>
+            <span className="dev-company-meta">
+              Real session: {authUser ? authUser.name : 'none'}
+              {devAuthPreviewMode === 'loggedIn' && !authUser ? ' | preview only' : ''}
+            </span>
+          </div>
+          <div className="dev-company-row">
             <label htmlFor="devCompanySelect">Company</label>
             <select
               id="devCompanySelect"
@@ -2556,24 +2587,58 @@ function App() {
         </div>
       )}
       <div className="auth-session-row">
-        {authUser ? (
+        {previewAuthenticated ? (
           <>
-            <span className="hint">Signed in as {authUser.name}</span>
-            <button type="button" className="ghost" onClick={handleLogout}>
-              Log out
-            </button>
+            <span className="hint">
+              {devAuthPreviewMode === 'loggedIn' && !authUser
+                ? 'Dev preview: logged in (no real session)'
+                : `Signed in as ${previewAuthUser?.name}`}
+            </span>
+            {devAuthPreviewMode !== 'real' ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setDevAuthPreviewMode('real')}
+              >
+                Use real auth
+              </button>
+            ) : (
+              authUser && (
+                <button type="button" className="ghost" onClick={handleLogout}>
+                  Log out
+                </button>
+              )
+            )}
           </>
         ) : (
           <>
             <span className="hint">
-              Browse first. Create an account when you want to save, apply, or contact.
+              {devAuthPreviewMode === 'loggedOut' && authUser
+                ? 'Dev preview: logged out'
+                : 'Browse first. Create an account when you want to save, apply, or contact.'}
             </span>
-            <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
-              Login
-            </button>
-            <button type="button" className="cta secondary" onClick={() => openVoluntaryAuth('register')}>
-              Register
-            </button>
+            {devAuthPreviewMode !== 'real' ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setDevAuthPreviewMode('real')}
+              >
+                Use real auth
+              </button>
+            ) : (
+              <>
+                <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className="cta secondary"
+                  onClick={() => openVoluntaryAuth('register')}
+                >
+                  Register
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
@@ -2626,7 +2691,7 @@ function App() {
                 Create Zjob
               </button>
             </div>
-            {!authUser && (
+            {!previewAuthenticated && (
               <div className="welcome-auth-line">
                 <span>Login or register when you want to save progress, apply, or contact.</span>
                 <div className="welcome-auth-actions">
@@ -2643,7 +2708,7 @@ function App() {
                 </div>
               </div>
             )}
-            {!authUser && authError && <div className="error auth-inline-error">{authError}</div>}
+            {!previewAuthenticated && authError && <div className="error auth-inline-error">{authError}</div>}
           </section>
         </>
       )}
@@ -2815,7 +2880,7 @@ function App() {
         view={view}
         nav={nav}
         role={role}
-        isAuthenticated={Boolean(authUser)}
+        isAuthenticated={previewAuthenticated}
         favoriteCandidateIds={favoriteCandidateIds}
         favoriteUpdatingIds={favoriteUpdatingIds}
         favoritesError={candidateFavoritesError}
@@ -2854,7 +2919,7 @@ function App() {
         view={view}
         nav={nav}
         role={role}
-        isAuthenticated={Boolean(authUser)}
+        isAuthenticated={previewAuthenticated}
         jobs={jobs}
         jobsLoading={jobsLoading}
         jobsError={jobsError}
