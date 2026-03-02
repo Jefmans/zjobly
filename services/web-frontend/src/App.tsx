@@ -31,6 +31,7 @@ import {
   getProfileDraftFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
+  getCandidateById,
   listCandidateFavorites,
   listCandidateInvitations,
   listCompanyJobs,
@@ -208,6 +209,19 @@ const getScreenLabel = (
   return `${base}/${authenticated ? 'LoggedIn' : 'LoggedOut'}`;
 };
 
+type AuthPromptState = {
+  title: string;
+  message: string;
+  returnToHomeOnSuccess: boolean;
+};
+
+type AuthPromptOptions = {
+  title: string;
+  message: string;
+  mode?: 'login' | 'register';
+  returnToHomeOnSuccess?: boolean;
+};
+
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
@@ -218,6 +232,7 @@ function App() {
   const [authPassword, setAuthPassword] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authPrompt, setAuthPrompt] = useState<AuthPromptState | null>(null);
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
@@ -297,6 +312,8 @@ function App() {
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
+  const authUserRef = useRef<AuthUser | null>(null);
+  const authRequestResolverRef = useRef<((authenticated: boolean) => void) | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -339,12 +356,68 @@ function App() {
     }
   };
 
+  const resolveAuthRequest = (authenticated: boolean) => {
+    const resolver = authRequestResolverRef.current;
+    if (!resolver) return;
+    authRequestResolverRef.current = null;
+    resolver(authenticated);
+  };
+
+  const openAuthPrompt = ({
+    title,
+    message,
+    mode = 'register',
+    returnToHomeOnSuccess = false,
+  }: AuthPromptOptions) => {
+    setAuthMode(mode);
+    setAuthError(null);
+    setAuthPrompt({ title, message, returnToHomeOnSuccess });
+  };
+
+  const closeAuthPrompt = () => {
+    resolveAuthRequest(false);
+    setAuthPrompt(null);
+    setAuthError(null);
+  };
+
+  const ensureAuthenticated = (options: AuthPromptOptions): Promise<boolean> => {
+    if (authUserRef.current) {
+      return Promise.resolve(true);
+    }
+    resolveAuthRequest(false);
+    return new Promise<boolean>((resolve) => {
+      authRequestResolverRef.current = resolve;
+      openAuthPrompt({ ...options, returnToHomeOnSuccess: false });
+    });
+  };
+
+  const openVoluntaryAuth = (mode: 'login' | 'register') => {
+    resolveAuthRequest(false);
+    openAuthPrompt({
+      mode,
+      title: mode === 'login' ? 'Sign in' : 'Create account',
+      message: 'Use your name and password to continue.',
+      returnToHomeOnSuccess: true,
+    });
+  };
+
+  useEffect(() => {
+    authUserRef.current = authUser;
+  }, [authUser]);
+
+  useEffect(() => {
+    return () => {
+      resolveAuthRequest(false);
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const current = await getCurrentAuthUser();
         if (cancelled) return;
+        authUserRef.current = current;
         setAuthUser(current);
         if (current) {
           const storedRole = getStoredRole();
@@ -356,6 +429,7 @@ function App() {
         }
       } catch (err) {
         if (cancelled) return;
+        authUserRef.current = null;
         setAuthError(err instanceof Error ? err.message : 'Could not verify your login session.');
         persistRole(null);
         setView('welcome');
@@ -572,6 +646,11 @@ function App() {
       if (role === 'candidate') {
         fetched = await searchPublicJobs();
       } else {
+        if (!authUserRef.current) {
+          setJobs([]);
+          setJobsError(null);
+          return [];
+        }
         if (!companyId) {
           setJobs([]);
           setJobsError(null);
@@ -598,10 +677,10 @@ function App() {
     } finally {
       setJobsLoading(false);
     }
-  }, [companyId, role]);
+  }, [companyId, role, authUser]);
 
   const refreshCandidateFavorites = useCallback(async (): Promise<CandidateProfile[]> => {
-    if (role !== 'employer' || !companyId) {
+    if (role !== 'employer' || !companyId || !authUserRef.current) {
       setCandidateFavorites([]);
       setCandidateFavoritesLoading(false);
       setCandidateFavoritesError(null);
@@ -622,10 +701,10 @@ function App() {
     } finally {
       setCandidateFavoritesLoading(false);
     }
-  }, [companyId, role]);
+  }, [companyId, role, authUser]);
 
   const refreshEmployerInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
-    if (role !== 'employer' || !companyId) {
+    if (role !== 'employer' || !companyId || !authUserRef.current) {
       setEmployerInvitations([]);
       setEmployerInvitationsLoading(false);
       setEmployerInvitationsError(null);
@@ -646,10 +725,10 @@ function App() {
     } finally {
       setEmployerInvitationsLoading(false);
     }
-  }, [companyId, role]);
+  }, [companyId, role, authUser]);
 
   const refreshCandidateInvitations = useCallback(async (): Promise<CandidateInvitation[]> => {
-    if (role !== 'candidate') {
+    if (role !== 'candidate' || !authUserRef.current) {
       setCandidateInvitations([]);
       setCandidateInvitationsLoading(false);
       setCandidateInvitationsError(null);
@@ -670,7 +749,7 @@ function App() {
     } finally {
       setCandidateInvitationsLoading(false);
     }
-  }, [role]);
+  }, [role, authUser]);
 
   const startProcessingPoll = (objectKey: string) => {
     clearProcessingTimer();
@@ -834,7 +913,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view !== 'profile' || role !== 'candidate') return;
+    if (view !== 'profile' || role !== 'candidate' || !authUser) return;
 
     const controller = new AbortController();
     let isActive = true;
@@ -882,7 +961,7 @@ function App() {
       isActive = false;
       controller.abort();
     };
-  }, [view, role]);
+  }, [view, role, authUser]);
 
   useEffect(() => {
     if (createStep !== 'details') {
@@ -1409,6 +1488,12 @@ function App() {
       return;
     }
 
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to continue',
+      message: 'Create an account before processing this job video and continuing to job details.',
+    });
+    if (!canContinue) return;
+
     try {
       const { objectKey } = await uploadTake(selectedTake, videoDuration);
       setVideoObjectKey(objectKey);
@@ -1461,6 +1546,12 @@ function App() {
       return;
     }
 
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to continue',
+      message: 'Create an account before processing this profile video and continuing to your details.',
+    });
+    if (!canContinue) return;
+
     try {
       const { objectKey } = await uploadTake(selectedTake, videoDuration);
       setCandidateVideoObjectKey(objectKey);
@@ -1510,6 +1601,12 @@ function App() {
       }
       return;
     }
+
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to save your profile',
+      message: 'Create an account before saving your candidate profile and video.',
+    });
+    if (!canContinue) return;
 
     setCandidateProfileSaving(true);
     try {
@@ -1571,6 +1668,14 @@ function App() {
       setShowDetailValidation(true);
       return;
     }
+
+    const canContinue = await ensureAuthenticated({
+      title: publish ? 'Create an account to publish this job' : 'Create an account to save this job',
+      message: publish
+        ? 'Create an account before publishing your job and contacting candidates.'
+        : 'Create an account before saving this job draft.',
+    });
+    if (!canContinue) return;
 
     setJobSaving(true);
     try {
@@ -1655,6 +1760,11 @@ function App() {
   };
 
   const handlePublishJob = async (jobId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to publish this job',
+      message: 'Create an account before publishing company jobs.',
+    });
+    if (!canContinue) return;
     setJobsError(null);
     setPublishingJobId(jobId);
     try {
@@ -1683,6 +1793,12 @@ function App() {
   };
 
   const handleUnpublishJob = async (jobId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Sign in to manage this job',
+      message: 'Sign in to update the publishing status of your jobs.',
+      mode: 'login',
+    });
+    if (!canContinue) return;
     setJobsError(null);
     setUnpublishingJobId(jobId);
     try {
@@ -1877,15 +1993,26 @@ function App() {
     setAuthSubmitting(true);
     setAuthError(null);
     try {
+      const activePrompt = authPrompt;
       const user =
         authMode === 'login'
           ? await loginAccount(name, password)
           : await registerAccount(name, password);
+      authUserRef.current = user;
       setAuthUser(user);
       setAuthPassword('');
-      const nextRole = role ?? getStoredRole() ?? 'candidate';
-      persistRole(nextRole);
-      setView(getStoredView());
+      if (role) {
+        persistRole(role);
+      }
+      setAuthPrompt(null);
+      const resolver = authRequestResolverRef.current;
+      if (resolver) {
+        authRequestResolverRef.current = null;
+        resolver(true);
+      } else if (activePrompt?.returnToHomeOnSuccess) {
+        persistRole(null);
+        setView('welcome');
+      }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Could not authenticate your account.');
     } finally {
@@ -1896,6 +2023,7 @@ function App() {
   const backToWelcome = () => {
     resetCreateState();
     resetCandidateFlow();
+    persistRole(null);
     setView('welcome');
   };
 
@@ -1905,6 +2033,8 @@ function App() {
     } catch (err) {
       console.error(err);
     }
+    authUserRef.current = null;
+    closeAuthPrompt();
     setAuthUser(null);
     setAuthPassword('');
     setAuthError(null);
@@ -1945,20 +2075,34 @@ function App() {
   };
 
   const goToCandidateProfileView = () => {
-    if (role === 'candidate') {
-      setView('profile');
-    } else {
-      setRoleAndView('candidate', 'profile');
-    }
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view your profile',
+        message: 'Create an account before opening your saved candidate profile.',
+      });
+      if (!canContinue) return;
+      if (role === 'candidate') {
+        setView('profile');
+      } else {
+        setRoleAndView('candidate', 'profile');
+      }
+    })();
   };
 
   const goToCandidateProfileEdit = () => {
-    if (role === 'candidate') {
-      setView('find');
-    } else {
-      setRoleAndView('candidate', 'find');
-    }
-    setCandidateStep('profile');
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to edit your profile',
+        message: 'Create an account before editing your saved candidate profile.',
+      });
+      if (!canContinue) return;
+      if (role === 'candidate') {
+        setView('find');
+      } else {
+        setRoleAndView('candidate', 'find');
+      }
+      setCandidateStep('profile');
+    })();
   };
 
   const goToJobsOverview = () => {
@@ -1982,19 +2126,40 @@ function App() {
   };
 
   const goToCandidateFavorites = () => {
-    setSelectedCandidateProfile(null);
-    setCandidateSearchOrigin('favorites');
-    goToEmployerView('candidateFavorites');
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view favorite candidates',
+        message: 'Create an account before opening your saved candidates.',
+      });
+      if (!canContinue) return;
+      setSelectedCandidateProfile(null);
+      setCandidateSearchOrigin('favorites');
+      goToEmployerView('candidateFavorites');
+    })();
   };
 
   const goToEmployerInvitations = () => {
-    setSelectedCandidateProfile(null);
-    setCandidateSearchOrigin('invitations');
-    goToEmployerView('invitations');
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view invitations',
+        message: 'Create an account before opening your candidate invitations.',
+      });
+      if (!canContinue) return;
+      setSelectedCandidateProfile(null);
+      setCandidateSearchOrigin('invitations');
+      goToEmployerView('invitations');
+    })();
   };
 
   const goToCandidateInvitations = () => {
-    goToCandidateView('invitations');
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view invitations',
+        message: 'Create an account before viewing company invitations.',
+      });
+      if (!canContinue) return;
+      goToCandidateView('invitations');
+    })();
   };
 
   const goToInvitations = () => {
@@ -2006,9 +2171,22 @@ function App() {
   };
 
   const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
-    setSelectedCandidateProfile(candidate);
-    setCandidateSearchOrigin('search');
-    goToEmployerView('candidateDetail');
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view full candidate profiles',
+        message: 'Sign in to open the full candidate detail page and continue recruiting.',
+      });
+      if (!canContinue) return;
+      let candidateToOpen = candidate;
+      try {
+        candidateToOpen = await getCandidateById(candidate.id);
+      } catch (err) {
+        console.error(err);
+      }
+      setSelectedCandidateProfile(candidateToOpen);
+      setCandidateSearchOrigin('search');
+      goToEmployerView('candidateDetail');
+    })();
   };
 
   const openCandidateProfileFromFavorites = (candidate: CandidateProfile) => {
@@ -2093,6 +2271,11 @@ function App() {
   };
 
   const handleAddCandidateFavorite = async (candidateId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to save candidates',
+      message: 'Create an account before adding candidates to your favorites.',
+    });
+    if (!canContinue) return;
     if (!companyId) {
       setCandidateFavoritesError('Select a company to save favorites.');
       return;
@@ -2114,6 +2297,12 @@ function App() {
   };
 
   const handleRemoveCandidateFavorite = async (candidateId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Sign in to manage favorites',
+      message: 'Sign in before removing candidates from your favorites.',
+      mode: 'login',
+    });
+    if (!canContinue) return;
     if (!companyId) {
       setCandidateFavoritesError('Select a company to manage favorites.');
       return;
@@ -2141,6 +2330,11 @@ function App() {
   };
 
   const handleInviteCandidate = async (candidateId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Create an account to invite candidates',
+      message: 'Create an account before contacting candidates.',
+    });
+    if (!canContinue) return;
     if (!companyId) {
       setEmployerInvitationsError('Select a company to send invitations.');
       return;
@@ -2169,6 +2363,12 @@ function App() {
     invitationId: string,
     status: InvitationStatus,
   ) => {
+    const canContinue = await ensureAuthenticated({
+      title: 'Sign in to manage invitations',
+      message: 'Sign in before accepting or rejecting company invitations.',
+      mode: 'login',
+    });
+    if (!canContinue) return;
     setCandidateInvitationsError(null);
     setCandidateInviteUpdating(invitationId, true);
     try {
@@ -2258,6 +2458,28 @@ function App() {
     applyDevCandidateSelection(nextCandidate);
   };
 
+  const goToCandidateApplications = () => {
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to view your applications',
+        message: 'Create an account before tracking the jobs you apply to.',
+      });
+      if (!canContinue) return;
+      goToCandidateView('applications');
+    })();
+  };
+
+  const goToEmployerJobs = () => {
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Create an account to manage jobs',
+        message: 'Create an account before opening your company jobs.',
+      });
+      if (!canContinue) return;
+      goToEmployerView('jobs');
+    })();
+  };
+
   const selectTake = (id: string) => {
     const take = recordedTakes.find((t) => t.id === id);
     if (!take) return;
@@ -2283,12 +2505,12 @@ function App() {
             onBack={backToWelcome}
             onCreate={startCreateFlow}
             onFind={startCandidateFlow}
-            onJobs={() => setRoleAndView('employer', 'jobs')}
+            onJobs={goToEmployerJobs}
             onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
             onCandidates={goToCandidateSearch}
             onFavorites={goToCandidateFavorites}
             onInvitations={goToInvitations}
-            onApplications={() => setRoleAndView('candidate', 'applications')}
+            onApplications={goToCandidateApplications}
             onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
           />
           <div className="dev-company-row">
@@ -2333,22 +2555,36 @@ function App() {
           {devCandidatesError && <p className="error">{devCandidatesError}</p>}
         </div>
       )}
-      {authUser && (
-        <div className="auth-session-row">
-          <span className="hint">Signed in as {authUser.name}</span>
-          <button type="button" className="ghost" onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
-      )}
+      <div className="auth-session-row">
+        {authUser ? (
+          <>
+            <span className="hint">Signed in as {authUser.name}</span>
+            <button type="button" className="ghost" onClick={handleLogout}>
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="hint">
+              Browse first. Create an account when you want to save, apply, or contact.
+            </span>
+            <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
+              Login
+            </button>
+            <button type="button" className="cta secondary" onClick={() => openVoluntaryAuth('register')}>
+              Register
+            </button>
+          </>
+        )}
+      </div>
       <PrimaryNav
         view={view}
         role={role}
         onHome={backToWelcome}
         onBrowseJobs={() => goToCandidateView('jobs')}
-        onMyApplications={() => goToCandidateView('applications')}
+        onMyApplications={goToCandidateApplications}
         onMyProfile={goToCandidateProfileView}
-        onMyJobs={() => goToEmployerView('jobs')}
+        onMyJobs={goToEmployerJobs}
         onCreateJob={() => goToEmployerView('create')}
         onBrowseCandidates={goToCandidateSearch}
         onFavoriteCandidates={goToCandidateFavorites}
@@ -2372,63 +2608,6 @@ function App() {
     );
   }
 
-  if (!authUser) {
-    return (
-      <main className="app-shell">
-        <ScreenLabel label="Screen:Auth/Login/LoggedOut" />
-        <section className="hero welcome">
-          <p className="tag">Zjobly</p>
-          <h1>{authMode === 'login' ? 'Sign in' : 'Create account'}</h1>
-          <p className="lede">Use your name and password to continue.</p>
-          <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
-            <div className="panel">
-              <div className="field">
-                <label htmlFor="authName">Name</label>
-                <input
-                  id="authName"
-                  name="authName"
-                  value={authName}
-                  onChange={(event) => setAuthName(event.target.value)}
-                  autoComplete="username"
-                  placeholder="Your name"
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="authPassword">Password</label>
-                <input
-                  id="authPassword"
-                  name="authPassword"
-                  type="password"
-                  value={authPassword}
-                  onChange={(event) => setAuthPassword(event.target.value)}
-                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                  placeholder="At least 8 characters"
-                  required
-                  minLength={8}
-                />
-              </div>
-              {authError && <div className="error">{authError}</div>}
-              <div className="panel-actions split">
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
-                  disabled={authSubmitting}
-                >
-                  {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
-                </button>
-                <button type="submit" className="cta primary" disabled={authSubmitting}>
-                  {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <main className="app-shell">
       <ScreenLabel label={screenLabel} />
@@ -2447,6 +2626,24 @@ function App() {
                 Create Zjob
               </button>
             </div>
+            {!authUser && (
+              <div className="welcome-auth-line">
+                <span>Login or register when you want to save progress, apply, or contact.</span>
+                <div className="welcome-auth-actions">
+                  <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className="cta secondary"
+                    onClick={() => openVoluntaryAuth('register')}
+                  >
+                    Register
+                  </button>
+                </div>
+              </div>
+            )}
+            {!authUser && authError && <div className="error auth-inline-error">{authError}</div>}
           </section>
         </>
       )}
@@ -2618,6 +2815,7 @@ function App() {
         view={view}
         nav={nav}
         role={role}
+        isAuthenticated={Boolean(authUser)}
         favoriteCandidateIds={favoriteCandidateIds}
         favoriteUpdatingIds={favoriteUpdatingIds}
         favoritesError={candidateFavoritesError}
@@ -2656,6 +2854,7 @@ function App() {
         view={view}
         nav={nav}
         role={role}
+        isAuthenticated={Boolean(authUser)}
         jobs={jobs}
         jobsLoading={jobsLoading}
         jobsError={jobsError}
@@ -2663,6 +2862,7 @@ function App() {
         selectedJobId={selectedJobId}
         onSelectJob={setSelectedJobId}
         setView={setView}
+        ensureAuthenticated={ensureAuthenticated}
         onPublishJob={handlePublishJob}
         onUnpublishJob={handleUnpublishJob}
         onRefreshJobs={refreshJobs}
@@ -2671,6 +2871,69 @@ function App() {
         onViewCandidateProfile={openCandidateProfileFromApplications}
         onViewMatches={openJobMatches}
       />
+
+      {authPrompt && (
+        <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authPromptTitle">
+          <div className="panel auth-overlay-card">
+            <div className="panel-header">
+              <div>
+                <h2 id="authPromptTitle">{authPrompt.title}</h2>
+                <p className="hint">{authPrompt.message}</p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={closeAuthPrompt}
+                disabled={authSubmitting}
+              >
+                Not now
+              </button>
+            </div>
+            <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
+              <div className="field">
+                <label htmlFor="authName">Name</label>
+                <input
+                  id="authName"
+                  name="authName"
+                  value={authName}
+                  onChange={(event) => setAuthName(event.target.value)}
+                  autoComplete="username"
+                  placeholder="Your name"
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="authPassword">Password</label>
+                <input
+                  id="authPassword"
+                  name="authPassword"
+                  type="password"
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder="At least 8 characters"
+                  required
+                  minLength={8}
+                />
+              </div>
+              {authError && <div className="error">{authError}</div>}
+              <div className="panel-actions split">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+                  disabled={authSubmitting}
+                >
+                  {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
+                </button>
+                <button type="submit" className="cta primary" disabled={authSubmitting}>
+                  {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

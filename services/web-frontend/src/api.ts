@@ -333,6 +333,12 @@ export async function searchCandidates(query?: string): Promise<CandidateProfile
   return requestJson<CandidateProfile[]>(`/accounts/candidates/search${search}`, { method: "GET" });
 }
 
+export async function getCandidateById(candidateId: string): Promise<CandidateProfile> {
+  return requestJson<CandidateProfile>(`/accounts/candidates/${encodeURIComponent(candidateId)}`, {
+    method: "GET",
+  });
+}
+
 export async function searchCandidatesForJob(jobId: string): Promise<CandidateProfile[]> {
   const search = new URLSearchParams({ job_id: jobId });
   return requestJson<CandidateProfile[]>(`/accounts/candidates/search?${search.toString()}`, {

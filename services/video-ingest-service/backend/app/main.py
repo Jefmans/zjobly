@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
+from starlette.responses import JSONResponse
 
 from app.config import settings
 from app.routes import accounts
@@ -34,8 +35,15 @@ def create_app() -> FastAPI:
         """
         Final safeguard to ensure CORS headers are present even on error responses.
         """
-        response: Response = await call_next(request)
         origin = request.headers.get("origin")
+        try:
+            response: Response = await call_next(request)
+        except Exception:  # noqa: BLE001
+            logging.exception("Unhandled API error")
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
         if origin:
             response.headers.setdefault("Access-Control-Allow-Origin", origin)
             response.headers.setdefault("Vary", "Origin")

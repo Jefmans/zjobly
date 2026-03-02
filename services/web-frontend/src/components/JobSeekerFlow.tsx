@@ -30,6 +30,7 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   role: UserRole | null;
+  isAuthenticated: boolean;
   jobs: Job[];
   jobsLoading: boolean;
   jobsError: string | null;
@@ -37,6 +38,11 @@ type Props = {
   selectedJobId: string | null;
   onSelectJob: (id: string) => void;
   setView: (v: ViewMode) => void;
+  ensureAuthenticated: (options: {
+    title: string;
+    message: string;
+    mode?: "login" | "register";
+  }) => Promise<boolean>;
   onPublishJob: (id: string) => void;
   onUnpublishJob: (id: string) => void;
   onRefreshJobs: () => Promise<Job[]>;
@@ -55,6 +61,7 @@ export function JobSeekerFlow({
   view,
   nav,
   role,
+  isAuthenticated,
   jobs,
   jobsLoading,
   jobsError,
@@ -62,6 +69,7 @@ export function JobSeekerFlow({
   selectedJobId,
   onSelectJob,
   setView,
+  ensureAuthenticated,
   onPublishJob,
   onUnpublishJob,
   onRefreshJobs,
@@ -393,10 +401,10 @@ export function JobSeekerFlow({
     setApplyQuestionIndex(0);
   }, [view, applicationQuestionSet?.variant.id]);
   useEffect(() => {
-    if (view !== "apply") return;
+    if (view !== "apply" || !isAuthenticated) return;
     if (!canApplyForSelectedJob || hasAppliedForSelectedJob) return;
     void openApplyRecorder();
-  }, [view, canApplyForSelectedJob, hasAppliedForSelectedJob]);
+  }, [view, canApplyForSelectedJob, hasAppliedForSelectedJob, isAuthenticated]);
   useEffect(() => {
     if (view === "apply") return;
     if (applyRecordingState !== "idle") {
@@ -422,7 +430,7 @@ export function JobSeekerFlow({
   }, [applyStream]);
 
   useEffect(() => {
-    if (view !== "jobDetail" || !isEmployer || !selectedJobId) {
+    if (view !== "jobDetail" || !isEmployer || !selectedJobId || !isAuthenticated) {
       setJobApplications([]);
       setJobApplicationsLoading(false);
       setJobApplicationsError(null);
@@ -457,10 +465,10 @@ export function JobSeekerFlow({
     return () => {
       cancelled = true;
     };
-  }, [view, isEmployer, selectedJobId]);
+  }, [view, isEmployer, selectedJobId, isAuthenticated]);
 
   useEffect(() => {
-    if (!isCandidate) {
+    if (!isCandidate || !isAuthenticated) {
       setCandidateApplications([]);
       setCandidateApplicationsLoading(false);
       setCandidateApplicationsError(null);
@@ -494,7 +502,7 @@ export function JobSeekerFlow({
     return () => {
       cancelled = true;
     };
-  }, [view, isCandidate]);
+  }, [view, isCandidate, isAuthenticated]);
 
   useEffect(() => {
     if (view !== "jobDetail" || !isCandidate || !selectedJobId) {
@@ -658,6 +666,12 @@ export function JobSeekerFlow({
   };
 
   const handleApplyToJob = async (jobId: string) => {
+    const canContinue = await ensureAuthenticated({
+      title: "Create an account to apply",
+      message: "Create an account before sending your application video and tracking its status.",
+    });
+    if (!canContinue) return;
+
     setApplyError(null);
     setApplyAvailabilityError(null);
     setApplyAvailabilityChecking(true);
@@ -718,6 +732,11 @@ export function JobSeekerFlow({
   };
   const handleOpenApply = async () => {
     if (!selectedJobId) return;
+    const canContinue = await ensureAuthenticated({
+      title: "Create an account to apply",
+      message: "Create an account before recording and sending your application.",
+    });
+    if (!canContinue) return;
     setApplyAvailabilityError(null);
     setApplyAvailabilityChecking(true);
     try {
@@ -882,7 +901,26 @@ export function JobSeekerFlow({
           <h1>My applications</h1>
           <p className="lede">Track the jobs you have applied for and their status.</p>
           {!isCandidate && <p className="hint">Switch to candidate mode to view applications.</p>}
-          {isCandidate && (
+          {isCandidate && !isAuthenticated && (
+            <div className="panel">
+              <p className="hint">Create an account to track your job applications.</p>
+              <div className="panel-actions">
+                <button
+                  type="button"
+                  className="cta primary"
+                  onClick={() =>
+                    void ensureAuthenticated({
+                      title: "Create an account to view applications",
+                      message: "Create an account before opening your applications list.",
+                    })
+                  }
+                >
+                  Login or register
+                </button>
+              </div>
+            </div>
+          )}
+          {isCandidate && isAuthenticated && (
             <>
               {candidateApplicationsLoading && <p className="hint">Loading applications...</p>}
               {candidateApplicationsError && <p className="error">{candidateApplicationsError}</p>}
@@ -970,6 +1008,33 @@ export function JobSeekerFlow({
 
   if (view === "apply") {
     const job = selectedJob;
+    if (!isAuthenticated) {
+      return (
+        <>
+          {nav}
+          <section className="hero">
+            <div className="view-pill">Find Zjob</div>
+            <p className="tag">Zjobly</p>
+            <h1>Create an account to apply</h1>
+            <p className="lede">Sign in before recording and sending your application video.</p>
+            <div className="panel">
+              <div className="panel-actions">
+                <button
+                  type="button"
+                  className="cta primary"
+                  onClick={() => void handleOpenApply()}
+                >
+                  Login or register
+                </button>
+                <button type="button" className="ghost" onClick={() => setView("jobDetail")}>
+                  Back to job
+                </button>
+              </div>
+            </div>
+          </section>
+        </>
+      );
+    }
     const isRecording = applyRecordingState === "recording";
     const isPaused = applyRecordingState === "paused";
     const isActiveRecording = isRecording || isPaused;
@@ -1539,6 +1604,11 @@ export function JobSeekerFlow({
                   {!hasApplied && !canApply && (
                     <p className="hint">This job is not open for applications right now.</p>
                   )}
+                  {!hasApplied && isAuthenticated === false && canApply && (
+                    <p className="hint">
+                      You can browse jobs while logged out. Create an account when you are ready to apply.
+                    </p>
+                  )}
                   {applyAvailabilityError && <div className="error">{applyAvailabilityError}</div>}
                   {applyAvailabilityChecking && <div className="notice">Refreshing job status...</div>}
                   {hasApplied ? (
@@ -1587,7 +1657,11 @@ export function JobSeekerFlow({
                           onClick={() => void handleOpenApply()}
                           disabled={!canApply || applyAvailabilityChecking}
                         >
-                          {applyVideoUrl ? "Continue application" : "Apply with video"}
+                          {!isAuthenticated
+                            ? "Create account to apply"
+                            : applyVideoUrl
+                            ? "Continue application"
+                            : "Apply with video"}
                         </button>
                       </div>
                     </>

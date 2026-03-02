@@ -127,6 +127,32 @@ def get_current_user(
     return auth_session.user
 
 
+def get_current_user_optional(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> Optional[models.User]:
+    token = (request.cookies.get(settings.AUTH_COOKIE_NAME) or "").strip()
+    if not token:
+        return None
+
+    token_hash = hash_session_token(token)
+    auth_session = (
+        session.query(models.AuthSession)
+        .options(joinedload(models.AuthSession.user))
+        .filter(models.AuthSession.token_hash == token_hash)
+        .first()
+    )
+    if not auth_session:
+        return None
+    if auth_session.expires_at <= datetime.utcnow():
+        session.delete(auth_session)
+        session.commit()
+        return None
+    if not auth_session.user or not auth_session.user.is_active:
+        return None
+    return auth_session.user
+
+
 @router.post("/auth/register", response_model=AuthUserOut)
 def register_auth_user(
     payload: AuthCredentialsIn,
@@ -432,9 +458,13 @@ def _build_job_out(job: models.Job) -> JobOut:
     )
 
 
-def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOut:
+def _build_candidate_out(
+    profile: models.CandidateProfile,
+    include_private: bool = True,
+) -> CandidateProfileOut:
     playback_url = None
-    if profile.video_object_key:
+    video_object_key = profile.video_object_key if include_private else None
+    if include_private and profile.video_object_key:
         try:
             presigned = storage.presign_get_object(
                 bucket=settings.S3_BUCKET_RAW,
@@ -452,9 +482,9 @@ def _build_candidate_out(profile: models.CandidateProfile) -> CandidateProfileOu
         location=profile.location,
         location_id=profile.location_id,
         location_details=profile.location_ref,
-        summary=profile.summary,
-        keywords=profile.keywords,
-        video_object_key=profile.video_object_key,
+        summary=profile.summary if include_private else None,
+        keywords=profile.keywords if include_private else None,
+        video_object_key=video_object_key,
         playback_url=playback_url,
         discoverable=profile.discoverable,
     )
@@ -806,12 +836,14 @@ def search_candidates(
     lon: Optional[float] = Query(None, description="Longitude for distance boost"),
     radius_km: Optional[float] = Query(None, description="Distance scale in kilometers"),
     session: Session = Depends(get_session),
-    current_user: models.User = Depends(get_current_user),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
 ) -> list[CandidateProfileOut]:
-    # Company membership required to search candidates.
-    membership = session.query(models.CompanyMembership).filter_by(user_id=current_user.id).first()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Join a company to search candidates")
+    membership = (
+        session.query(models.CompanyMembership).filter_by(user_id=current_user.id).first()
+        if current_user
+        else None
+    )
+    include_private = current_user is not None
 
     query_text = (q or "").strip()
     location_point: dict[str, float] | None = None
@@ -821,6 +853,10 @@ def search_candidates(
         location_point = {"lat": float(lat), "lon": float(lon)}
 
     if job_id:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Sign in to match candidates to a job")
+        if not membership:
+            raise HTTPException(status_code=403, detail="Join a company to search candidates")
         job = (
             session.query(models.Job)
             .options(joinedload(models.Job.location_ref))
@@ -845,7 +881,7 @@ def search_candidates(
             )
             profile_map = {profile.id: profile for profile in profiles}
             return [
-                _build_candidate_out(profile_map[candidate_id])
+                _build_candidate_out(profile_map[candidate_id], include_private=include_private)
                 for candidate_id in candidate_ids
                 if candidate_id in profile_map
             ]
@@ -855,7 +891,24 @@ def search_candidates(
         ilike = f"%{q}%"
         query = query.filter(models.CandidateProfile.headline.ilike(ilike))
     results = query.order_by(models.CandidateProfile.updated_at.desc()).limit(50).all()
-    return [_build_candidate_out(profile) for profile in results]
+    return [_build_candidate_out(profile, include_private=include_private) for profile in results]
+
+
+@router.get("/candidates/{candidate_id}", response_model=CandidateProfileOut)
+def get_candidate_detail(
+    candidate_id: str,
+    session: Session = Depends(get_session),
+    current_user: models.User = Depends(get_current_user),
+) -> CandidateProfileOut:
+    profile = (
+        session.query(models.CandidateProfile)
+        .options(joinedload(models.CandidateProfile.location_ref))
+        .filter_by(id=candidate_id)
+        .first()
+    )
+    if not profile or not profile.discoverable:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    return _build_candidate_out(profile)
 
 
 @router.get("/candidates/favorites", response_model=list[CandidateProfileOut])

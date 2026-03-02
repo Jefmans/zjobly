@@ -6,6 +6,7 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   role: UserRole | null;
+  isAuthenticated: boolean;
   favoriteCandidateIds: Set<string>;
   favoriteUpdatingIds: Set<string>;
   favoritesError: string | null;
@@ -24,6 +25,7 @@ export function CandidateSearchFlow({
   view,
   nav,
   role,
+  isAuthenticated,
   favoriteCandidateIds,
   favoriteUpdatingIds,
   favoritesError,
@@ -91,7 +93,11 @@ export function CandidateSearchFlow({
         <div className="view-pill">Find Candidates</div>
         <p className="tag">Zjobly</p>
         <h1>Search candidates</h1>
-        <p className="lede">Find candidates by headline and review their profiles.</p>
+        <p className="lede">
+          {isAuthenticated
+            ? "Find candidates by headline and review their profiles."
+            : "Find candidates by headline. Sign in to open full profiles and contact them."}
+        </p>
         {!isEmployer ? (
           <div className="panel">
             <p className="hint">Switch to the employer role to search candidates.</p>
@@ -115,10 +121,16 @@ export function CandidateSearchFlow({
                 </div>
               </div>
             </form>
-            {!canFavorite && (
+            {!isAuthenticated && (
+              <p className="hint">
+                Logged-out browsing is limited to this search list. Sign in to open full profiles,
+                save favorites, or invite candidates.
+              </p>
+            )}
+            {isAuthenticated && !canFavorite && (
               <p className="hint">Select a company to save candidates to favorites.</p>
             )}
-            {!canInvite && (
+            {isAuthenticated && !canInvite && (
               <p className="hint">Select a company to send candidate invitations.</p>
             )}
             {favoritesError && <p className="error">{favoritesError}</p>}
@@ -144,9 +156,12 @@ export function CandidateSearchFlow({
                         const status = invitationStatusByCandidateId[candidate.id];
                         const isUpdating = inviteUpdatingIds.has(candidate.id);
                         const canSend =
-                          canInvite && (!status || status === "rejected") && !isUpdating;
+                          !isAuthenticated ||
+                          (canInvite && (!status || status === "rejected") && !isUpdating);
                         const label = isUpdating
                           ? "Sending..."
+                          : !isAuthenticated
+                          ? "Login to invite"
                           : status === "pending"
                           ? "Invited"
                           : status === "accepted"
@@ -172,6 +187,8 @@ export function CandidateSearchFlow({
                           ? isFavorite
                             ? "Removing..."
                             : "Saving..."
+                          : !isAuthenticated
+                          ? "Login to save"
                           : isFavorite
                           ? "Remove favorite"
                           : "Add to favorites";
@@ -184,7 +201,7 @@ export function CandidateSearchFlow({
                                 ? onRemoveFavorite(candidate.id)
                                 : onAddFavorite(candidate.id)
                             }
-                            disabled={!canFavorite || isUpdating}
+                            disabled={(isAuthenticated && !canFavorite) || isUpdating}
                           >
                             {label}
                           </button>

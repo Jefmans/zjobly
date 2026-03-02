@@ -1718,6 +1718,43 @@ button[type='submit']:disabled {
   margin: 0 auto;
 }
 
+.auth-inline-error {
+  margin-top: 1rem;
+}
+
+.welcome-auth-line {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #cbd5e1;
+}
+
+.welcome-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(3, 7, 18, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.auth-overlay-card {
+  width: min(640px, 100%);
+  margin: 0;
+}
+
 @media (max-width: 640px) {
   .job-card {
     align-items: flex-start;
@@ -1730,5 +1767,15 @@ button[type='submit']:disabled {
 
   .job-application-counts {
     text-align: left;
+  }
+
+  .auth-session-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .welcome-auth-line {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
