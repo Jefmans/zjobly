@@ -91,6 +91,7 @@ const ROLE_STORAGE_KEY = 'zjobly-user-role';
 const VIEW_STORAGE_KEY = 'zjobly-view';
 const USER_STORAGE_KEY = 'zjobly-user-id';
 const COMPANY_STORAGE_KEY = 'zjobly-company-id';
+const DEV_AUTH_PREVIEW_STORAGE_KEY = 'zjobly-dev-auth-preview';
 const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   headline: '',
   location: '',
@@ -230,6 +231,19 @@ const DEV_PREVIEW_AUTH_USER: AuthUser = {
   name: 'Dev preview user',
 };
 
+const getStoredDevAuthPreviewMode = (): DevAuthPreviewMode => {
+  if (!SHOW_DEVELOPMENT_NAVIGATION) return 'real';
+  try {
+    const stored = localStorage.getItem(DEV_AUTH_PREVIEW_STORAGE_KEY);
+    if (stored === 'loggedOut' || stored === 'loggedIn' || stored === 'real') {
+      return stored;
+    }
+  } catch {
+    // ignore storage failures
+  }
+  return 'real';
+};
+
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
@@ -320,7 +334,9 @@ function App() {
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
-  const [devAuthPreviewMode, setDevAuthPreviewMode] = useState<DevAuthPreviewMode>('real');
+  const [devAuthPreviewMode, setDevAuthPreviewMode] = useState<DevAuthPreviewMode>(
+    () => getStoredDevAuthPreviewMode(),
+  );
   const authUserRef = useRef<AuthUser | null>(null);
   const authRequestResolverRef = useRef<((authenticated: boolean) => void) | null>(null);
   const jobVideoUrlsRef = useRef<Record<string, string>>({});
@@ -351,12 +367,13 @@ function App() {
   });
   const candidateLocationAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
+  const activeDevAuthPreviewMode = SHOW_DEVELOPMENT_NAVIGATION ? devAuthPreviewMode : 'real';
   const previewAuthUser =
-    devAuthPreviewMode === 'loggedOut'
+    activeDevAuthPreviewMode === 'loggedOut'
       ? null
-      : authUser ?? (devAuthPreviewMode === 'loggedIn' ? DEV_PREVIEW_AUTH_USER : null);
+      : authUser ?? (activeDevAuthPreviewMode === 'loggedIn' ? DEV_PREVIEW_AUTH_USER : null);
   const previewAuthenticated = Boolean(previewAuthUser);
-  const canUseAuthenticatedApi = Boolean(authUser) && devAuthPreviewMode !== 'loggedOut';
+  const canUseAuthenticatedApi = Boolean(authUser) && activeDevAuthPreviewMode !== 'loggedOut';
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -419,6 +436,19 @@ function App() {
   useEffect(() => {
     authUserRef.current = authUser;
   }, [authUser]);
+
+  useEffect(() => {
+    if (!SHOW_DEVELOPMENT_NAVIGATION) return;
+    try {
+      if (devAuthPreviewMode === 'real') {
+        localStorage.removeItem(DEV_AUTH_PREVIEW_STORAGE_KEY);
+      } else {
+        localStorage.setItem(DEV_AUTH_PREVIEW_STORAGE_KEY, devAuthPreviewMode);
+      }
+    } catch {
+      // ignore storage failures
+    }
+  }, [devAuthPreviewMode]);
 
   useEffect(() => {
     return () => {
