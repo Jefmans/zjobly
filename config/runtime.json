@@ -20,6 +20,6 @@
     "stubSuccessAfterAttempts": 3
   },
   "ui": {
-    "showDevelopmentNavigation": false
+    "showDevelopmentNavigation": true
   }
 }
