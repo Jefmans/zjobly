@@ -785,7 +785,7 @@ def search_jobs(
     lon: Optional[float] = Query(None, description="Longitude for distance boost"),
     radius_km: Optional[float] = Query(None, description="Distance scale in kilometers"),
     session: Session = Depends(get_session),
-    current_user: models.User = Depends(get_current_user),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
 ) -> list[JobOut]:
     query_text = (q or "").strip()
     location_point: dict[str, float] | None = None
@@ -793,7 +793,7 @@ def search_jobs(
 
     if lat is not None and lon is not None:
         location_point = {"lat": float(lat), "lon": float(lon)}
-    if not query_text:
+    if not query_text and current_user is not None:
         profile = (
             session.query(models.CandidateProfile)
             .options(joinedload(models.CandidateProfile.location_ref))
@@ -811,7 +811,11 @@ def search_jobs(
             jobs = (
                 session.query(models.Job)
                 .options(joinedload(models.Job.location_ref))
-                .filter(models.Job.id.in_(job_ids))
+                .filter(
+                    models.Job.id.in_(job_ids),
+                    models.Job.status == models.JobStatus.open,
+                    models.Job.visibility == models.JobVisibility.public,
+                )
                 .all()
             )
             job_map = {job.id: job for job in jobs}

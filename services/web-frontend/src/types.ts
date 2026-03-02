@@ -86,7 +86,7 @@ export type CandidateProfile = CandidateProfileInput & {
   playback_url?: string | null;
 };
 
-export type JobStatus = 'draft' | 'open' | 'closed' | 'published';
+export type JobStatus = 'draft' | 'open' | 'closed';
 export type JobVisibility = 'public' | 'private';
 export type ApplicationStatus = 'applied' | 'reviewing' | 'rejected' | 'hired';
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected';

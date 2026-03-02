@@ -57,6 +57,32 @@ const MAX_APPLICATION_VIDEO_SECONDS = Math.max(
   Number(runtimeConfig.video?.maxDurationSeconds) || 180,
 );
 
+const getDateValue = (value?: string | null) => {
+  if (!value) return 0;
+  const ts = new Date(value).getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+};
+
+const isPublishedJob = (job?: Job) =>
+  Boolean(job && job.status === "open" && job.visibility === "public");
+
+const getPublishedTime = (job: Job) =>
+  isPublishedJob(job) ? getDateValue(job.updated_at || job.created_at) : 0;
+
+const getJobStatusRank = (job: Job) => {
+  if (isPublishedJob(job)) return 0;
+  if (job.status === "open") return 1;
+  if (job.status === "draft") return 2;
+  return 3;
+};
+
+const getStatusMeta = (job: Job) => {
+  if (job.status === "draft") return { label: "Draft", className: "draft" };
+  if (job.status === "closed") return { label: "Closed", className: "closed" };
+  if (isPublishedJob(job)) return { label: "Published", className: "published" };
+  return { label: "Open", className: "open" };
+};
+
 export function JobSeekerFlow({
   view,
   nav,
@@ -163,8 +189,7 @@ export function JobSeekerFlow({
     });
     return map;
   }, [candidateApplications]);
-  const isJobOpenForApply = (job?: Job) =>
-    Boolean(job && job.status === "open" && job.visibility === "public");
+  const isJobOpenForApply = (job?: Job) => isPublishedJob(job);
   const canApplyForSelectedJob = Boolean(displayJob && isCandidate && isJobOpenForApply(displayJob));
   const hasAppliedForSelectedJob = Boolean(
     displayJob && (appliedJobs[displayJob.id] || appliedJobStatusById[displayJob.id]),
@@ -201,41 +226,23 @@ export function JobSeekerFlow({
 
   const sortedJobs = useMemo(() => {
     const items = [...jobs];
-    const dateValue = (value?: string | null) => {
-      if (!value) return 0;
-      const ts = new Date(value).getTime();
-      return Number.isNaN(ts) ? 0 : ts;
-    };
-    const statusRank: Record<Job["status"], number> = {
-      draft: 2,
-      open: 0,
-      closed: 3,
-      published: 1,
-    };
-    const getPublishedTime = (job: Job) => (job.status === "open" || job.status === "published" ? dateValue(job.created_at) : 0);
 
     switch (sortBy) {
       case "relevant":
         return items;
       case "created_asc":
-        return items.sort((a, b) => dateValue(a.created_at) - dateValue(b.created_at));
+        return items.sort((a, b) => getDateValue(a.created_at) - getDateValue(b.created_at));
       case "published_desc":
         return items.sort((a, b) => getPublishedTime(b) - getPublishedTime(a));
       case "location_asc":
         return items.sort((a, b) => (a.location || "").localeCompare(b.location || "", undefined, { sensitivity: "base" }));
       case "status":
-        return items.sort((a, b) => (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99));
+        return items.sort((a, b) => getJobStatusRank(a) - getJobStatusRank(b));
       case "created_desc":
       default:
-        return items.sort((a, b) => dateValue(b.created_at) - dateValue(a.created_at));
+        return items.sort((a, b) => getDateValue(b.created_at) - getDateValue(a.created_at));
     }
   }, [jobs, sortBy]);
-  const getStatusMeta = (status: Job["status"]) => {
-    if (status === "draft") return { label: "Draft", className: "draft" };
-    if (status === "closed") return { label: "Closed", className: "closed" };
-    if (status === "open") return { label: "Open", className: "open" };
-    return { label: "Published", className: "published" };
-  };
   const clearApplyRecordTimer = () => {
     if (applyRecordTimerRef.current) {
       window.clearInterval(applyRecordTimerRef.current);
@@ -824,13 +831,13 @@ export function JobSeekerFlow({
                   <div className="job-meta-row">
                     <span>Created: {formatDate(job.created_at)}</span>
                     <span>
-                      Published: {job.status === "open" || job.status === "published" ? formatDate(job.created_at) : "Not published"}
+                      Published: {isPublishedJob(job) ? formatDate(job.updated_at || job.created_at) : "Not published"}
                     </span>
                   </div>
                 </div>
                 <div className="job-card-right">
                   {(() => {
-                    const status = getStatusMeta(job.status);
+                    const status = getStatusMeta(job);
                     return <div className={`job-status ${status.className}`}>{status.label}</div>;
                   })()}
                   {isCandidate && (() => {
@@ -851,9 +858,7 @@ export function JobSeekerFlow({
                   )}
                   {job.videoLabel && <span className="job-chip">Video: {job.videoLabel}</span>}
                   {isEmployer && (() => {
-                    const isPublished =
-                      (job.status === "open" || job.status === "published") && job.visibility === "public";
-                    if (isPublished) {
+                    if (isPublishedJob(job)) {
                       return (
                         <button
                           type="button"
@@ -936,7 +941,7 @@ export function JobSeekerFlow({
                     {candidateApplications.map((application) => {
                       const job = application.job;
                       const isOpen = expandedApplicationId === application.id;
-                      const status = getStatusMeta(job.status);
+                      const status = getStatusMeta(job);
                       return (
                         <div key={application.id} className={`application-card ${isOpen ? "open" : ""}`}>
                           <button
@@ -1318,7 +1323,7 @@ export function JobSeekerFlow({
               <p className="lede">{job.location}</p>
               <div className="job-detail-meta">
                 {(() => {
-                  const status = getStatusMeta(job.status);
+                  const status = getStatusMeta(job);
                   return <span className={`job-status ${status.className}`}>{status.label}</span>;
                 })()}
                 {isCandidate && appliedStatus && (
@@ -1673,9 +1678,7 @@ export function JobSeekerFlow({
                   Back to jobs
                 </button>
                 {isEmployer && (() => {
-                  const isPublished =
-                    (job.status === "open" || job.status === "published") && job.visibility === "public";
-                  if (isPublished) {
+                  if (isPublishedJob(job)) {
                     return (
                       <button
                         type="button"
