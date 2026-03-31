@@ -41,6 +41,32 @@ def _require_admin_config_enabled() -> None:
         raise HTTPException(status_code=403, detail="Config admin is disabled")
 
 
+def _normalize_identity(value: str | None) -> str:
+    return " ".join((value or "").strip().split()).lower()
+
+
+def _require_admin_allowlist_user(current_user: User) -> None:
+    allowed = {_normalize_identity(value) for value in settings.CONFIG_ADMIN_ALLOWLIST}
+    allowed = {value for value in allowed if value}
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Config admin allowlist is empty. Set CONFIG_ADMIN_ALLOWLIST.",
+        )
+
+    identities = {
+        _normalize_identity(current_user.id),
+        _normalize_identity(current_user.username),
+        _normalize_identity(current_user.email),
+    }
+    identities = {value for value in identities if value}
+    if identities.isdisjoint(allowed):
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized for config admin.",
+        )
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -81,8 +107,8 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 @router.get("", response_model=ConfigBundle)
 def get_admin_config_bundle(current_user: User = Depends(get_current_user)) -> ConfigBundle:
-    del current_user
     _require_admin_config_enabled()
+    _require_admin_allowlist_user(current_user)
     return ConfigBundle(
         runtime=_load_json(RUNTIME_CONFIG_PATH),
         questions=_load_json(QUESTIONS_CONFIG_PATH),
@@ -95,8 +121,8 @@ def update_admin_config_bundle(
     payload: ConfigBundle,
     current_user: User = Depends(get_current_user),
 ) -> ConfigBundle:
-    del current_user
     _require_admin_config_enabled()
+    _require_admin_allowlist_user(current_user)
 
     _write_json(RUNTIME_CONFIG_PATH, payload.runtime)
     _write_json(QUESTIONS_CONFIG_PATH, payload.questions)

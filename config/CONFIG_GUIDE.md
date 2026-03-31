@@ -21,3 +21,6 @@ Admin panel (dev):
 - Use `Development navigation` -> `Admin config panel`.
 - Save changes to update `runtime.json`, `questions.json`, and `prompts.json` from the UI.
 - Refresh the browser to apply frontend-side config changes.
+- Restrict access with `.env`:
+  - `CONFIG_ADMIN_ALLOWLIST=admin_username,admin@email.com,<user_id>`
+  - Only users matching `id`, `username`, or `email` in this allowlist can use config admin.

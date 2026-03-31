@@ -7,6 +7,21 @@ def _to_bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _normalize_identity(value: str | None) -> str:
+    return " ".join((value or "").strip().split()).lower()
+
+
+def _to_csv_identities(value: str | None) -> list[str]:
+    if not value:
+        return []
+    identities: list[str] = []
+    for raw in value.split(","):
+        normalized = _normalize_identity(raw)
+        if normalized:
+            identities.append(normalized)
+    return identities
+
+
 class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     REDIS_URL: str = os.getenv("REDIS_URL")
@@ -38,5 +53,8 @@ class Settings:
     AUTH_SESSION_TTL_DAYS: int = int(os.getenv("AUTH_SESSION_TTL_DAYS", "30"))
     AUTH_COOKIE_SECURE: bool = _to_bool(os.getenv("AUTH_COOKIE_SECURE"), False)
     CONFIG_ADMIN_ENABLED: bool = _to_bool(os.getenv("CONFIG_ADMIN_ENABLED"), False)
+    CONFIG_ADMIN_ALLOWLIST: list[str] = _to_csv_identities(
+        os.getenv("CONFIG_ADMIN_ALLOWLIST")
+    )
 
 settings = Settings()
