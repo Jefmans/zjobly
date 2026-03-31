@@ -2743,7 +2743,6 @@ function App() {
             </div>
             {!previewAuthenticated && (
               <div className="welcome-auth-line">
-                <span>Login or register when you want to save progress, apply, or contact:</span>
                 <div className="welcome-auth-links">
                   <button
                     type="button"
