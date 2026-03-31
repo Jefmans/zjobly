@@ -22,6 +22,7 @@ def _resolve_config_dir() -> Path:
 CONFIG_DIR = _resolve_config_dir()
 RUNTIME_CONFIG_PATH = CONFIG_DIR / "runtime.json"
 PROMPTS_CONFIG_PATH = CONFIG_DIR / "prompts.json"
+QUESTIONS_CONFIG_PATH = CONFIG_DIR / "questions.json"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -45,6 +46,17 @@ def get_runtime_config() -> dict[str, Any]:
 def get_prompts_config() -> dict[str, dict[str, Any]]:
     raw = _load_json(PROMPTS_CONFIG_PATH)
     return {key: value for key, value in raw.items() if isinstance(value, dict)}
+
+
+@lru_cache(maxsize=1)
+def get_questions_config() -> dict[str, Any]:
+    return _load_json(QUESTIONS_CONFIG_PATH)
+
+
+def clear_system_config_cache() -> None:
+    get_runtime_config.cache_clear()
+    get_prompts_config.cache_clear()
+    get_questions_config.cache_clear()
 
 
 def _get_nested_value(config: dict[str, Any], keys: tuple[str, ...]) -> Any:

@@ -13,7 +13,8 @@ export type ViewMode =
   | 'candidateFavorites'
   | 'candidateDetail'
   | 'invitations'
-  | 'jobMatches';
+  | 'jobMatches'
+  | 'adminConfig';
 export type CreateStep = 'record' | 'select' | 'details';
 export type CandidateStep = 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';

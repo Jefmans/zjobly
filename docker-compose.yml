@@ -166,7 +166,7 @@ services:
       API_PREFIX: /videos
     depends_on: [postgres, redis, minio]
     volumes:
-      - ./config:/config:ro
+      - ./config:/config
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s

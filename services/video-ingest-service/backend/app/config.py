@@ -37,5 +37,6 @@ class Settings:
     AUTH_COOKIE_NAME: str = os.getenv("AUTH_COOKIE_NAME", "zjobly_session")
     AUTH_SESSION_TTL_DAYS: int = int(os.getenv("AUTH_SESSION_TTL_DAYS", "30"))
     AUTH_COOKIE_SECURE: bool = _to_bool(os.getenv("AUTH_COOKIE_SECURE"), False)
+    CONFIG_ADMIN_ENABLED: bool = _to_bool(os.getenv("CONFIG_ADMIN_ENABLED"), False)
 
 settings = Settings()

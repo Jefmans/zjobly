@@ -31,10 +31,17 @@ router = APIRouter(prefix="/nlp", tags=["nlp"])
 _openai_client: OpenAI | None = None
 _spacy_nlp_cache: dict[str, Language] = {}
 
-OPENAI_MAX_BYTES = 25 * 1024 * 1024
-OPENAI_MAX_BYTES = get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
-JOB_DRAFT_MIN_TRANSCRIPT_CHARS = get_runtime_int(("transcript", "jobDraftMinChars"), 30)
-PROFILE_DRAFT_MIN_TRANSCRIPT_CHARS = get_runtime_int(("transcript", "profileDraftMinChars"), 20)
+
+def _get_openai_max_bytes() -> int:
+    return get_runtime_int(("workers", "openAiMaxUploadBytes"), 25 * 1024 * 1024)
+
+
+def _get_job_draft_min_chars() -> int:
+    return get_runtime_int(("transcript", "jobDraftMinChars"), 30)
+
+
+def _get_profile_draft_min_chars() -> int:
+    return get_runtime_int(("transcript", "profileDraftMinChars"), 20)
 
 
 def get_openai_client() -> OpenAI:
@@ -279,18 +286,19 @@ def _transcribe_object(object_key: str) -> str:
     model = settings.WHISPER_MODEL or "whisper-1"
     if model.lower() == "small":
         model = "whisper-1"
+    openai_max_bytes = _get_openai_max_bytes()
     with tempfile.TemporaryDirectory() as temp_dir:
         _, ext = os.path.splitext(object_key)
         input_path = os.path.join(temp_dir, f"input-media{ext or '.bin'}")
         _download_object(object_key, input_path)
 
         transcription_path = input_path
-        if os.path.getsize(input_path) > OPENAI_MAX_BYTES:
+        if os.path.getsize(input_path) > openai_max_bytes:
             audio_path = os.path.join(temp_dir, "audio.mp3")
             _transcode_to_audio(input_path, audio_path)
             transcription_path = audio_path
 
-        if os.path.getsize(transcription_path) > OPENAI_MAX_BYTES:
+        if os.path.getsize(transcription_path) > openai_max_bytes:
             raise HTTPException(status_code=413, detail="Transcription file exceeds OpenAI upload limit.")
 
         try:
@@ -395,7 +403,7 @@ def location_from_transcript(payload: LocationFromTranscriptRequest) -> Location
 @router.post("/job-draft", response_model=JobDraftResponse)
 def generate_job_draft(payload: JobDraftRequest) -> JobDraftResponse:
     transcript = payload.transcript.strip()
-    if len(transcript) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
+    if len(transcript) < _get_job_draft_min_chars():
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
 
     return _draft_from_transcript(transcript, payload.language)
@@ -408,7 +416,7 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
         raise HTTPException(status_code=400, detail="Missing object key")
 
     transcript = _transcribe_object(object_key).strip()
-    if len(transcript) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
+    if len(transcript) < _get_job_draft_min_chars():
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a draft")
 
     draft = _draft_from_transcript(transcript, payload.language)
@@ -419,6 +427,6 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
 @router.post("/profile-draft", response_model=ProfileDraftResponse)
 def generate_profile_draft(payload: ProfileDraftRequest) -> ProfileDraftResponse:
     transcript = payload.transcript.strip()
-    if len(transcript) < PROFILE_DRAFT_MIN_TRANSCRIPT_CHARS:
+    if len(transcript) < _get_profile_draft_min_chars():
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a profile draft")
     return _draft_profile_from_transcript(transcript, payload.language)

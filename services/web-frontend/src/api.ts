@@ -64,6 +64,12 @@ export type ProfileDraft = {
   keywords?: string[];
 };
 
+export type AdminConfigBundle = {
+  runtime: Record<string, unknown>;
+  questions: Record<string, unknown>;
+  prompts: Record<string, unknown>;
+};
+
 const apiBase = () => {
   const base = (import.meta.env.VITE_API_URL || "").toString().trim();
   if (!base) {
@@ -133,6 +139,21 @@ export async function getCurrentAuthUser(): Promise<AuthUser | null> {
     }
     throw err;
   }
+}
+
+export async function getAdminConfigBundle(): Promise<AdminConfigBundle> {
+  return requestJson<AdminConfigBundle>("/accounts/admin/config", {
+    method: "GET",
+  });
+}
+
+export async function updateAdminConfigBundle(
+  payload: AdminConfigBundle,
+): Promise<AdminConfigBundle> {
+  return requestJson<AdminConfigBundle>("/accounts/admin/config", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function createUploadUrl(file: File): Promise<UploadUrlResponse> {

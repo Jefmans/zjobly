@@ -33,26 +33,18 @@ CONFIG_DIR = _resolve_config_dir()
 PROMPT_CONFIG_PATH = CONFIG_DIR / "prompts.json"
 RUNTIME_CONFIG_PATH = CONFIG_DIR / "runtime.json"
 _prompt_config_cache: dict[str, dict[str, object]] | None = None
-_runtime_config_cache: dict[str, object] | None = None
 
 
 def _load_runtime_config() -> dict[str, object]:
-    global _runtime_config_cache
-    if _runtime_config_cache is not None:
-        return _runtime_config_cache
     if not RUNTIME_CONFIG_PATH.exists():
-        _runtime_config_cache = {}
-        return _runtime_config_cache
+        return {}
     try:
         parsed = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        _runtime_config_cache = {}
-        return _runtime_config_cache
+        return {}
     if not isinstance(parsed, dict):
-        _runtime_config_cache = {}
-        return _runtime_config_cache
-    _runtime_config_cache = parsed
-    return _runtime_config_cache
+        return {}
+    return parsed
 
 
 def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
@@ -66,9 +58,6 @@ def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
     except (TypeError, ValueError):
         return fallback
     return parsed if parsed > 0 else fallback
-
-
-JOB_DRAFT_MIN_TRANSCRIPT_CHARS = _get_runtime_int(("transcript", "jobDraftMinChars"), 30)
 
 
 def _load_prompt_config() -> dict[str, dict[str, object]]:
@@ -176,7 +165,8 @@ def _normalize_keywords(raw_keywords: object) -> list[str]:
 
 def generate_job_draft(transcript: str) -> dict[str, object]:
     transcript_clean = (transcript or "").strip()
-    if len(transcript_clean) < JOB_DRAFT_MIN_TRANSCRIPT_CHARS:
+    min_chars = _get_runtime_int(("transcript", "jobDraftMinChars"), 30)
+    if len(transcript_clean) < min_chars:
         raise ValueError("Transcript too short to generate a draft")
 
     llm, system_prompt = _build_chat_model("job_draft")

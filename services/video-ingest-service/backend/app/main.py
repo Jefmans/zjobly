@@ -5,6 +5,7 @@ from starlette.responses import Response
 from starlette.responses import JSONResponse
 
 from app.config import settings
+from app.routes import admin_config
 from app.routes import accounts
 from app.routes import media
 from app.routes import nlp
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
 
     app.include_router(media.router, prefix=settings.API_PREFIX)
     app.include_router(accounts.router, prefix=settings.API_PREFIX)
+    app.include_router(admin_config.router, prefix=settings.API_PREFIX)
     app.include_router(nlp.router, prefix=settings.API_PREFIX)
     return app
 

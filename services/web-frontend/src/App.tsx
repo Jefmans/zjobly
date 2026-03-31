@@ -9,6 +9,7 @@ import { CandidateInvitationsView } from './components/CandidateInvitationsView'
 import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateSearchFlow } from './components/CandidateSearchFlow';
 import { EmployerInvitationsView } from './components/EmployerInvitationsView';
+import { ConfigAdminView } from './components/ConfigAdminView';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
@@ -158,6 +159,7 @@ const getStoredView = (): ViewMode => {
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'profile' && storedRole === 'candidate') return 'profile';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
+    if (stored === 'adminConfig' && SHOW_DEVELOPMENT_NAVIGATION) return 'adminConfig';
   } catch {
     // ignore storage failures
   }
@@ -200,6 +202,8 @@ const getScreenLabel = (
     base = role === 'candidate'
       ? 'Screen:MyInvitations/List'
       : 'Screen:FindCandidates/Invitations';
+  } else if (view === 'adminConfig') {
+    base = 'Screen:Admin/Config';
   } else if (view === 'jobDetail') {
     base = role === 'candidate' ? 'Screen:FindZjob/JobDetail' : 'Screen:MyJobs/Detail';
   } else if (view === 'create') {
@@ -2215,6 +2219,17 @@ function App() {
     goToCandidateInvitations();
   };
 
+  const goToAdminConfig = () => {
+    void (async () => {
+      const canContinue = await ensureAuthenticated({
+        title: 'Sign in to manage config',
+        message: 'Sign in before editing shared runtime settings.',
+      });
+      if (!canContinue) return;
+      setView('adminConfig');
+    })();
+  };
+
   const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
     void (async () => {
       const canContinue = await ensureAuthenticated({
@@ -2614,6 +2629,11 @@ function App() {
             </select>
           </div>
           {devCandidatesError && <p className="error">{devCandidatesError}</p>}
+          <div className="dev-company-row">
+            <button type="button" className="ghost" onClick={goToAdminConfig}>
+              Admin config panel
+            </button>
+          </div>
         </div>
       )}
       <div className="auth-session-row">
@@ -2837,6 +2857,11 @@ function App() {
         onCreateProfile={startCandidateFlow}
         onEditProfile={goToCandidateProfileEdit}
         onBrowseJobs={goToJobsOverview}
+      />
+
+      <ConfigAdminView
+        view={view}
+        nav={nav}
       />
 
       <CandidateDetailView

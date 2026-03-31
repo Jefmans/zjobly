@@ -13,7 +13,6 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 DEFAULT_MEDIA_BUCKET = os.getenv("MINIO_BUCKET", "media")
 OPENAI_MAX_BYTES = 25 * 1024 * 1024
-_runtime_config_cache: dict[str, object] | None = None
 
 celery_app = Celery(
     "transcription",
@@ -46,22 +45,15 @@ RUNTIME_CONFIG_PATH = _resolve_config_dir() / "runtime.json"
 
 
 def _load_runtime_config() -> dict[str, object]:
-    global _runtime_config_cache
-    if _runtime_config_cache is not None:
-        return _runtime_config_cache
     if not RUNTIME_CONFIG_PATH.exists():
-        _runtime_config_cache = {}
-        return _runtime_config_cache
+        return {}
     try:
         parsed = json.loads(RUNTIME_CONFIG_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        _runtime_config_cache = {}
-        return _runtime_config_cache
+        return {}
     if not isinstance(parsed, dict):
-        _runtime_config_cache = {}
-        return _runtime_config_cache
-    _runtime_config_cache = parsed
-    return _runtime_config_cache
+        return {}
+    return parsed
 
 
 def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
@@ -77,7 +69,8 @@ def _get_runtime_int(keys: tuple[str, ...], fallback: int) -> int:
     return parsed if parsed > 0 else fallback
 
 
-OPENAI_MAX_BYTES = _get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
+def _get_openai_max_bytes() -> int:
+    return _get_runtime_int(("workers", "openAiMaxUploadBytes"), OPENAI_MAX_BYTES)
 
 
 def get_openai_client() -> OpenAI:
@@ -110,9 +103,10 @@ def fetch_media(bucket: str, key: str) -> io.BytesIO:
     s3 = get_s3_client()
     resp = s3.get_object(Bucket=bucket, Key=key)
     size_bytes = resp.get("ContentLength") or 0
+    openai_max_bytes = _get_openai_max_bytes()
     if size_bytes <= 0:
         raise RuntimeError("Object is empty")
-    if size_bytes > OPENAI_MAX_BYTES:
+    if size_bytes > openai_max_bytes:
         raise RuntimeError("Object exceeds OpenAI upload limit")
     body = resp["Body"].read()
     buf = io.BytesIO(body)
