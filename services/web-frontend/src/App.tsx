@@ -2743,14 +2743,19 @@ function App() {
             </div>
             {!previewAuthenticated && (
               <div className="welcome-auth-line">
-                <span>Login or register when you want to save progress, apply, or contact.</span>
-                <div className="welcome-auth-actions">
-                  <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
-                    Login
-                  </button>
+                <span>Login or register when you want to save progress, apply, or contact:</span>
+                <div className="welcome-auth-links">
                   <button
                     type="button"
-                    className="cta secondary"
+                    className="welcome-auth-link"
+                    onClick={() => openVoluntaryAuth('login')}
+                  >
+                    Login
+                  </button>
+                  <span aria-hidden="true">/</span>
+                  <button
+                    type="button"
+                    className="welcome-auth-link"
                     onClick={() => openVoluntaryAuth('register')}
                   >
                     Register
