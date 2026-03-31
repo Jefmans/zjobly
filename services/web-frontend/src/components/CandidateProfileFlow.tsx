@@ -489,14 +489,20 @@ export function CandidateProfileFlow({
                     {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
                   </div>
 
-                  {!hasTakes && <p className="hint">Record a take to continue, or move on to upload one in the next step.</p>}
+                  {!hasTakes && (
+                    <p className="hint">
+                      Record and stop at least one take to unlock the next step.
+                    </p>
+                  )}
                   {error && <div className="error">{error}</div>}
 
-                  <div className="panel-actions">
-                    <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                      Continue to select video
-                    </button>
-                  </div>
+                  {hasTakes && (
+                    <div className="panel-actions">
+                      <button type="button" className="cta primary" onClick={() => goToStep("select")}>
+                        Continue to select video
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
