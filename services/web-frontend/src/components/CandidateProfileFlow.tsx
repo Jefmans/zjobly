@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from "react";
+import { ReactNode, RefObject, useEffect, useMemo, useState } from "react";
 import { formatDuration } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
@@ -25,7 +25,6 @@ type Props = {
   recordedTakes: RecordedTake[];
   selectedTakeId: string | null;
   selectTake: (id: string) => void;
-  handleVideoChange: (e: ChangeEvent<HTMLInputElement>) => void;
   status: Status;
   uploadProgress: number | null;
   processingMessage: string | null;
@@ -67,7 +66,6 @@ export function CandidateProfileFlow({
   recordedTakes,
   selectedTakeId,
   selectTake,
-  handleVideoChange,
   status,
   uploadProgress,
   processingMessage,
@@ -550,16 +548,9 @@ export function CandidateProfileFlow({
                 ))}
               </div>
 
-              <div className="field">
-                <label htmlFor="candidate-video">Upload instead (max {maxVideoLabel})</label>
-                <div className="upload-box">
-                  <input id="candidate-video" name="video" type="file" accept="video/*" onChange={handleVideoChange} />
-                  <div className="upload-copy">
-                    <strong>Select a video file</strong>
-                    <span>MP4, MOV, WEBM - up to {maxVideoLabel}</span>
-                  </div>
-                </div>
-              </div>
+              <p className="hint">
+                Intro videos must be recorded in-app. Upload is disabled for this step.
+              </p>
 
               {error && <div className="error">{error}</div>}
               {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}

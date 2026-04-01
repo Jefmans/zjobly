@@ -2831,7 +2831,6 @@ function App() {
         recordedTakes={recordedTakes}
         selectedTakeId={selectedTakeId}
         selectTake={selectTake}
-        handleVideoChange={handleVideoChange}
         status={status}
         uploadProgress={uploadProgress}
         processingMessage={processingMessage}
