@@ -497,9 +497,9 @@ export function CandidateProfileFlow({
                   {error && <div className="error">{error}</div>}
 
                   {hasTakes && (
-                    <div className="panel-actions">
+                    <div className="panel-actions record-panel-actions">
                       <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                        Continue to select video
+                        Continue
                       </button>
                     </div>
                   )}
