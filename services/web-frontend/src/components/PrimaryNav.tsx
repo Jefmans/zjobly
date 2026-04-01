@@ -110,16 +110,6 @@ export function PrimaryNav({
             {item.label}
           </button>
         ))}
-        {!role && (
-          <div className="primary-nav-cta">
-            <button type="button" className="nav-btn primary" onClick={onStartCandidate}>
-              Find Zjob
-            </button>
-            <button type="button" className="nav-btn" onClick={onStartEmployer}>
-              Create Zjob
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

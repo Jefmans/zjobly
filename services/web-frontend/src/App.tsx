@@ -2636,62 +2636,64 @@ function App() {
           </div>
         </div>
       )}
-      <div className="auth-session-row">
-        {previewAuthenticated ? (
-          <>
-            <span className="hint">
-              {devAuthPreviewMode === 'loggedIn' && !authUser
-                ? 'Dev preview: logged in (no real session)'
-                : `Signed in as ${previewAuthUser?.name}`}
-            </span>
-            {devAuthPreviewMode !== 'real' ? (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setDevAuthPreviewMode('real')}
-              >
-                Use real auth
-              </button>
-            ) : (
-              authUser && (
-                <button type="button" className="ghost" onClick={handleLogout}>
-                  Log out
-                </button>
-              )
-            )}
-          </>
-        ) : (
-          <>
-            <span className="hint">
-              {devAuthPreviewMode === 'loggedOut' && authUser
-                ? 'Dev preview: logged out'
-                : 'Browse first. Create an account when you want to save, apply, or contact.'}
-            </span>
-            {devAuthPreviewMode !== 'real' ? (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setDevAuthPreviewMode('real')}
-              >
-                Use real auth
-              </button>
-            ) : (
-              <>
-                <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
-                  Login
-                </button>
+      {(previewAuthenticated || view !== 'welcome') && (
+        <div className="auth-session-row">
+          {previewAuthenticated ? (
+            <>
+              <span className="hint">
+                {devAuthPreviewMode === 'loggedIn' && !authUser
+                  ? 'Dev preview: logged in (no real session)'
+                  : `Signed in as ${previewAuthUser?.name}`}
+              </span>
+              {devAuthPreviewMode !== 'real' ? (
                 <button
                   type="button"
-                  className="cta secondary"
-                  onClick={() => openVoluntaryAuth('register')}
+                  className="ghost"
+                  onClick={() => setDevAuthPreviewMode('real')}
                 >
-                  Register
+                  Use real auth
                 </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
+              ) : (
+                authUser && (
+                  <button type="button" className="ghost" onClick={handleLogout}>
+                    Log out
+                  </button>
+                )
+              )}
+            </>
+          ) : (
+            <>
+              <span className="hint">
+                {devAuthPreviewMode === 'loggedOut' && authUser
+                  ? 'Dev preview: logged out'
+                  : 'Browse first. Create an account when you want to save, apply, or contact.'}
+              </span>
+              {devAuthPreviewMode !== 'real' ? (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setDevAuthPreviewMode('real')}
+                >
+                  Use real auth
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className="cta secondary"
+                    onClick={() => openVoluntaryAuth('register')}
+                  >
+                    Register
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
       <PrimaryNav
         view={view}
         role={role}
@@ -2731,8 +2733,7 @@ function App() {
           {nav}
           <section className="hero welcome">
             <p className="tag">Zjobly</p>
-            <h1>Choose your next step</h1>
-            <p className="lede">Start by finding a Zjob or creating one with a short video.</p>
+            <h1>Welcome</h1>
             <div className="welcome-actions">
               <button type="button" className="cta primary" onClick={startCandidateFlow}>
                 Find Zjob
