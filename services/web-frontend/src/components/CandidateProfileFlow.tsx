@@ -99,6 +99,7 @@ export function CandidateProfileFlow({
   const canRecord = recordingState === "idle" || recordingState === "paused";
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
+  const introCountdownSeconds = Math.max(1, Number(runtimeConfig.video?.introCountdownSeconds) || 3);
   const questionCountdownSeconds = Math.max(
     1,
     Number(runtimeConfig.video?.questionCountdownSeconds) || 3,
@@ -147,6 +148,7 @@ export function CandidateProfileFlow({
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
+  const [introCountdown, setIntroCountdown] = useState<number | null>(null);
   const hasCandidateQuestions = isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
@@ -157,6 +159,8 @@ export function CandidateProfileFlow({
   const canStartCountdown = questionCountdown === null;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
   const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
+  const showLoggedOutIntroOverlay =
+    !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
     if (recordingState === "recording") {
@@ -178,6 +182,11 @@ export function CandidateProfileFlow({
   };
   const handleRecordAction = () => {
     if (!hasCandidateQuestions) {
+      if (!isAuthenticated && recordingState === "idle") {
+        if (introCountdown !== null) return;
+        setIntroCountdown(introCountdownSeconds);
+        return;
+      }
       recordAction();
       return;
     }
@@ -186,10 +195,29 @@ export function CandidateProfileFlow({
   };
 
   useEffect(() => {
-    if (candidateStep !== "record") return;
+    if (candidateStep !== "record") {
+      setQuestionCountdown(null);
+      setIntroCountdown(null);
+      return;
+    }
     setCandidateQuestionIndex(0);
     setQuestionCountdown(null);
+    setIntroCountdown(null);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
+  useEffect(() => {
+    if (introCountdown === null) return;
+    if (introCountdown <= 0) {
+      setIntroCountdown(null);
+      if (recordingState === "idle") {
+        startRecording();
+      }
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setIntroCountdown((prev) => (prev === null ? null : prev - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [introCountdown, recordingState, startRecording]);
   useEffect(() => {
     if (questionCountdown === null) return;
     if (questionCountdown <= 0) {
@@ -414,6 +442,30 @@ export function CandidateProfileFlow({
                             </div>
                           </div>
                         )}
+                        {showLoggedOutIntroOverlay && (
+                          <div className="overlay-center">
+                            <div className="question-overlay">
+                              {introCountdown === null ? (
+                                <>
+                                  <p className="question-text">
+                                    Tell us about yourself and the kind of job you are looking for.
+                                  </p>
+                                  <p className="question-label">
+                                    Recording starts after you click Start.
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="question-label">Get ready</p>
+                                  <p className="question-text">Starting in</p>
+                                  <div className="question-countdown">
+                                    <span className="question-countdown-value">{introCountdown}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="overlay-bottom">
                           <div className="overlay-actions-left">
                             {canShowQuestionActions && (
@@ -442,7 +494,11 @@ export function CandidateProfileFlow({
                                 type="button"
                                 className="record-control record"
                                 onClick={handleRecordAction}
-                                disabled={!canRecord || (hasCandidateQuestions && !canStartCountdown)}
+                                disabled={
+                                  !canRecord ||
+                                  (hasCandidateQuestions && !canStartCountdown) ||
+                                  (!isAuthenticated && recordingState === "idle" && introCountdown !== null)
+                                }
                                 aria-label={recordActionLabel}
                               >
                                 <span className="record-icon record-icon--record" aria-hidden="true" />

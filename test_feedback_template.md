@@ -48,7 +48,7 @@ Actual outcome: login & register button (at bottom)
 Expected outcome: should be les visible => chenge into text
 
 
-
+b v
 ---------------------------------------------
 Screen: 
 
