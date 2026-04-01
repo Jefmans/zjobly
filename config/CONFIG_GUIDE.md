@@ -24,3 +24,6 @@ Admin panel (dev):
 - Restrict access with `.env`:
   - `CONFIG_ADMIN_ALLOWLIST=admin_username,admin@email.com,<user_id>`
   - Only users matching `id`, `username`, or `email` in this allowlist can use config admin.
+- Optional runtime override:
+  - `runtime.json` -> `ui.adminUserAllowlist: ["admin"]`
+  - Frontend and API both accept this list for admin-config access.
