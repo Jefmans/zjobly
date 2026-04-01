@@ -2842,6 +2842,7 @@ function App() {
       <CandidateProfileFlow
         view={view}
         nav={nav}
+        isAuthenticated={previewAuthenticated}
         candidateStep={candidateStep}
         goToStep={goToCandidateStep}
         recorderOpen={recorderOpen}

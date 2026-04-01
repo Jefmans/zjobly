@@ -7,6 +7,7 @@ import { CandidateProfileInput, CandidateStep, RecordedTake, RecordingState, Sta
 type Props = {
   view: ViewMode;
   nav: ReactNode;
+  isAuthenticated: boolean;
   candidateStep: CandidateStep;
   goToStep: (step: CandidateStep) => void;
   recorderOpen: boolean;
@@ -48,6 +49,7 @@ type Props = {
 export function CandidateProfileFlow({
   view,
   nav,
+  isAuthenticated,
   candidateStep,
   goToStep,
   recorderOpen,
@@ -145,7 +147,7 @@ export function CandidateProfileFlow({
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
-  const hasCandidateQuestions = candidateQuestions.length > 0;
+  const hasCandidateQuestions = isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
