@@ -1247,7 +1247,11 @@ function App() {
   };
 
   const startCandidateFlow = () => {
-    setRoleAndView('candidate');
+    if (previewAuthenticated) {
+      setRoleAndView('candidate', 'jobs');
+      return;
+    }
+    setRoleAndView('candidate', 'find');
   };
 
   const handleRoleSelection = (value: UserRole, navigate: boolean) => {
@@ -2083,8 +2087,7 @@ function App() {
         authRequestResolverRef.current = null;
         resolver(true);
       } else if (activePrompt?.returnToHomeOnSuccess) {
-        persistRole(null);
-        setView('welcome');
+        setRoleAndView('candidate', 'profile');
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Could not authenticate your account.');
