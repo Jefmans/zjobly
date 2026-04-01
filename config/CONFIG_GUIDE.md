@@ -27,3 +27,6 @@ Admin panel (dev):
 - Optional runtime override:
   - `runtime.json` -> `ui.adminUserAllowlist: ["admin"]`
   - Frontend and API both accept this list for admin-config access.
+- Config admin on/off is separate from dev navigation:
+  - `runtime.json` -> `ui.enableConfigAdmin: true` (default if omitted)
+  - Set `ui.enableConfigAdmin: false` only when you want to fully disable `Screen:Admin/Config`.

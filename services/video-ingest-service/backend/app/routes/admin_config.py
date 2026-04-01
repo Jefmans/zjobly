@@ -32,7 +32,9 @@ def _is_admin_config_enabled() -> bool:
     runtime = get_runtime_config()
     ui = runtime.get("ui") if isinstance(runtime, dict) else None
     if isinstance(ui, dict):
-        return ui.get("showDevelopmentNavigation") is not False
+        explicit = ui.get("enableConfigAdmin")
+        if isinstance(explicit, bool):
+            return explicit
     return True
 
 
