@@ -110,6 +110,29 @@ const PROCESSING_STUB_SUCCESS_AFTER_ATTEMPTS = getPositiveNumber(
 );
 const SHOW_DEVELOPMENT_NAVIGATION =
   runtimeConfig.ui?.showDevelopmentNavigation !== false;
+const ADMIN_USER_ALLOWLIST = (() => {
+  const raw = runtimeConfig.ui?.adminUserAllowlist;
+  if (!Array.isArray(raw)) return ['admin'];
+  const normalized = raw
+    .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+    .filter(Boolean);
+  return normalized.length > 0 ? normalized : ['admin'];
+})();
+
+const isAdminIdentity = (value: string | null | undefined): boolean => {
+  const normalized = (value || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return ADMIN_USER_ALLOWLIST.includes(normalized);
+};
+
+const isAdminUser = (user: AuthUser | null): boolean => {
+  if (!user) return false;
+  return (
+    isAdminIdentity(user.id) ||
+    isAdminIdentity(user.username) ||
+    isAdminIdentity(user.name)
+  );
+};
 const formatLocationSuggestion = (suggestion: { location: string | null; city?: string | null; region?: string | null; country?: string | null; postal_code?: string | null }): string => {
   const fallback = (suggestion.location || '').trim();
   const parts = [suggestion.city, suggestion.region, suggestion.postal_code, suggestion.country]
@@ -378,6 +401,7 @@ function App() {
       : authUser ?? (activeDevAuthPreviewMode === 'loggedIn' ? DEV_PREVIEW_AUTH_USER : null);
   const previewAuthenticated = Boolean(previewAuthUser);
   const canUseAuthenticatedApi = Boolean(authUser) && activeDevAuthPreviewMode !== 'loggedOut';
+  const canSeeAdminConfigButton = isAdminUser(authUser);
 
   const persistRole = (nextRole: UserRole | null) => {
     setRole(nextRole);
@@ -2629,11 +2653,13 @@ function App() {
             </select>
           </div>
           {devCandidatesError && <p className="error">{devCandidatesError}</p>}
-          <div className="dev-company-row">
-            <button type="button" className="ghost" onClick={goToAdminConfig}>
-              Admin config panel
-            </button>
-          </div>
+          {canSeeAdminConfigButton && (
+            <div className="dev-company-row">
+              <button type="button" className="ghost" onClick={goToAdminConfig}>
+                Admin config panel
+              </button>
+            </div>
+          )}
         </div>
       )}
       {(previewAuthenticated || view !== 'welcome') && (
@@ -2645,6 +2671,11 @@ function App() {
                   ? 'Dev preview: logged in (no real session)'
                   : `Signed in as ${previewAuthUser?.name}`}
               </span>
+              {canSeeAdminConfigButton && view !== 'adminConfig' && (
+                <button type="button" className="ghost" onClick={goToAdminConfig}>
+                  Admin config
+                </button>
+              )}
               {devAuthPreviewMode !== 'real' ? (
                 <button
                   type="button"
