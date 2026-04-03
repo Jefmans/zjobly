@@ -1876,11 +1876,15 @@ button[type='submit']:disabled {
   }
 
   .app-shell {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   .hero {
-    padding: 1.25rem;
+    padding: 0.9rem;
+  }
+
+  .panel {
+    padding: 1rem;
   }
 
   .top-nav,
@@ -1891,6 +1895,8 @@ button[type='submit']:disabled {
 
   .top-nav {
     align-items: center;
+    padding-inline: 0.9rem;
+    box-sizing: border-box;
   }
 
   .top-nav-toggle {
@@ -1940,6 +1946,8 @@ button[type='submit']:disabled {
 
   .primary-nav {
     align-items: center;
+    padding-inline: 0.9rem;
+    box-sizing: border-box;
   }
 
   .primary-nav-brand {
