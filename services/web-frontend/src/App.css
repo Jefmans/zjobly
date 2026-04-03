@@ -1876,11 +1876,11 @@ button[type='submit']:disabled {
   }
 
   .app-shell {
-    padding: 0.375rem;
+    padding: 0.25rem;
   }
 
   .hero {
-    padding: 0.325rem;
+    padding: 0.25rem;
   }
 
   .panel {
@@ -1895,7 +1895,7 @@ button[type='submit']:disabled {
 
   .top-nav {
     align-items: center;
-    padding-inline: 0.9rem;
+    padding-inline: 0.4rem;
     box-sizing: border-box;
   }
 
@@ -1946,8 +1946,12 @@ button[type='submit']:disabled {
 
   .primary-nav {
     align-items: center;
-    padding-inline: 0.9rem;
+    padding-inline: 0.4rem;
     box-sizing: border-box;
+  }
+
+  .fullscreen-recorder {
+    padding: 0.5rem;
   }
 
   .primary-nav-brand {
