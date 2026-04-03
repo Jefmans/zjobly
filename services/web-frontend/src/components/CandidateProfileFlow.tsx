@@ -128,12 +128,6 @@ export function CandidateProfileFlow({
       : "";
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
-  const currentStepIndex = candidateStep === "record" ? 2 : candidateStep === "select" ? 3 : 4;
-  const stepClass = (index: number) => {
-    if (index === currentStepIndex) return "step active";
-    if (index < currentStepIndex) return "step complete";
-    return "step";
-  };
   const showHeadlineError = showValidation && !`${profile.headline ?? ""}`.trim();
   const showLocationError = showValidation && !`${profile.location ?? ""}`.trim();
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
@@ -269,25 +263,6 @@ export function CandidateProfileFlow({
         <p className="tag">Zjobly</p>
         <h1>{flowTitle}</h1>
         {flowLede && <p className="lede">{flowLede}</p>}
-
-        <div className="stepper">
-          <div className={stepClass(1)}>
-            <span className="step-id">1</span>
-            <span>Homepage</span>
-          </div>
-          <div className={stepClass(2)}>
-            <span className="step-id">2</span>
-            <span>Video recording</span>
-          </div>
-          <div className={stepClass(3)}>
-            <span className="step-id">3</span>
-            <span>Select video</span>
-          </div>
-          <div className={stepClass(4)}>
-            <span className="step-id">4</span>
-            <span>Profile detail</span>
-          </div>
-        </div>
 
         <form className="upload-form" onSubmit={(event) => event.preventDefault()}>
           {candidateStep === "profile" && (
