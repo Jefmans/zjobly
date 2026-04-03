@@ -40,6 +40,7 @@
 .top-nav {
   width: 100%;
   max-width: 780px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -49,6 +50,7 @@
 .dev-nav-wrap {
   width: 100%;
   max-width: 640px;
+  box-sizing: border-box;
   border: 1px dashed #c7d2fe;
   background: #f8fafc;
   border-radius: 14px;
@@ -99,6 +101,7 @@
 .primary-nav {
   width: 100%;
   max-width: 780px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -132,6 +135,7 @@
 
 .primary-nav-links {
   margin-left: auto;
+  box-sizing: border-box;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
@@ -269,6 +273,7 @@
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.1);
   max-width: 780px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .hero.welcome {
@@ -1827,6 +1832,25 @@ button[type='submit']:disabled {
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    padding: 1rem;
+  }
+
+  .hero {
+    padding: 1.25rem;
+  }
+
+  .top-nav,
+  .primary-nav,
+  .dev-nav-wrap {
+    max-width: 100%;
+  }
+
+  .dev-company-row select {
+    min-width: 0;
+    width: 100%;
+  }
+
   .primary-nav {
     align-items: center;
   }
