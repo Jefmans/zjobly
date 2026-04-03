@@ -545,11 +545,6 @@ export function CandidateProfileFlow({
                     {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
                   </div>
 
-                  {!hasTakes && (
-                    <p className="hint">
-                      Record and stop at least one take to unlock the next step.
-                    </p>
-                  )}
                   {error && <div className="error">{error}</div>}
 
                   {hasTakes && (
@@ -569,10 +564,10 @@ export function CandidateProfileFlow({
                 <div className="panel-header">
                   <div>
                     <h2>Select your video</h2>
-                    <p className="hint">Choose a take or upload a file, then save it.</p>
+                    <p className="hint">Choose a take, then continue.</p>
                   </div>
                   <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                    Back to recording
+                    Record new video
                   </button>
                 </div>
 
@@ -587,7 +582,7 @@ export function CandidateProfileFlow({
               </div>
 
               <div className="take-list">
-                {recordedTakes.length === 0 && <p className="hint">No takes yet. Record or upload to choose one.</p>}
+                {recordedTakes.length === 0 && <p className="hint">No takes yet. Record to choose one.</p>}
                 {recordedTakes.map((take) => (
                   <label key={take.id} className={`take-card ${selectedTakeId === take.id ? "selected" : ""}`}>
                     <div className="take-card-top">
@@ -632,7 +627,7 @@ export function CandidateProfileFlow({
 
               <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                  Back to recording
+                  Record new video
                 </button>
                 <div className="panel-action-right">
                   <button
@@ -648,7 +643,7 @@ export function CandidateProfileFlow({
                       status === "confirming"
                     }
                   >
-                    {isSavingVideo ? "Saving..." : videoSaved ? "Save again" : "Save video"}
+                    {isSavingVideo ? "Saving..." : "Continue"}
                   </button>
                 </div>
               </div>

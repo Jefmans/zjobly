@@ -1548,6 +1548,9 @@ function App() {
   };
 
   const saveVideo = async () => {
+    if (status === 'presigning' || status === 'uploading' || status === 'confirming' || status === 'processing') {
+      return;
+    }
     setError(null);
     setUploadProgress(null);
     clearProcessingTimer();
@@ -1604,6 +1607,9 @@ function App() {
   };
 
   const saveCandidateVideo = async () => {
+    if (status === 'presigning' || status === 'uploading' || status === 'confirming' || status === 'processing') {
+      return;
+    }
     setError(null);
     setUploadProgress(null);
     clearProcessingTimer();
