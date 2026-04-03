@@ -121,13 +121,11 @@ export function CandidateProfileFlow({
       ? "Transcribing your intro... hang tight."
       : "Transcript will appear here after we process your audio.";
   const transcriptStatusHint =
-    transcriptStatus === "final"
-      ? "Transcript is final."
-      : transcriptStatus === "partial"
+    transcriptStatus === "partial"
       ? "Partial transcript shown; it will update once processing finishes."
       : transcriptStatus === "pending"
       ? "Transcribing your intro..."
-      : "Transcript ready.";
+      : "";
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
   const currentStepIndex = candidateStep === "record" ? 2 : candidateStep === "select" ? 3 : 4;
@@ -292,9 +290,23 @@ export function CandidateProfileFlow({
           {candidateStep === "profile" && (
             <div className="panel">
               <div className="panel-header">
-                <div>
-                  <h2>Profile detail</h2>
-                  <p className="hint">Tell employers where you are, what you do, and if you want to be discoverable.</p>
+                <div className="profile-header-toggle">
+                  <label htmlFor="discoverable" className="toggle">
+                    <input
+                      id="discoverable"
+                      name="discoverable"
+                      type="checkbox"
+                      checked={Boolean(profile.discoverable)}
+                      onChange={onProfileChange}
+                    />
+                    <span className="toggle-track" aria-hidden="true">
+                      <span className="toggle-thumb" />
+                    </span>
+                    <span className="toggle-copy">
+                      <span className="toggle-title">Make my profile discoverable to employers</span>
+                      <span className="toggle-sub">Let them browse and reach out to you.</span>
+                    </span>
+                  </label>
                 </div>
                 <div className="panel-header-actions">
                   <button
@@ -363,28 +375,9 @@ export function CandidateProfileFlow({
                 {showSummaryError && <span className="field-error">Required</span>}
               </div>
 
-              <div className="field checkbox-field">
-                <label htmlFor="discoverable" className="toggle">
-                  <input
-                    id="discoverable"
-                    name="discoverable"
-                    type="checkbox"
-                    checked={Boolean(profile.discoverable)}
-                    onChange={onProfileChange}
-                  />
-                  <span className="toggle-track" aria-hidden="true">
-                    <span className="toggle-thumb" />
-                  </span>
-                  <span className="toggle-copy">
-                    <span className="toggle-title">Make my profile discoverable to employers</span>
-                    <span className="toggle-sub">Let teams browse and reach out when you match a new Zjob.</span>
-                  </span>
-                </label>
-              </div>
-
               {showTranscript && (
                 <div className="field">
-                  <label>Transcript</label>
+                  <label>Transcript (Auto-transcribed from your intro video.)</label>
                   {transcript ? (
                     <textarea value={transcript} readOnly rows={7} />
                   ) : (
@@ -392,7 +385,7 @@ export function CandidateProfileFlow({
                       {transcriptPlaceholder}
                     </div>
                   )}
-                  <p className="hint">{transcriptStatusHint} Auto-transcribed from your intro video.</p>
+                  {transcriptStatusHint && <p className="hint">{transcriptStatusHint}</p>}
                 </div>
               )}
 
