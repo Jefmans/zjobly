@@ -289,39 +289,37 @@ export function CandidateProfileFlow({
         <form className="upload-form" onSubmit={(event) => event.preventDefault()}>
           {candidateStep === "profile" && (
             <div className="panel">
-              <div className="panel-header">
-                <div className="profile-header-toggle">
-                  <label htmlFor="discoverable" className="toggle">
-                    <input
-                      id="discoverable"
-                      name="discoverable"
-                      type="checkbox"
-                      checked={Boolean(profile.discoverable)}
-                      onChange={onProfileChange}
-                    />
-                    <span className="toggle-track" aria-hidden="true">
-                      <span className="toggle-thumb" />
-                    </span>
-                    <span className="toggle-copy">
-                      <span className="toggle-title">Make my profile discoverable to employers</span>
-                      <span className="toggle-sub">Let them browse and reach out to you.</span>
-                    </span>
-                  </label>
-                </div>
-                <div className="panel-header-actions">
-                  <button
-                    type="button"
-                    className="cta primary"
-                    onClick={onSaveProfile}
-                    disabled={profileSaving || !canSaveProfile}
-                    aria-disabled={!canSaveProfile}
-                  >
-                    {profileSaving ? "Saving..." : "Save profile"}
-                  </button>
-                  <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                    {backToVideoLabel}
-                  </button>
-                </div>
+              <div className="panel-header-actions">
+                <button
+                  type="button"
+                  className="cta primary"
+                  onClick={onSaveProfile}
+                  disabled={profileSaving || !canSaveProfile}
+                  aria-disabled={!canSaveProfile}
+                >
+                  {profileSaving ? "Saving..." : "Save profile"}
+                </button>
+                <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                  {backToVideoLabel}
+                </button>
+              </div>
+              <div className="field checkbox-field">
+                <label htmlFor="discoverable" className="toggle">
+                  <input
+                    id="discoverable"
+                    name="discoverable"
+                    type="checkbox"
+                    checked={Boolean(profile.discoverable)}
+                    onChange={onProfileChange}
+                  />
+                  <span className="toggle-track" aria-hidden="true">
+                    <span className="toggle-thumb" />
+                  </span>
+                  <span className="toggle-copy">
+                    <span className="toggle-title">Make my profile discoverable to employers</span>
+                    <span className="toggle-sub">Let them browse and reach out to you.</span>
+                  </span>
+                </label>
               </div>
               {showProfileAutofillNotice && (
                 <div className="notice notice-with-spinner" role="status" aria-live="polite">
