@@ -2672,6 +2672,7 @@ function App() {
     clearProcessingTimer();
     setProcessingMessage(null);
   };
+  const hideGuestAuthSessionRow = !previewAuthenticated && view === 'find' && candidateStep === 'select';
 
   const nav = (
     <>
@@ -2757,7 +2758,7 @@ function App() {
           )}
         </div>
       )}
-      {(previewAuthenticated || view !== 'welcome') && (
+      {(previewAuthenticated || view !== 'welcome') && !hideGuestAuthSessionRow && (
         <div className="auth-session-row">
           {previewAuthenticated ? (
             <>
