@@ -282,6 +282,7 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authPrompt, setAuthPrompt] = useState<AuthPromptState | null>(null);
+  const [candidatePostAuthOverlay, setCandidatePostAuthOverlay] = useState(false);
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
@@ -537,6 +538,7 @@ function App() {
     setUploadProgress(null);
     setProcessingMessage(null);
     setError(null);
+    setCandidatePostAuthOverlay(false);
   };
 
   const setRoleAndView = (nextRole: UserRole, nextView?: ViewMode) => {
@@ -1629,11 +1631,15 @@ function App() {
       return;
     }
 
+    const requiresAuth = !previewAuthenticated;
     const canContinue = await ensureAuthenticated({
       title: 'Create an account to continue',
       message: 'Create an account before processing this profile video and continuing to your details.',
     });
     if (!canContinue) return;
+    if (requiresAuth) {
+      setCandidatePostAuthOverlay(true);
+    }
 
     try {
       const { objectKey } = await uploadTake(selectedTake, videoDuration);
@@ -1661,6 +1667,10 @@ function App() {
       setProcessingMessage(null);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      if (requiresAuth) {
+        setCandidatePostAuthOverlay(false);
+      }
     }
   };
 
@@ -2064,6 +2074,16 @@ function App() {
       ? 'Back to invitations'
       : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
+  const candidatePostAuthOverlayMessage =
+    status === 'presigning'
+      ? 'Requesting an upload URL...'
+      : status === 'uploading'
+      ? `Uploading your video${typeof uploadProgress === 'number' ? ` (${Math.round(uploadProgress)}%)` : '...'}`
+      : status === 'confirming'
+      ? 'Confirming your upload...'
+      : status === 'processing'
+      ? processingMessage || 'Processing your video and preparing profile details...'
+      : 'Preparing your profile details...';
 
   const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -3037,7 +3057,24 @@ function App() {
         onViewMatches={openJobMatches}
       />
 
-      {authPrompt && (
+      {candidatePostAuthOverlay && (
+        <div className="auth-overlay" role="status" aria-live="polite" aria-label="Preparing profile details">
+          <div className="panel auth-overlay-card">
+            <div className="panel-header">
+              <div>
+                <h2>Preparing your profile</h2>
+                <p className="hint">Please wait while we finish your video and open profile details.</p>
+              </div>
+            </div>
+            <div className="notice notice-with-spinner">
+              <span className="inline-spinner" aria-hidden="true" />
+              <span>{candidatePostAuthOverlayMessage}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {authPrompt && !candidatePostAuthOverlay && (
         <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authPromptTitle">
           <div className="panel auth-overlay-card">
             <div className="panel-header">
