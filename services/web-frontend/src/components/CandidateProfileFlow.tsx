@@ -289,19 +289,21 @@ export function CandidateProfileFlow({
         <form className="upload-form" onSubmit={(event) => event.preventDefault()}>
           {candidateStep === "profile" && (
             <div className="panel">
-              <div className="panel-header-actions">
-                <button
-                  type="button"
-                  className="cta primary"
-                  onClick={onSaveProfile}
-                  disabled={profileSaving || !canSaveProfile}
-                  aria-disabled={!canSaveProfile}
-                >
-                  {profileSaving ? "Saving..." : "Save profile"}
-                </button>
+              <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => goToStep("select")}>
                   {backToVideoLabel}
                 </button>
+                <div className="panel-action-right">
+                  <button
+                    type="button"
+                    className="cta primary"
+                    onClick={onSaveProfile}
+                    disabled={profileSaving || !canSaveProfile}
+                    aria-disabled={!canSaveProfile}
+                  >
+                    {profileSaving ? "Saving..." : "Save profile"}
+                  </button>
+                </div>
               </div>
               <div className="field checkbox-field">
                 <label htmlFor="discoverable" className="toggle">
