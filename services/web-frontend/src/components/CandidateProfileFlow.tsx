@@ -141,6 +141,16 @@ export function CandidateProfileFlow({
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
   const showTranscript = !isEditingProfile;
   const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
+  const flowTitle =
+    candidateStep === "select"
+      ? "Select video"
+      : candidateStep === "profile"
+      ? "Profile detail"
+      : "Record before you browse";
+  const flowLede =
+    candidateStep === "select"
+      ? "Pick your best take."
+      : "Create a short intro video, pick your best take, then finish your profile details.";
   const candidateQuestionSet = useMemo(
     () => getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile),
     [],
@@ -159,6 +169,18 @@ export function CandidateProfileFlow({
   const canStartCountdown = questionCountdown === null;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
   const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
+  const hasProfileAutofillData =
+    Boolean(`${profile.headline ?? ""}`.trim()) ||
+    Boolean(`${profile.location ?? ""}`.trim()) ||
+    Boolean(`${profile.summary ?? ""}`.trim()) ||
+    keywords.length > 0 ||
+    Boolean((transcript || "").trim());
+  const showProfileAutofillNotice =
+    candidateStep === "profile" &&
+    !isEditingProfile &&
+    !profileSaved &&
+    !hasProfileAutofillData &&
+    (status === "processing" || transcriptStatus === "pending");
   const showLoggedOutIntroOverlay =
     !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
   const handlePreviousQuestion = () => {
@@ -241,8 +263,8 @@ export function CandidateProfileFlow({
       <section className="hero">
         <div className="view-pill">Find Zjob</div>
         <p className="tag">Zjobly</p>
-        <h1>Record before you browse</h1>
-        <p className="lede">Create a short intro video, pick your best take, then finish your profile details.</p>
+        <h1>{flowTitle}</h1>
+        <p className="lede">{flowLede}</p>
 
         <div className="stepper">
           <div className={stepClass(1)}>
@@ -275,6 +297,12 @@ export function CandidateProfileFlow({
                   {backToVideoLabel}
                 </button>
               </div>
+              {showProfileAutofillNotice && (
+                <div className="notice notice-with-spinner" role="status" aria-live="polite">
+                  <span className="inline-spinner" aria-hidden="true" />
+                  <span>{processingMessage || "Preparing your profile details from your video..."}</span>
+                </div>
+              )}
 
               <div className="field">
                 <label htmlFor="headline">Headline</label>
@@ -567,7 +595,7 @@ export function CandidateProfileFlow({
                     <p className="hint">Choose a take, then continue.</p>
                   </div>
                   <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                    Record new video
+                    New take
                   </button>
                 </div>
 
@@ -601,10 +629,6 @@ export function CandidateProfileFlow({
                 ))}
               </div>
 
-              <p className="hint">
-                Intro videos must be recorded in-app. Upload is disabled for this step.
-              </p>
-
               {error && <div className="error">{error}</div>}
               {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
               {status === "uploading" && (
@@ -627,7 +651,7 @@ export function CandidateProfileFlow({
 
               <div className="panel-actions split">
                 <button type="button" className="ghost" onClick={() => goToStep("record")}>
-                  Record new video
+                  New take
                 </button>
                 <div className="panel-action-right">
                   <button

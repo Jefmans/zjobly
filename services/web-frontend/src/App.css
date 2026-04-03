@@ -833,6 +833,28 @@ p {
   border-radius: 10px;
 }
 
+.notice-with-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.inline-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  border: 2px solid #93c5fd;
+  border-top-color: #1d4ed8;
+  flex: 0 0 auto;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .search-card {
   border: 1px solid #e2e8f0;
   background: #f8fafc;
