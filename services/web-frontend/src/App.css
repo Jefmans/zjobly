@@ -1876,11 +1876,11 @@ button[type='submit']:disabled {
   }
 
   .app-shell {
-    padding: 0.5rem;
+    padding: 0.375rem;
   }
 
   .hero {
-    padding: 0.65rem;
+    padding: 0.325rem;
   }
 
   .panel {
