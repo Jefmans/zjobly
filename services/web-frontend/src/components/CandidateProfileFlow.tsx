@@ -150,7 +150,9 @@ export function CandidateProfileFlow({
   const flowLede =
     candidateStep === "select"
       ? "Pick your best take."
-      : "Create a short intro video, pick your best take, then finish your profile details.";
+      : candidateStep === "record"
+      ? "Record a short intro video."
+      : "";
   const candidateQuestionSet = useMemo(
     () => getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile),
     [],
@@ -181,6 +183,7 @@ export function CandidateProfileFlow({
     !profileSaved &&
     !hasProfileAutofillData &&
     (status === "processing" || transcriptStatus === "pending");
+  const canViewJobs = isEditingProfile || profileSaved;
   const showLoggedOutIntroOverlay =
     !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
   const handlePreviousQuestion = () => {
@@ -264,7 +267,7 @@ export function CandidateProfileFlow({
         <div className="view-pill">Find Zjob</div>
         <p className="tag">Zjobly</p>
         <h1>{flowTitle}</h1>
-        <p className="lede">{flowLede}</p>
+        {flowLede && <p className="lede">{flowLede}</p>}
 
         <div className="stepper">
           <div className={stepClass(1)}>
@@ -293,9 +296,20 @@ export function CandidateProfileFlow({
                   <h2>Profile detail</h2>
                   <p className="hint">Tell employers where you are, what you do, and if you want to be discoverable.</p>
                 </div>
-                <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                  {backToVideoLabel}
-                </button>
+                <div className="panel-header-actions">
+                  <button
+                    type="button"
+                    className="cta primary"
+                    onClick={onSaveProfile}
+                    disabled={profileSaving || !canSaveProfile}
+                    aria-disabled={!canSaveProfile}
+                  >
+                    {profileSaving ? "Saving..." : "Save profile"}
+                  </button>
+                  <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                    {backToVideoLabel}
+                  </button>
+                </div>
               </div>
               {showProfileAutofillNotice && (
                 <div className="notice notice-with-spinner" role="status" aria-live="polite">
@@ -405,9 +419,11 @@ export function CandidateProfileFlow({
                   {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
-                  <button type="button" className="cta secondary" onClick={onViewJobs}>
-                    View jobs
-                  </button>
+                  {canViewJobs && (
+                    <button type="button" className="cta secondary" onClick={onViewJobs}>
+                      View jobs
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="cta primary"
