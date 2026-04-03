@@ -395,6 +395,8 @@ function App() {
   });
   const candidateLocationAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
+  const candidateProfileDraftHandledTranscriptRef = useRef<string | null>(null);
+  const candidateLocationHandledTranscriptRef = useRef<string | null>(null);
   const activeDevAuthPreviewMode = SHOW_DEVELOPMENT_NAVIGATION ? devAuthPreviewMode : 'real';
   const previewAuthUser =
     activeDevAuthPreviewMode === 'loggedOut'
@@ -539,6 +541,9 @@ function App() {
     setProcessingMessage(null);
     setError(null);
     setCandidatePostAuthOverlay(false);
+    candidateProfileDraftHandledTranscriptRef.current = null;
+    candidateLocationHandledTranscriptRef.current = null;
+    candidateProfileEditedRef.current = { headline: false, location: false, summary: false };
   };
 
   const setRoleAndView = (nextRole: UserRole, nextView?: ViewMode) => {
@@ -1256,6 +1261,48 @@ function App() {
     setRoleAndView('candidate', 'find');
   };
 
+  const primeCandidateProfileFromTranscript = useCallback(async (transcript: string) => {
+    const text = transcript.trim().slice(0, 8000);
+    if (!text) return;
+
+    const [profileDraftResult, locationResult] = await Promise.allSettled([
+      getProfileDraftFromTranscript(text),
+      getLocationFromTranscript(text),
+    ]);
+
+    if (profileDraftResult.status === 'fulfilled') {
+      const profileDraft = profileDraftResult.value;
+      setCandidateProfile((prev) => {
+        const next = { ...prev };
+        if (!candidateProfileEditedRef.current.headline && !(prev.headline || '').trim()) {
+          next.headline = profileDraft.headline || prev.headline;
+        }
+        if (!candidateProfileEditedRef.current.summary && !(prev.summary || '').trim()) {
+          next.summary = profileDraft.summary || prev.summary;
+        }
+        return next;
+      });
+      setCandidateKeywords(normalizeKeywords(profileDraft.keywords));
+      candidateProfileDraftHandledTranscriptRef.current = text;
+    } else {
+      console.error('Candidate profile prefill failed', profileDraftResult.reason);
+    }
+
+    if (locationResult.status === 'fulfilled') {
+      const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
+      if (suggestion) {
+        setCandidateProfile((prev) => {
+          if (candidateProfileEditedRef.current.location) return prev;
+          if ((prev.location || '').trim()) return prev;
+          return { ...prev, location: suggestion };
+        });
+      }
+      candidateLocationHandledTranscriptRef.current = text;
+    } else {
+      console.error('Candidate location prefill failed', locationResult.reason);
+    }
+  }, []);
+
   const handleRoleSelection = (value: UserRole, navigate: boolean) => {
     if (navigate) {
       if (value === 'employer') {
@@ -1619,6 +1666,8 @@ function App() {
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaved(false);
     setCandidateKeywords([]);
+    candidateProfileDraftHandledTranscriptRef.current = null;
+    candidateLocationHandledTranscriptRef.current = null;
 
     if (!selectedTake) {
       setError('Record or upload a video before saving.');
@@ -1649,8 +1698,12 @@ function App() {
       setCandidateTranscriptStatus('pending');
       try {
         const draft = await generateJobDraftFromVideo(objectKey);
-        if (draft?.transcript) {
-          setCandidateTranscript(draft.transcript);
+        const transcript = (draft?.transcript || '').trim();
+        if (transcript) {
+          if (requiresAuth) {
+            await primeCandidateProfileFromTranscript(transcript);
+          }
+          setCandidateTranscript(transcript);
           setCandidateTranscriptStatus('final');
         } else {
           setCandidateTranscriptStatus(undefined);
@@ -1987,6 +2040,8 @@ function App() {
   useEffect(() => {
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
+    const transcriptKey = text.slice(0, 8000);
+    if (candidateProfileDraftHandledTranscriptRef.current === transcriptKey) return;
 
     const draftController = new AbortController();
     candidateProfileDraftAbortRef.current?.abort();
@@ -1995,15 +2050,20 @@ function App() {
     // LLM draft for headline/summary
     void (async () => {
       try {
-        const draft = await getProfileDraftFromTranscript(text.slice(0, 8000), draftController.signal);
+        const draft = await getProfileDraftFromTranscript(transcriptKey, draftController.signal);
         if (draftController.signal.aborted) return;
-        if (!candidateProfileEditedRef.current.headline && !(candidateProfile.headline || '').trim()) {
-          setCandidateProfile((prev) => ({ ...prev, headline: draft.headline }));
-        }
-        if (!candidateProfileEditedRef.current.summary && !(candidateProfile.summary || '').trim()) {
-          setCandidateProfile((prev) => ({ ...prev, summary: draft.summary }));
-        }
+        setCandidateProfile((prev) => {
+          const next = { ...prev };
+          if (!candidateProfileEditedRef.current.headline && !(prev.headline || '').trim()) {
+            next.headline = draft.headline;
+          }
+          if (!candidateProfileEditedRef.current.summary && !(prev.summary || '').trim()) {
+            next.summary = draft.summary;
+          }
+          return next;
+        });
         setCandidateKeywords(normalizeKeywords(draft.keywords));
+        candidateProfileDraftHandledTranscriptRef.current = transcriptKey;
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
         console.error('Candidate profile draft failed', err);
@@ -2013,14 +2073,15 @@ function App() {
     return () => {
       draftController.abort();
     };
-  }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.headline, candidateProfile.summary, candidateProfile.location]);
+  }, [candidateTranscript, candidateTranscriptStatus]);
 
   // Geocode candidate location when transcript is ready and location is empty
   useEffect(() => {
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
+    const transcriptKey = text.slice(0, 8000);
+    if (candidateLocationHandledTranscriptRef.current === transcriptKey) return;
     if (candidateProfileEditedRef.current.location) return;
-    if ((candidateProfile.location || '').trim()) return;
 
     const controller = new AbortController();
     candidateLocationAbortRef.current?.abort();
@@ -2028,12 +2089,17 @@ function App() {
 
     void (async () => {
       try {
-        const res = await getLocationFromTranscript(text.slice(0, 8000), controller.signal);
+        const res = await getLocationFromTranscript(transcriptKey, controller.signal);
         if (controller.signal.aborted) return;
         const suggestion = formatLocationSuggestion(res || { location: null });
-        if (suggestion && !candidateProfileEditedRef.current.location && !(candidateProfile.location || '').trim()) {
-          setCandidateProfile((prev) => ({ ...prev, location: suggestion }));
+        if (suggestion) {
+          setCandidateProfile((prev) => {
+            if (candidateProfileEditedRef.current.location) return prev;
+            if ((prev.location || '').trim()) return prev;
+            return { ...prev, location: suggestion };
+          });
         }
+        candidateLocationHandledTranscriptRef.current = transcriptKey;
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
         console.error('Candidate location suggestion failed', err);
@@ -2041,7 +2107,7 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [candidateTranscript, candidateTranscriptStatus, candidateProfile.location]);
+  }, [candidateTranscript, candidateTranscriptStatus]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
