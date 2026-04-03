@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { UserRole, ViewMode } from "../types";
 
 type NavItem = {
@@ -92,6 +93,16 @@ export function PrimaryNav({
   ];
 
   const items = isCandidate ? candidateItems : isEmployer ? employerItems : [];
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [view, role]);
+
+  const handleItemClick = (onClick: () => void) => {
+    onClick();
+    setMenuOpen(false);
+  };
 
   return (
     <div className="primary-nav">
@@ -99,13 +110,30 @@ export function PrimaryNav({
         <span className="brand-mark" aria-hidden="true" />
         Zjobly
       </button>
-      <div className="primary-nav-links">
+      {items.length > 0 && (
+        <button
+          type="button"
+          className={`primary-nav-toggle ${menuOpen ? "open" : ""}`}
+          aria-expanded={menuOpen}
+          aria-controls="primary-nav-links"
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          onClick={() => setMenuOpen((prev) => !prev)}
+        >
+          <span className="primary-nav-toggle-icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="primary-nav-toggle-label">{menuOpen ? "Close" : "Menu"}</span>
+        </button>
+      )}
+      <div id="primary-nav-links" className={`primary-nav-links ${menuOpen ? "open" : ""}`}>
         {items.map((item) => (
           <button
             key={item.label}
             type="button"
             className={`nav-btn ${item.isActive ? "active" : ""}`}
-            onClick={item.onClick}
+            onClick={() => handleItemClick(item.onClick)}
           >
             {item.label}
           </button>
