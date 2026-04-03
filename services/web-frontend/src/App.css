@@ -2,7 +2,10 @@
   display: grid;
   place-items: center;
   min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
   padding: 2rem;
+  overflow-x: hidden;
 }
 
 .screen-label {
@@ -21,6 +24,10 @@
   text-transform: none;
   font-family: inherit;
   line-height: 1.1;
+  max-width: min(90vw, 460px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   user-select: none;
   appearance: none;
@@ -45,6 +52,38 @@
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.top-nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.top-nav-toggle-icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.top-nav-toggle-icon span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: #0f172a;
+}
+
+.top-nav-toggle-label {
+  font-size: 0.9rem;
 }
 
 .dev-nav-wrap {
@@ -1832,6 +1871,10 @@ button[type='submit']:disabled {
 }
 
 @media (max-width: 640px) {
+  .screen-label {
+    display: none;
+  }
+
   .app-shell {
     padding: 1rem;
   }
@@ -1844,6 +1887,50 @@ button[type='submit']:disabled {
   .primary-nav,
   .dev-nav-wrap {
     max-width: 100%;
+  }
+
+  .top-nav {
+    align-items: center;
+  }
+
+  .top-nav-toggle {
+    display: inline-flex;
+  }
+
+  .top-nav-actions {
+    display: none;
+    width: 100%;
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 12px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .top-nav-actions.open {
+    display: flex;
+  }
+
+  .top-nav-actions .nav-btn {
+    width: 100%;
+    text-align: left;
+  }
+
+  .top-nav-actions .role-switcher {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
+  .top-nav-actions .role-switcher select {
+    width: 100%;
+    min-width: 0;
   }
 
   .dev-company-row select {

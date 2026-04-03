@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { RoleSelect } from "./RoleSelect";
 import { UserRole, ViewMode } from "../types";
 
@@ -30,6 +31,7 @@ export function TopNav({
   onApplications,
   onRoleChange,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const showEmployerNav = role !== "candidate";
   const showCandidateNav = role !== "employer";
   const showBack = view !== "welcome";
@@ -44,6 +46,14 @@ export function TopNav({
     (view === "jobs" || view === "jobDetail" || view === "apply") && role === "candidate";
   const isCandidateApplicationsView = view === "applications" && role === "candidate";
   const isCandidateInvitationsView = view === "invitations" && role === "candidate";
+  const handleNavClick = (action: () => void) => {
+    action();
+    setMenuOpen(false);
+  };
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [view, role]);
 
   return (
     <div className="top-nav">
@@ -52,9 +62,28 @@ export function TopNav({
           Back
         </button>
       )}
-      <div className="nav-actions">
+      <button
+        type="button"
+        className={`top-nav-toggle ${menuOpen ? "open" : ""}`}
+        aria-expanded={menuOpen}
+        aria-controls="top-nav-actions"
+        aria-label={menuOpen ? "Close top navigation menu" : "Open top navigation menu"}
+        onClick={() => setMenuOpen((prev) => !prev)}
+      >
+        <span className="top-nav-toggle-icon" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <span className="top-nav-toggle-label">{menuOpen ? "Close" : "Menu"}</span>
+      </button>
+      <div id="top-nav-actions" className={`nav-actions top-nav-actions ${menuOpen ? "open" : ""}`}>
         {showMainNav && showEmployerNav && (
-          <button type="button" className={`nav-btn ${view === "create" ? "active" : ""}`} onClick={onCreate}>
+          <button
+            type="button"
+            className={`nav-btn ${view === "create" ? "active" : ""}`}
+            onClick={() => handleNavClick(onCreate)}
+          >
             Create Zjob
           </button>
         )}
@@ -62,19 +91,23 @@ export function TopNav({
           <button
             type="button"
             className={`nav-btn ghost ${view === "find" || view === "profile" ? "active" : ""}`}
-            onClick={onFind}
+            onClick={() => handleNavClick(onFind)}
           >
             Find Zjob
           </button>
         )}
-        <button type="button" className={`nav-btn ghost ${isEmployerJobsView ? "active" : ""}`} onClick={onJobs}>
+        <button
+          type="button"
+          className={`nav-btn ghost ${isEmployerJobsView ? "active" : ""}`}
+          onClick={() => handleNavClick(onJobs)}
+        >
           Job list
         </button>
         {showEmployerNav && (
           <button
             type="button"
             className={`nav-btn ghost ${isEmployerCandidatesView ? "active" : ""}`}
-            onClick={onCandidates}
+            onClick={() => handleNavClick(onCandidates)}
           >
             Browse candidates
           </button>
@@ -83,7 +116,7 @@ export function TopNav({
           <button
             type="button"
             className={`nav-btn ghost ${isEmployerFavoritesView ? "active" : ""}`}
-            onClick={onFavorites}
+            onClick={() => handleNavClick(onFavorites)}
           >
             Favorites
           </button>
@@ -92,7 +125,7 @@ export function TopNav({
           <button
             type="button"
             className={`nav-btn ghost ${isEmployerInvitationsView ? "active" : ""}`}
-            onClick={onInvitations}
+            onClick={() => handleNavClick(onInvitations)}
           >
             Invitations
           </button>
@@ -100,7 +133,7 @@ export function TopNav({
         <button
           type="button"
           className={`nav-btn ghost ${isCandidateJobsView ? "active" : ""}`}
-          onClick={onBrowseJobs}
+          onClick={() => handleNavClick(onBrowseJobs)}
         >
           Browse jobs
         </button>
@@ -108,7 +141,7 @@ export function TopNav({
           <button
             type="button"
             className={`nav-btn ghost ${isCandidateApplicationsView ? "active" : ""}`}
-            onClick={onApplications}
+            onClick={() => handleNavClick(onApplications)}
           >
             My applications
           </button>
@@ -117,12 +150,19 @@ export function TopNav({
           <button
             type="button"
             className={`nav-btn ghost ${isCandidateInvitationsView ? "active" : ""}`}
-            onClick={onInvitations}
+            onClick={() => handleNavClick(onInvitations)}
           >
             My invitations
           </button>
         )}
-        <RoleSelect variant="nav" role={role} onChange={onRoleChange} />
+        <RoleSelect
+          variant="nav"
+          role={role}
+          onChange={(nextRole) => {
+            onRoleChange(nextRole);
+            setMenuOpen(false);
+          }}
+        />
       </div>
     </div>
   );
