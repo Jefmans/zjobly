@@ -169,6 +169,8 @@ export function CandidateProfileFlow({
   const canStartCountdown = questionCountdown === null;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
   const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
+  const isLoggedOutIntroFlow = !isAuthenticated && !hasCandidateQuestions;
+  const showPlaybackPreviewInRecord = !isLoggedOutIntroFlow && !isActiveRecording && Boolean(videoUrl);
   const hasProfileAutofillData =
     Boolean(`${profile.headline ?? ""}`.trim()) ||
     Boolean(`${profile.location ?? ""}`.trim()) ||
@@ -182,6 +184,7 @@ export function CandidateProfileFlow({
     !hasProfileAutofillData &&
     (status === "processing" || transcriptStatus === "pending");
   const canViewJobs = isEditingProfile || profileSaved;
+  const showLoggedOutPostTakeActions = isLoggedOutIntroFlow && recordingState === "idle" && hasTakes;
   const showLoggedOutIntroOverlay =
     !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
   const handlePreviousQuestion = () => {
@@ -436,8 +439,8 @@ export function CandidateProfileFlow({
               <div className="record-shell">
                 <div className="record-stage">
                   {recorderOpen ? (
-                    <div className={`record-screen ${!isActiveRecording && videoUrl ? "playback" : ""}`}>
-                      {!isActiveRecording && videoUrl ? (
+                    <div className={`record-screen ${showPlaybackPreviewInRecord ? "playback" : ""}`}>
+                      {showPlaybackPreviewInRecord ? (
                         <video
                           key={videoUrl}
                           ref={playbackVideoRef}
@@ -482,7 +485,32 @@ export function CandidateProfileFlow({
                         {showLoggedOutIntroOverlay && (
                           <div className="overlay-center">
                             <div className="question-overlay">
-                              {introCountdown === null ? (
+                              {introCountdown !== null ? (
+                                <>
+                                  <p className="question-label">Get ready</p>
+                                  <p className="question-text">Starting in</p>
+                                  <div className="question-countdown">
+                                    <span className="question-countdown-value">{introCountdown}</span>
+                                  </div>
+                                </>
+                              ) : showLoggedOutPostTakeActions ? (
+                                <div className="question-actions">
+                                  <button
+                                    type="button"
+                                    className="cta primary question-cta"
+                                    onClick={() => goToStep("select")}
+                                  >
+                                    Continue
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ghost dark question-cta"
+                                    onClick={handleRecordAction}
+                                  >
+                                    New take
+                                  </button>
+                                </div>
+                              ) : (
                                 <>
                                   <p className="question-text">
                                     Tell us about yourself and the kind of job you are looking for.
@@ -490,14 +518,6 @@ export function CandidateProfileFlow({
                                   <p className="question-label">
                                     Recording starts after you click Start.
                                   </p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="question-label">Get ready</p>
-                                  <p className="question-text">Starting in</p>
-                                  <div className="question-countdown">
-                                    <span className="question-countdown-value">{introCountdown}</span>
-                                  </div>
                                 </>
                               )}
                             </div>
@@ -572,26 +592,29 @@ export function CandidateProfileFlow({
                     </div>
                   )}
                 </div>
+                {!isAuthenticated && error && <div className="error">{error}</div>}
 
-                <div className="panel record-panel">
-                  <div className="panel-header">
-                    <div>
-                      <h2>Video recording</h2>
-                      <p className="hint">Record one or more takes. You&apos;ll pick the best one next.</p>
+                {isAuthenticated && (
+                  <div className="panel record-panel">
+                    <div className="panel-header">
+                      <div>
+                        <h2>Video recording</h2>
+                        <p className="hint">Record one or more takes. You&apos;ll pick the best one next.</p>
+                      </div>
+                      {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
                     </div>
-                    {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
+
+                    {error && <div className="error">{error}</div>}
+
+                    {hasTakes && (
+                      <div className="panel-actions record-panel-actions">
+                        <button type="button" className="cta primary" onClick={() => goToStep("select")}>
+                          Continue
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {error && <div className="error">{error}</div>}
-
-                  {hasTakes && (
-                    <div className="panel-actions record-panel-actions">
-                      <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                        Continue
-                      </button>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           )}
