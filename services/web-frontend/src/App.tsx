@@ -273,9 +273,10 @@ const getStoredDevAuthPreviewMode = (): DevAuthPreviewMode => {
 
 function App() {
   const authOverlayCardStyle: CSSProperties = {
-    width: 'min(640px, 92vw)',
-    maxWidth: '92vw',
+    width: 'calc(100dvw - env(safe-area-inset-left) - env(safe-area-inset-right) - 1rem)',
+    maxWidth: '640px',
     margin: 0,
+    marginInline: 'auto',
     boxSizing: 'border-box',
     minWidth: 0,
     overflowX: 'hidden',
