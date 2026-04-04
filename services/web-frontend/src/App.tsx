@@ -1,4 +1,4 @@
-import { ChangeEvent, CSSProperties, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
@@ -272,16 +272,6 @@ const getStoredDevAuthPreviewMode = (): DevAuthPreviewMode => {
 };
 
 function App() {
-  const authOverlayCardStyle: CSSProperties = {
-    width: '100%',
-    maxWidth: '640px',
-    margin: 0,
-    marginInline: 'auto',
-    boxSizing: 'border-box',
-    minWidth: 0,
-    overflowX: 'hidden',
-  };
-
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -3207,8 +3197,13 @@ function App() {
       />
 
       {candidatePostAuthOverlay && (
-        <div className="auth-overlay" role="status" aria-live="polite" aria-label="Preparing profile details">
-          <div className="panel auth-overlay-card" style={authOverlayCardStyle}>
+        <div
+          className="auth-overlay"
+          role="status"
+          aria-live="polite"
+          aria-label="Preparing profile details"
+        >
+          <div className="panel auth-overlay-card">
             <div className="panel-header">
               <div>
                 <h2>Preparing your profile</h2>
@@ -3224,8 +3219,13 @@ function App() {
       )}
 
       {authPrompt && !candidatePostAuthOverlay && (
-        <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authPromptTitle">
-          <div className="panel auth-overlay-card" style={authOverlayCardStyle}>
+        <div
+          className="auth-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="authPromptTitle"
+        >
+          <div className="panel auth-overlay-card">
             <div className="panel-header">
               <div>
                 <h2 id="authPromptTitle">{authPrompt.title}</h2>
