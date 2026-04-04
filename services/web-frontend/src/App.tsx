@@ -2741,28 +2741,26 @@ function App() {
     setProcessingMessage(null);
   };
   const hideGuestAuthSessionRow = !previewAuthenticated && view === 'find' && candidateStep === 'select';
-  const showPrimaryNav = previewAuthenticated;
+  const primaryNavRole = previewAuthenticated ? role : null;
 
   const nav = (
     <>
-      {showPrimaryNav && (
-        <PrimaryNav
-          view={view}
-          role={role}
-          sticky={!showDevNav}
-          onHome={backToWelcome}
-          onBrowseJobs={() => goToCandidateView('jobs')}
-          onMyApplications={goToCandidateApplications}
-          onMyProfile={goToCandidateProfileView}
-          onMyJobs={goToEmployerJobs}
-          onCreateJob={() => goToEmployerView('create')}
-          onBrowseCandidates={goToCandidateSearch}
-          onFavoriteCandidates={goToCandidateFavorites}
-          onInvitations={goToInvitations}
-          onStartCandidate={startCandidateFlow}
-          onStartEmployer={startCreateFlow}
-        />
-      )}
+      <PrimaryNav
+        view={view}
+        role={primaryNavRole}
+        sticky={!showDevNav}
+        onHome={backToWelcome}
+        onBrowseJobs={() => goToCandidateView('jobs')}
+        onMyApplications={goToCandidateApplications}
+        onMyProfile={goToCandidateProfileView}
+        onMyJobs={goToEmployerJobs}
+        onCreateJob={() => goToEmployerView('create')}
+        onBrowseCandidates={goToCandidateSearch}
+        onFavoriteCandidates={goToCandidateFavorites}
+        onInvitations={goToInvitations}
+        onStartCandidate={startCandidateFlow}
+        onStartEmployer={startCreateFlow}
+      />
       {showDevNav && (
         <div className="dev-nav-wrap">
           <div className="dev-nav-label">Development navigation</div>
