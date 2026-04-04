@@ -2860,40 +2860,42 @@ function App() {
       {view === 'welcome' && (
         <>
           {nav}
-          <section className="hero welcome">
-            <p className="tag">Zjobly</p>
-            <h1>Welcome</h1>
-            <div className="welcome-actions">
-              <button type="button" className="cta primary" onClick={startCandidateFlow}>
-                Find Zjob
-              </button>
-              <button type="button" className="cta secondary" onClick={startCreateFlow}>
-                Create Zjob
-              </button>
-            </div>
-            {!previewAuthenticated && (
-              <div className="welcome-auth-line">
-                <div className="welcome-auth-links">
-                  <button
-                    type="button"
-                    className="welcome-auth-link"
-                    onClick={() => openVoluntaryAuth('login')}
-                  >
-                    Login
-                  </button>
-                  <span aria-hidden="true">/</span>
-                  <button
-                    type="button"
-                    className="welcome-auth-link"
-                    onClick={() => openVoluntaryAuth('register')}
-                  >
-                    Register
-                  </button>
-                </div>
+          <div className="welcome-stage">
+            <section className="hero welcome">
+              <p className="tag">Zjobly</p>
+              <h1>Welcome</h1>
+              <div className="welcome-actions">
+                <button type="button" className="cta primary" onClick={startCandidateFlow}>
+                  Find Zjob
+                </button>
+                <button type="button" className="cta secondary" onClick={startCreateFlow}>
+                  Create Zjob
+                </button>
               </div>
-            )}
-            {!previewAuthenticated && authError && <div className="error auth-inline-error">{authError}</div>}
-          </section>
+              {!previewAuthenticated && (
+                <div className="welcome-auth-line">
+                  <div className="welcome-auth-links">
+                    <button
+                      type="button"
+                      className="welcome-auth-link"
+                      onClick={() => openVoluntaryAuth('login')}
+                    >
+                      Login
+                    </button>
+                    <span aria-hidden="true">/</span>
+                    <button
+                      type="button"
+                      className="welcome-auth-link"
+                      onClick={() => openVoluntaryAuth('register')}
+                    >
+                      Register
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!previewAuthenticated && authError && <div className="error auth-inline-error">{authError}</div>}
+            </section>
+          </div>
         </>
       )}
 

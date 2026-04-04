@@ -336,6 +336,18 @@
     white;
 }
 
+.welcome-stage {
+  width: 100%;
+  max-width: 780px;
+  min-height: clamp(420px, calc(100vh - 9.5rem), 760px);
+  display: flex;
+  align-items: center;
+}
+
+.welcome-stage .hero.welcome {
+  width: 100%;
+}
+
 .tag {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -1895,6 +1907,10 @@ button[type='submit']:disabled {
 
   .hero {
     padding: 0.25rem;
+  }
+
+  .welcome-stage {
+    min-height: calc(100vh - 7rem);
   }
 
   .panel {
