@@ -1945,6 +1945,19 @@ button[type='submit']:disabled {
   flex-wrap: wrap;
 }
 
+.auth-overlay-card .panel-actions.split {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.auth-overlay-card .panel-actions.split > * {
+  width: 100%;
+}
+
+.auth-overlay-card .panel-header > .ghost {
+  margin-left: auto;
+}
+
 .auth-overlay-card .hint,
 .auth-overlay-card .notice,
 .auth-overlay-card .error {
