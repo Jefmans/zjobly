@@ -2168,4 +2168,20 @@ button[type='submit']:disabled {
   .record-panel-actions {
     justify-content: center;
   }
+
+  .take-list {
+    grid-template-columns: 1fr;
+  }
+
+  .take-card,
+  .take-card-top,
+  .take-label,
+  .checkbox-field .toggle,
+  .toggle-copy {
+    min-width: 0;
+  }
+
+  .take-label {
+    flex-wrap: wrap;
+  }
 }

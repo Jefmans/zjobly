@@ -1,4 +1,5 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
 import { CandidateProfileFlow } from './components/CandidateProfileFlow';
@@ -272,6 +273,7 @@ const getStoredDevAuthPreviewMode = (): DevAuthPreviewMode => {
 };
 
 function App() {
+  const [authViewportWidth, setAuthViewportWidth] = useState<number | null>(null);
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -360,6 +362,48 @@ function App() {
   const [devCompaniesLoading, setDevCompaniesLoading] = useState(false);
   const [devCompaniesError, setDevCompaniesError] = useState<string | null>(null);
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
+
+  useEffect(() => {
+    const updateViewportWidth = () => {
+      const measuredWidths = [
+        window.visualViewport?.width,
+        window.innerWidth,
+        document.documentElement?.clientWidth,
+        document.body?.clientWidth,
+      ]
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0)
+        .map((value) => Math.floor(value));
+      const effectiveWidth = measuredWidths.length ? Math.min(...measuredWidths) : Math.floor(window.innerWidth);
+      const roundedWidth = Math.max(1, effectiveWidth);
+      setAuthViewportWidth(roundedWidth);
+    };
+
+    updateViewportWidth();
+
+    window.addEventListener('resize', updateViewportWidth);
+    window.addEventListener('orientationchange', updateViewportWidth);
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener('resize', updateViewportWidth);
+
+    return () => {
+      window.removeEventListener('resize', updateViewportWidth);
+      window.removeEventListener('orientationchange', updateViewportWidth);
+      visualViewport?.removeEventListener('resize', updateViewportWidth);
+    };
+  }, []);
+
+  const authOverlayCardInlineStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!authViewportWidth) return undefined;
+    const horizontalInset = 16;
+    const computedWidth = Math.max(1, Math.min(640, authViewportWidth - horizontalInset));
+    return {
+      width: `${computedWidth}px`,
+      maxWidth: '100%',
+      minWidth: 0,
+      boxSizing: 'border-box',
+      marginInline: 'auto',
+    };
+  }, [authViewportWidth]);
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
   const [devAuthPreviewMode, setDevAuthPreviewMode] = useState<DevAuthPreviewMode>(
@@ -2208,6 +2252,7 @@ function App() {
       ? 'Back to invitations'
       : 'Back to results';
   const canSaveCandidateProfile = Boolean(candidateVideoObjectKey) || candidateProfileExists;
+  const overlayHost = typeof document !== 'undefined' ? document.body : null;
   const candidatePostAuthOverlayMessage =
     status === 'presigning'
       ? 'Requesting an upload URL...'
@@ -3196,95 +3241,102 @@ function App() {
         onViewMatches={openJobMatches}
       />
 
-      {candidatePostAuthOverlay && (
-        <div
-          className="auth-overlay"
-          role="status"
-          aria-live="polite"
-          aria-label="Preparing profile details"
-        >
-          <div className="panel auth-overlay-card">
-            <div className="panel-header">
-              <div>
-                <h2>Preparing your profile</h2>
-                <p className="hint">Please wait while we finish your video and open profile details.</p>
+      {overlayHost &&
+        candidatePostAuthOverlay &&
+        createPortal(
+          <div
+            className="auth-overlay"
+            role="status"
+            aria-live="polite"
+            aria-label="Preparing profile details"
+          >
+            <div className="panel auth-overlay-card" style={authOverlayCardInlineStyle}>
+              <div className="panel-header">
+                <div>
+                  <h2>Preparing your profile</h2>
+                  <p className="hint">Please wait while we finish your video and open profile details.</p>
+                </div>
+              </div>
+              <div className="notice notice-with-spinner">
+                <span className="inline-spinner" aria-hidden="true" />
+                <span>{candidatePostAuthOverlayMessage}</span>
               </div>
             </div>
-            <div className="notice notice-with-spinner">
-              <span className="inline-spinner" aria-hidden="true" />
-              <span>{candidatePostAuthOverlayMessage}</span>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          overlayHost,
+        )}
 
-      {authPrompt && !candidatePostAuthOverlay && (
-        <div
-          className="auth-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="authPromptTitle"
-        >
-          <div className="panel auth-overlay-card">
-            <div className="panel-header">
-              <div>
-                <h2 id="authPromptTitle">{authPrompt.title}</h2>
-                <p className="hint">{authPrompt.message}</p>
-              </div>
-              <button
-                type="button"
-                className="ghost"
-                onClick={closeAuthPrompt}
-                disabled={authSubmitting}
-              >
-                Not now
-              </button>
-            </div>
-            <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
-              <div className="field">
-                <label htmlFor="authName">Name</label>
-                <input
-                  id="authName"
-                  name="authName"
-                  value={authName}
-                  onChange={(event) => setAuthName(event.target.value)}
-                  autoComplete="username"
-                  placeholder="Your name"
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="authPassword">Password</label>
-                <input
-                  id="authPassword"
-                  name="authPassword"
-                  type="password"
-                  value={authPassword}
-                  onChange={(event) => setAuthPassword(event.target.value)}
-                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                  placeholder="At least 8 characters"
-                  required
-                  minLength={8}
-                />
-              </div>
-              {authError && <div className="error">{authError}</div>}
-              <div className="panel-actions split">
+      {overlayHost &&
+        authPrompt &&
+        !candidatePostAuthOverlay &&
+        createPortal(
+          <div
+            className="auth-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="authPromptTitle"
+          >
+            <div className="panel auth-overlay-card" style={authOverlayCardInlineStyle}>
+              <div className="panel-header">
+                <div>
+                  <h2 id="authPromptTitle">{authPrompt.title}</h2>
+                  <p className="hint">{authPrompt.message}</p>
+                </div>
                 <button
                   type="button"
                   className="ghost"
-                  onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+                  onClick={closeAuthPrompt}
                   disabled={authSubmitting}
                 >
-                  {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
-                </button>
-                <button type="submit" className="cta primary" disabled={authSubmitting}>
-                  {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+                  Not now
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
+                <div className="field">
+                  <label htmlFor="authName">Name</label>
+                  <input
+                    id="authName"
+                    name="authName"
+                    value={authName}
+                    onChange={(event) => setAuthName(event.target.value)}
+                    autoComplete="username"
+                    placeholder="Your name"
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="authPassword">Password</label>
+                  <input
+                    id="authPassword"
+                    name="authPassword"
+                    type="password"
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder="At least 8 characters"
+                    required
+                    minLength={8}
+                  />
+                </div>
+                {authError && <div className="error">{authError}</div>}
+                <div className="panel-actions split">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+                    disabled={authSubmitting}
+                  >
+                    {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
+                  </button>
+                  <button type="submit" className="cta primary" disabled={authSubmitting}>
+                    {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          overlayHost,
+        )}
     </main>
   );
 }
