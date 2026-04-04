@@ -1949,6 +1949,11 @@ button[type='submit']:disabled {
   overflow-x: hidden;
 }
 
+.candidate-select-panel .panel-header > div,
+.candidate-select-panel .panel-action-right {
+  min-width: 0;
+}
+
 .auth-overlay-card .auth-form {
   min-width: 0;
 }
@@ -2192,6 +2197,23 @@ button[type='submit']:disabled {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+  }
+
+  .candidate-select-panel .panel-header,
+  .candidate-select-panel .panel-actions.split {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
+  .candidate-select-panel .panel-header > .ghost,
+  .candidate-select-panel .panel-actions.split > .ghost,
+  .candidate-select-panel .panel-action-right,
+  .candidate-select-panel .panel-action-right > * {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
   }
 
   .take-card,
