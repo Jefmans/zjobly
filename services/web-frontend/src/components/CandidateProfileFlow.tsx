@@ -153,6 +153,7 @@ export function CandidateProfileFlow({
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
+  const [introStartPending, setIntroStartPending] = useState(false);
   const hasCandidateQuestions = isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
@@ -202,12 +203,13 @@ export function CandidateProfileFlow({
     setQuestionCountdown(questionCountdownSeconds);
   };
   const handleRecordAction = () => {
-    if (!hasCandidateQuestions) {
-      if (!isAuthenticated && recordingState === "idle") {
-        if (introCountdown !== null) return;
-        setIntroCountdown(introCountdownSeconds);
-        return;
-      }
+      if (!hasCandidateQuestions) {
+        if (!isAuthenticated && recordingState === "idle") {
+          if (introCountdown !== null) return;
+          setIntroStartPending(false);
+          setIntroCountdown(introCountdownSeconds);
+          return;
+        }
       recordAction();
       return;
     }
@@ -219,17 +221,20 @@ export function CandidateProfileFlow({
     if (candidateStep !== "record") {
       setQuestionCountdown(null);
       setIntroCountdown(null);
+      setIntroStartPending(false);
       return;
     }
     setCandidateQuestionIndex(0);
     setQuestionCountdown(null);
     setIntroCountdown(null);
+    setIntroStartPending(false);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
   useEffect(() => {
     if (introCountdown === null) return;
     if (introCountdown <= 0) {
       setIntroCountdown(null);
       if (recordingState === "idle") {
+        setIntroStartPending(true);
         startRecording();
       }
       return;
@@ -239,6 +244,17 @@ export function CandidateProfileFlow({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [introCountdown, recordingState, startRecording]);
+  useEffect(() => {
+    if (!introStartPending) return;
+    if (recordingState !== "idle") {
+      setIntroStartPending(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setIntroStartPending(false);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [introStartPending, recordingState]);
   useEffect(() => {
     if (questionCountdown === null) return;
     if (questionCountdown <= 0) {
@@ -468,6 +484,11 @@ export function CandidateProfileFlow({
                                   <div className="question-countdown">
                                     <span className="question-countdown-value">{introCountdown}</span>
                                   </div>
+                                </>
+                              ) : introStartPending ? (
+                                <>
+                                  <p className="question-label">Get ready</p>
+                                  <p className="question-text">Starting camera...</p>
                                 </>
                               ) : showLoggedOutPostTakeActions ? (
                                 <div className="question-actions">
