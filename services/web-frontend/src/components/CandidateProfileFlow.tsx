@@ -622,7 +622,7 @@ export function CandidateProfileFlow({
           )}
 
           {candidateStep === "select" && (
-              <div className="panel">
+              <div className="panel candidate-select-panel">
                 <div className="panel-header">
                   <div>
                     <h2>Select your video</h2>

@@ -1942,6 +1942,13 @@ button[type='submit']:disabled {
   overflow-x: hidden;
 }
 
+.candidate-select-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 .auth-overlay-card .auth-form {
   min-width: 0;
 }
@@ -2175,12 +2182,43 @@ button[type='submit']:disabled {
     grid-template-columns: 1fr;
   }
 
+  .hero,
+  .upload-form,
+  .candidate-select-panel,
+  .candidate-select-panel .video-preview,
+  .candidate-select-panel .take-list,
+  .candidate-select-panel .panel-actions,
+  .candidate-select-panel .panel-action-right {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .take-card,
   .take-card-top,
   .take-label,
   .checkbox-field .toggle,
   .toggle-copy {
     min-width: 0;
+  }
+
+  .take-card-top {
+    flex-wrap: wrap;
+  }
+
+  .checkbox-field .toggle {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .toggle-copy {
+    flex: 1 1 auto;
+  }
+
+  .toggle-title,
+  .toggle-sub {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .take-label {
