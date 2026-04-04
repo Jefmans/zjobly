@@ -1165,11 +1165,20 @@ button[type='submit']:disabled {
   flex-wrap: wrap;
 }
 
+.overlay-bottom.overlay-bottom-centered {
+  justify-content: center;
+}
+
 .record-controls {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.overlay-actions-right.overlay-actions-right-centered {
+  width: 100%;
+  justify-content: center;
 }
 
 .record-control {
@@ -1213,6 +1222,26 @@ button[type='submit']:disabled {
 .record-control.stop {
   border-color: rgba(248, 113, 113, 0.75);
   background: rgba(239, 68, 68, 0.24);
+}
+
+.record-controls.record-controls-solid .record-control:not(:disabled) {
+  border-color: rgba(148, 163, 184, 0.95);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.record-controls.record-controls-solid .record-control.record:not(:disabled) {
+  border-color: rgba(34, 197, 94, 0.95);
+  background: rgba(34, 197, 94, 0.35);
+}
+
+.record-controls.record-controls-solid .record-control.pause:not(:disabled) {
+  border-color: rgba(251, 191, 36, 0.9);
+  background: rgba(251, 191, 36, 0.32);
+}
+
+.record-controls.record-controls-solid .record-control.stop:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.95);
+  background: rgba(239, 68, 68, 0.34);
 }
 
 .record-icon {

@@ -488,18 +488,17 @@ export function CandidateProfileFlow({
                                 </div>
                               ) : (
                                 <>
-                                  <p className="question-text">
-                                    Tell us about yourself and the kind of job you are looking for.
-                                  </p>
-                                  <p className="question-label">
-                                    Recording starts after you click Start.
-                                  </p>
+                                  <p className="question-text">Tell us about yourself!</p>
+                                  <p className="question-label">What kind of job you want?</p>
+                                  <p className="question-label">What location?</p>
                                 </>
                               )}
                             </div>
                           </div>
                         )}
-                        <div className="overlay-bottom">
+                        <div
+                          className={`overlay-bottom ${isLoggedOutIntroFlow ? "overlay-bottom-centered" : ""}`}
+                        >
                           <div className="overlay-actions-left">
                             {canShowQuestionActions && (
                               <>
@@ -521,8 +520,16 @@ export function CandidateProfileFlow({
                               </>
                             )}
                           </div>
-                          <div className="overlay-actions-right">
-                            <div className="record-controls">
+                          <div
+                            className={`overlay-actions-right ${
+                              isLoggedOutIntroFlow ? "overlay-actions-right-centered" : ""
+                            }`}
+                          >
+                            <div
+                              className={`record-controls ${
+                                isLoggedOutIntroFlow ? "record-controls-solid" : ""
+                              }`}
+                            >
                               <button
                                 type="button"
                                 className="record-control record"
