@@ -1263,7 +1263,13 @@ function App() {
 
   const primeCandidateProfileFromTranscript = useCallback(async (transcript: string) => {
     const text = transcript.trim().slice(0, 8000);
-    if (!text) return;
+    if (!text) return null;
+    const prefill: {
+      headline?: string;
+      summary?: string;
+      location?: string;
+      keywords?: string[];
+    } = {};
 
     const [profileDraftResult, locationResult] = await Promise.allSettled([
       getProfileDraftFromTranscript(text),
@@ -1272,6 +1278,7 @@ function App() {
 
     if (profileDraftResult.status === 'fulfilled') {
       const profileDraft = profileDraftResult.value;
+      const normalizedKeywords = normalizeKeywords(profileDraft.keywords);
       setCandidateProfile((prev) => {
         const next = { ...prev };
         if (!candidateProfileEditedRef.current.headline && !(prev.headline || '').trim()) {
@@ -1282,8 +1289,11 @@ function App() {
         }
         return next;
       });
-      setCandidateKeywords(normalizeKeywords(profileDraft.keywords));
+      setCandidateKeywords(normalizedKeywords);
       candidateProfileDraftHandledTranscriptRef.current = text;
+      prefill.headline = profileDraft.headline || '';
+      prefill.summary = profileDraft.summary || '';
+      prefill.keywords = normalizedKeywords;
     } else {
       console.error('Candidate profile prefill failed', profileDraftResult.reason);
     }
@@ -1298,9 +1308,11 @@ function App() {
         });
       }
       candidateLocationHandledTranscriptRef.current = text;
+      prefill.location = suggestion || '';
     } else {
       console.error('Candidate location prefill failed', locationResult.reason);
     }
+    return Object.keys(prefill).length > 0 ? prefill : null;
   }, []);
 
   const handleRoleSelection = (value: UserRole, navigate: boolean) => {
@@ -1696,12 +1708,18 @@ function App() {
       startProcessingPoll(objectKey);
       setCandidateTranscript('');
       setCandidateTranscriptStatus('pending');
+      let transcriptPrefill: {
+        headline?: string;
+        summary?: string;
+        location?: string;
+        keywords?: string[];
+      } | null = null;
       try {
         const draft = await generateJobDraftFromVideo(objectKey);
         const transcript = (draft?.transcript || '').trim();
         if (transcript) {
           if (requiresAuth) {
-            await primeCandidateProfileFromTranscript(transcript);
+            transcriptPrefill = await primeCandidateProfileFromTranscript(transcript);
           }
           setCandidateTranscript(transcript);
           setCandidateTranscriptStatus('final');
@@ -1713,7 +1731,56 @@ function App() {
         setCandidateTranscriptStatus(undefined);
       }
       setCandidateValidation(false);
-      setCandidateStep('profile');
+      if (requiresAuth) {
+        const resolvedHeadline = (transcriptPrefill?.headline ?? candidateProfile.headline ?? '').toString().trim();
+        const resolvedLocation = (transcriptPrefill?.location ?? candidateProfile.location ?? '').toString().trim();
+        const resolvedSummary = (transcriptPrefill?.summary ?? candidateProfile.summary ?? '').toString().trim();
+        const resolvedKeywords = transcriptPrefill?.keywords?.length
+          ? transcriptPrefill.keywords
+          : candidateKeywords.length
+          ? candidateKeywords
+          : null;
+        try {
+          const savedProfile = await upsertCandidateProfile({
+            headline: resolvedHeadline || null,
+            location: resolvedLocation || null,
+            location_id: candidateProfile.location_id ?? null,
+            summary: resolvedSummary || null,
+            keywords: resolvedKeywords && resolvedKeywords.length ? resolvedKeywords : null,
+            video_object_key: objectKey,
+            discoverable: Boolean(candidateProfile.discoverable),
+          });
+          setCandidateProfileDetails(savedProfile ?? null);
+          setCandidateProfileExists(Boolean(savedProfile));
+          if (savedProfile) {
+            setCandidateProfile({
+              headline: savedProfile.headline ?? '',
+              location: savedProfile.location ?? '',
+              location_id: savedProfile.location_id ?? null,
+              summary: savedProfile.summary ?? '',
+              discoverable: Boolean(savedProfile.discoverable),
+            });
+            setCandidateVideoObjectKey(savedProfile.video_object_key ?? objectKey);
+            setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+          }
+          setCandidateProfileSaved(true);
+          setCandidateStep('profile');
+          if (role !== 'candidate') {
+            persistRole('candidate');
+          }
+          setView('profile');
+        } catch (err) {
+          console.error('Could not auto-save candidate profile after sign-up', err);
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Could not auto-save your profile. You can complete and save it manually.',
+          );
+          setCandidateStep('profile');
+        }
+      } else {
+        setCandidateStep('profile');
+      }
     } catch (err) {
       console.error(err);
       clearProcessingTimer();

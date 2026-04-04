@@ -663,6 +663,27 @@ export function CandidateProfileFlow({
                 ))}
               </div>
 
+              {!isAuthenticated && (
+                <div className="field checkbox-field">
+                  <label htmlFor="discoverableSelect" className="toggle">
+                    <input
+                      id="discoverableSelect"
+                      name="discoverable"
+                      type="checkbox"
+                      checked={Boolean(profile.discoverable)}
+                      onChange={onProfileChange}
+                    />
+                    <span className="toggle-track" aria-hidden="true">
+                      <span className="toggle-thumb" />
+                    </span>
+                    <span className="toggle-copy">
+                      <span className="toggle-title">Show my profile to employers</span>
+                      <span className="toggle-sub">Let them browse and reach out to you.</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {error && <div className="error">{error}</div>}
               {status === "presigning" && <div className="notice">Requesting an upload URL...</div>}
               {status === "uploading" && (
