@@ -10,6 +10,7 @@ type NavItem = {
 type Props = {
   view: ViewMode;
   role: UserRole | null;
+  sticky?: boolean;
   onHome: () => void;
   onBrowseJobs: () => void;
   onMyApplications: () => void;
@@ -26,6 +27,7 @@ type Props = {
 export function PrimaryNav({
   view,
   role,
+  sticky = false,
   onHome,
   onBrowseJobs,
   onMyApplications,
@@ -105,7 +107,7 @@ export function PrimaryNav({
   };
 
   return (
-    <div className="primary-nav">
+    <div className={`primary-nav ${sticky ? "sticky" : ""}`}>
       <button type="button" className="primary-nav-brand" onClick={onHome}>
         <span className="brand-mark" aria-hidden="true" />
         Zjobly
