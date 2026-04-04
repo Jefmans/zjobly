@@ -181,7 +181,10 @@ export function CandidateProfileFlow({
   const canViewJobs = isEditingProfile || profileSaved;
   const showLoggedOutPostTakeActions = isLoggedOutIntroFlow && recordingState === "idle" && hasTakes;
   const showLoggedOutIntroOverlay =
-    !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
+    !isAuthenticated &&
+    hasCandidateQuestions === false &&
+    recordingState === "idle" &&
+    !introStartPending;
   const showNav = !(candidateStep === "record" && !isAuthenticated);
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
@@ -484,11 +487,6 @@ export function CandidateProfileFlow({
                                   <div className="question-countdown">
                                     <span className="question-countdown-value">{introCountdown}</span>
                                   </div>
-                                </>
-                              ) : introStartPending ? (
-                                <>
-                                  <p className="question-label">Get ready</p>
-                                  <p className="question-text">Starting camera...</p>
                                 </>
                               ) : showLoggedOutPostTakeActions ? (
                                 <div className="question-actions">
