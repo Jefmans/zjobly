@@ -181,6 +181,7 @@ export function CandidateProfileFlow({
   const showLoggedOutPostTakeActions = isLoggedOutIntroFlow && recordingState === "idle" && hasTakes;
   const showLoggedOutIntroOverlay =
     !isAuthenticated && hasCandidateQuestions === false && recordingState === "idle";
+  const showNav = !(candidateStep === "record" && !isAuthenticated);
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
     if (recordingState === "recording") {
@@ -257,7 +258,7 @@ export function CandidateProfileFlow({
 
   return (
     <>
-      {nav}
+      {showNav && nav}
       <section className="hero">
         <div className="view-pill">Find Zjob</div>
         <p className="tag">Zjobly</p>
