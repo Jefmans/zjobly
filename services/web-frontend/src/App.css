@@ -1,11 +1,16 @@
 .app-shell {
+  --app-shell-padding: 2rem;
   display: grid;
   place-items: center;
   min-height: 100vh;
   width: 100%;
   box-sizing: border-box;
-  padding: 2rem;
+  padding: var(--app-shell-padding);
   overflow-x: hidden;
+}
+
+.app-shell.sticky-nav {
+  padding-top: 0;
 }
 
 .screen-label {
@@ -155,9 +160,6 @@
   z-index: 35;
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: rgba(248, 250, 252, 0.92);
-  backdrop-filter: blur(8px);
 }
 
 .primary-nav-brand {
@@ -1887,7 +1889,7 @@ button[type='submit']:disabled {
   }
 
   .app-shell {
-    padding: 0.25rem;
+    --app-shell-padding: 0.25rem;
   }
 
   .hero {

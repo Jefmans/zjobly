@@ -2113,6 +2113,7 @@ function App() {
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role, previewAuthenticated);
   const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
+  const shellClassName = showDevNav ? 'app-shell' : 'app-shell sticky-nav';
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
   const filteredCandidateKeywords = filterKeywordsByLocation(
     candidateKeywords,
@@ -2842,7 +2843,7 @@ function App() {
 
   if (authLoading) {
     return (
-      <main className="app-shell">
+      <main className={shellClassName}>
         <ScreenLabel label="Screen:Auth/Loading/LoggedOut" />
         <section className="hero welcome">
           <p className="tag">Zjobly</p>
@@ -2854,7 +2855,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={shellClassName}>
       <ScreenLabel label={screenLabel} />
       {view === 'welcome' && (
         <>
