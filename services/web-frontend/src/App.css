@@ -1225,23 +1225,23 @@ button[type='submit']:disabled {
 }
 
 .record-controls.record-controls-solid .record-control:not(:disabled) {
-  border-color: rgba(148, 163, 184, 0.95);
-  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.98);
+  background: rgba(15, 23, 42, 0.96);
 }
 
 .record-controls.record-controls-solid .record-control.record:not(:disabled) {
-  border-color: rgba(34, 197, 94, 0.95);
-  background: rgba(34, 197, 94, 0.35);
+  border-color: rgba(34, 197, 94, 0.98);
+  background: rgba(34, 197, 94, 0.52);
 }
 
 .record-controls.record-controls-solid .record-control.pause:not(:disabled) {
-  border-color: rgba(251, 191, 36, 0.9);
-  background: rgba(251, 191, 36, 0.32);
+  border-color: rgba(251, 191, 36, 0.95);
+  background: rgba(251, 191, 36, 0.48);
 }
 
 .record-controls.record-controls-solid .record-control.stop:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.95);
-  background: rgba(239, 68, 68, 0.34);
+  border-color: rgba(248, 113, 113, 0.98);
+  background: rgba(239, 68, 68, 0.54);
 }
 
 .record-icon {
