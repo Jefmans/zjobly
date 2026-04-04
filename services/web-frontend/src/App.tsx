@@ -1,4 +1,4 @@
-import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './App.css';
 import { JobCreationFlow } from './components/JobCreationFlow';
@@ -273,7 +273,6 @@ const getStoredDevAuthPreviewMode = (): DevAuthPreviewMode => {
 };
 
 function App() {
-  const [authViewportWidth, setAuthViewportWidth] = useState<number | null>(null);
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -363,47 +362,13 @@ function App() {
   const [devCompaniesError, setDevCompaniesError] = useState<string | null>(null);
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
 
-  useEffect(() => {
-    const updateViewportWidth = () => {
-      const measuredWidths = [
-        window.visualViewport?.width,
-        window.innerWidth,
-        document.documentElement?.clientWidth,
-        document.body?.clientWidth,
-      ]
-        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0)
-        .map((value) => Math.floor(value));
-      const effectiveWidth = measuredWidths.length ? Math.min(...measuredWidths) : Math.floor(window.innerWidth);
-      const roundedWidth = Math.max(1, effectiveWidth);
-      setAuthViewportWidth(roundedWidth);
-    };
-
-    updateViewportWidth();
-
-    window.addEventListener('resize', updateViewportWidth);
-    window.addEventListener('orientationchange', updateViewportWidth);
-    const visualViewport = window.visualViewport;
-    visualViewport?.addEventListener('resize', updateViewportWidth);
-
-    return () => {
-      window.removeEventListener('resize', updateViewportWidth);
-      window.removeEventListener('orientationchange', updateViewportWidth);
-      visualViewport?.removeEventListener('resize', updateViewportWidth);
-    };
-  }, []);
-
-  const authOverlayCardInlineStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!authViewportWidth) return undefined;
-    const horizontalInset = 16;
-    const computedWidth = Math.max(1, Math.min(640, authViewportWidth - horizontalInset));
-    return {
-      width: `${computedWidth}px`,
-      maxWidth: '100%',
-      minWidth: 0,
-      boxSizing: 'border-box',
-      marginInline: 'auto',
-    };
-  }, [authViewportWidth]);
+  const authOverlayCardInlineStyle: CSSProperties = {
+    width: 'min(640px, calc(100% - 2rem))',
+    maxWidth: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
+    marginInline: 'auto',
+  };
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);
   const [devAuthPreviewMode, setDevAuthPreviewMode] = useState<DevAuthPreviewMode>(
@@ -1738,8 +1703,9 @@ function App() {
 
     const requiresAuth = !previewAuthenticated;
     const canContinue = await ensureAuthenticated({
-      title: 'Create an account to continue',
-      message: 'Create an account before processing this profile video and continuing to your details.',
+      title: 'Create account',
+      message: 'Use your name and password to continue.',
+      mode: 'register',
     });
     if (!canContinue) return;
     if (requiresAuth) {

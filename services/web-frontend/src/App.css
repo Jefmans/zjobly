@@ -1917,8 +1917,10 @@ button[type='submit']:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(0.5rem, 2vw, 1.5rem);
-  padding-inline: max(0.5rem, env(safe-area-inset-left)) max(0.5rem, env(safe-area-inset-right));
+  width: 100%;
+  max-width: 100%;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  padding-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
   box-sizing: border-box;
   overflow-x: hidden;
   background: rgba(3, 7, 18, 0.72);
@@ -1926,16 +1928,16 @@ button[type='submit']:disabled {
 }
 
 .auth-overlay-card {
-  width: 100%;
-  max-width: 640px;
+  width: min(640px, calc(100% - 2rem));
+  max-width: calc(100% - 2rem);
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
 }
 
 .panel.auth-overlay-card {
-  width: 100%;
-  max-width: 640px;
+  width: min(640px, calc(100% - 2rem));
+  max-width: calc(100% - 2rem);
   min-width: 0;
   overflow-x: hidden;
 }
@@ -2128,8 +2130,8 @@ button[type='submit']:disabled {
   }
 
   .auth-overlay-card {
-    width: 100%;
-    max-width: 100%;
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
   }
 
   .auth-form {
