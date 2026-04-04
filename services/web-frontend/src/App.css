@@ -1930,6 +1930,7 @@ button[type='submit']:disabled {
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
+  margin-inline: auto;
 }
 
 .panel.auth-overlay-card {
@@ -2102,12 +2103,6 @@ button[type='submit']:disabled {
   .auth-overlay-card {
     width: 100%;
     max-width: 100%;
-  }
-
-  .panel.auth-overlay-card {
-    width: calc(100vw - 1rem) !important;
-    max-width: calc(100vw - 1rem) !important;
-    margin-inline: auto;
   }
 
   .auth-form {
