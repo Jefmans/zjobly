@@ -1911,7 +1911,6 @@ button[type='submit']:disabled {
 }
 
 .auth-overlay {
-  --auth-overlay-card-max: calc(100vw - 1rem);
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -1927,30 +1926,32 @@ button[type='submit']:disabled {
 }
 
 .auth-overlay-card {
-  width: min(640px, var(--auth-overlay-card-max));
-  max-width: var(--auth-overlay-card-max);
+  width: 100%;
+  max-width: 640px;
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
-  margin-inline: auto;
 }
 
 .panel.auth-overlay-card {
-  width: min(640px, var(--auth-overlay-card-max));
-  max-width: var(--auth-overlay-card-max);
+  width: 100%;
+  max-width: 640px;
   min-width: 0;
   overflow-x: hidden;
 }
 
-@supports (width: 100dvw) {
-  .auth-overlay {
-    --auth-overlay-card-max: calc(100dvw - 1rem);
-  }
+.auth-overlay-card .auth-form {
+  min-width: 0;
 }
 
 .auth-overlay-card .panel-header,
 .auth-overlay-card .panel-actions.split {
   flex-wrap: wrap;
+}
+
+.auth-overlay-card .panel-header > div {
+  min-width: 0;
+  flex: 1 1 220px;
 }
 
 .auth-overlay-card .panel-actions.split {
@@ -1977,6 +1978,11 @@ button[type='submit']:disabled {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.auth-overlay-card button {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
@@ -2122,8 +2128,8 @@ button[type='submit']:disabled {
   }
 
   .auth-overlay-card {
-    width: var(--auth-overlay-card-max);
-    max-width: var(--auth-overlay-card-max);
+    width: 100%;
+    max-width: 100%;
   }
 
   .auth-form {
