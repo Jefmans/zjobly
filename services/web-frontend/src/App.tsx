@@ -1,16 +1,9 @@
 import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import './App.css';
-import { JobCreationFlow } from './components/JobCreationFlow';
-import { CandidateProfileFlow } from './components/CandidateProfileFlow';
-import { CandidateProfileView } from './components/CandidateProfileView';
-import { CandidateMatchesView } from './components/CandidateMatchesView';
-import { CandidateFavoritesView } from './components/CandidateFavoritesView';
-import { CandidateInvitationsView } from './components/CandidateInvitationsView';
-import { CandidateDetailView } from './components/CandidateDetailView';
-import { CandidateSearchFlow } from './components/CandidateSearchFlow';
-import { EmployerInvitationsView } from './components/EmployerInvitationsView';
-import { ConfigAdminView } from './components/ConfigAdminView';
+import { AuthOverlays } from './components/AuthOverlays';
+import { CandidateAppSection } from './components/CandidateAppSection';
+import { EmployerAppSection } from './components/EmployerAppSection';
+import { GeneralAppSection } from './components/GeneralAppSection';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
@@ -2766,253 +2759,209 @@ function App() {
   return (
     <main className={shellClassName}>
       <ScreenLabel label={screenLabel} />
-      {view === 'welcome' && (
-        <>
-          {nav}
-          <div className="welcome-stage">
-            <section className="hero welcome">
-              <p className="tag">Zjobly</p>
-              <h1>Welcome</h1>
-              <div className="welcome-actions">
-                <button type="button" className="cta primary" onClick={startCandidateFlow}>
-                  Find Zjob
-                </button>
-                <button type="button" className="cta secondary" onClick={startCreateFlow}>
-                  Create Zjob
-                </button>
-              </div>
-              {!previewAuthenticated && (
-                <div className="welcome-auth-line">
-                  <div className="welcome-auth-links">
-                    <button
-                      type="button"
-                      className="welcome-auth-link"
-                      onClick={() => openVoluntaryAuth('login')}
-                    >
-                      Login
-                    </button>
-                    <span aria-hidden="true">/</span>
-                    <button
-                      type="button"
-                      className="welcome-auth-link"
-                      onClick={() => openVoluntaryAuth('register')}
-                    >
-                      Register
-                    </button>
-                  </div>
-                </div>
-              )}
-              {!previewAuthenticated && authError && <div className="error auth-inline-error">{authError}</div>}
-            </section>
-          </div>
-        </>
-      )}
-
-      <JobCreationFlow
+      <GeneralAppSection
         view={view}
         nav={nav}
-        createStep={createStep}
-        form={form}
-        transcriptText={transcriptText}
-        onInputChange={handleInputChange}
-        onTranscriptChange={handleTranscriptChange}
-        onGenerateFromTranscript={generateFromTranscript}
-        draftingFromTranscript={draftingFromTranscript}
-        draftingError={draftingError}
-        draftKeywords={filteredDraftKeywords}
-        goToStep={goToStep}
-        onSaveVideo={saveVideo}
-        onSaveJob={saveJob}
-        recorderOpen={recorderOpen}
-        recordingState={recordingState}
-        videoUrl={videoUrl}
-        videoObjectKey={videoObjectKey}
-        liveVideoRef={liveVideoRef}
-        playbackVideoRef={playbackVideoRef}
-        recordLabel={recordLabel}
-        durationLabel={durationLabel}
-        selectedTake={selectedTake}
-        startRecording={startRecording}
-        pauseRecording={pauseRecording}
-        resumeRecording={resumeRecording}
-        stopRecording={stopRecording}
-        error={error}
-        recordedTakes={recordedTakes}
-        selectedTakeId={selectedTakeId}
-        selectTake={selectTake}
-        status={status}
-        uploadProgress={uploadProgress}
-        processingMessage={processingMessage}
-        companyId={companyId}
-        jobSaving={jobSaving}
-        showDetailValidation={showDetailValidation}
-      />
-
-      <CandidateProfileFlow
-        view={view}
-        nav={nav}
-        isAuthenticated={previewAuthenticated}
-        candidateStep={candidateStep}
-        goToStep={goToCandidateStep}
-        recorderOpen={recorderOpen}
-        recordingState={recordingState}
-        videoUrl={videoUrl}
-        candidateVideoObjectKey={candidateVideoObjectKey}
-        liveVideoRef={liveVideoRef}
-        playbackVideoRef={playbackVideoRef}
-        recordLabel={recordLabel}
-        durationLabel={durationLabel}
-        startRecording={startRecording}
-        pauseRecording={pauseRecording}
-        resumeRecording={resumeRecording}
-        stopRecording={stopRecording}
-        error={error}
-        recordedTakes={recordedTakes}
-        selectedTakeId={selectedTakeId}
-        selectTake={selectTake}
-        handleVideoChange={handleVideoChange}
-        status={status}
-        uploadProgress={uploadProgress}
-        processingMessage={processingMessage}
-        audioSessionTranscripts={audioSessionTranscripts}
-        audioSessionStatuses={audioSessionStatuses}
-        fallbackTranscript={candidateTranscript}
-        fallbackTranscriptStatus={candidateTranscriptStatus}
-        isEditingProfile={candidateProfileExists}
-        keywords={filteredCandidateKeywords}
-        onSaveVideo={saveCandidateVideo}
-        profile={candidateProfile}
-        onProfileChange={handleCandidateProfileChange}
-        onSaveProfile={saveCandidateProfile}
-        profileSaving={candidateProfileSaving}
-        profileSaved={candidateProfileSaved}
-        canSaveProfile={canSaveCandidateProfile}
-        showValidation={candidateValidation}
-        onViewJobs={goToJobsOverview}
-      />
-
-      <CandidateProfileView
-        view={view}
-        nav={nav}
-        profile={candidateProfileDetails}
-        keywords={filteredCandidateKeywords}
-        videoUrl={videoUrl}
-        loading={candidateProfileLoading}
-        error={candidateProfileError}
-        onCreateProfile={startCandidateFlow}
-        onEditProfile={goToCandidateProfileEdit}
-        onBrowseJobs={goToJobsOverview}
-      />
-
-      <ConfigAdminView
-        view={view}
-        nav={nav}
-      />
-
-      <CandidateDetailView
-        view={view}
-        nav={nav}
-        role={role}
-        candidate={selectedCandidateProfile}
-        onBack={handleCandidateDetailBack}
-        backLabel={candidateDetailBackLabel}
-        canFavorite={canManageFavorites}
-        isFavorite={
-          selectedCandidateProfile ? favoriteCandidateIds.has(selectedCandidateProfile.id) : false
-        }
-        favoriteUpdating={
-          selectedCandidateProfile ? favoriteUpdatingIds.has(selectedCandidateProfile.id) : false
-        }
-        favoritesError={candidateFavoritesError}
-        onToggleFavorite={handleToggleCandidateFavorite}
-        invitationStatus={
-          selectedCandidateProfile
-            ? invitationStatusByCandidateId[selectedCandidateProfile.id] ?? null
-            : null
-        }
-        invitationUpdating={
-          selectedCandidateProfile ? inviteUpdatingIds.has(selectedCandidateProfile.id) : false
-        }
-        invitationsError={employerInvitationsError}
-        canInvite={canManageInvitations}
-        onInvite={() => {
-          if (!selectedCandidateProfile) return;
-          handleInviteCandidate(selectedCandidateProfile.id);
+        previewAuthenticated={previewAuthenticated}
+        authError={authError}
+        onStartCandidateFlow={startCandidateFlow}
+        onStartCreateFlow={startCreateFlow}
+        onOpenVoluntaryAuth={openVoluntaryAuth}
+        configAdminViewProps={{
+          view,
+          nav,
         }}
       />
 
-      <CandidateFavoritesView
-        view={view}
-        nav={nav}
-        role={role}
-        favorites={candidateFavorites}
-        loading={candidateFavoritesLoading}
-        error={candidateFavoritesError}
-        canFavorite={canManageFavorites}
-        favoriteUpdatingIds={favoriteUpdatingIds}
-        onViewCandidate={openCandidateProfileFromFavorites}
-        onRemoveFavorite={handleRemoveCandidateFavorite}
+      <EmployerAppSection
+        jobCreationFlowProps={{
+          view,
+          nav,
+          createStep,
+          form,
+          transcriptText,
+          onInputChange: handleInputChange,
+          onTranscriptChange: handleTranscriptChange,
+          onGenerateFromTranscript: generateFromTranscript,
+          draftingFromTranscript,
+          draftingError,
+          draftKeywords: filteredDraftKeywords,
+          goToStep,
+          onSaveVideo: saveVideo,
+          onSaveJob: saveJob,
+          recorderOpen,
+          recordingState,
+          videoUrl,
+          videoObjectKey,
+          liveVideoRef,
+          playbackVideoRef,
+          recordLabel,
+          durationLabel,
+          selectedTake,
+          startRecording,
+          pauseRecording,
+          resumeRecording,
+          stopRecording,
+          error,
+          recordedTakes,
+          selectedTakeId,
+          selectTake,
+          handleVideoChange,
+          status,
+          uploadProgress,
+          processingMessage,
+          companyId,
+          jobSaving,
+          showDetailValidation,
+        }}
+        candidateDetailViewProps={{
+          view,
+          nav,
+          role,
+          candidate: selectedCandidateProfile,
+          onBack: handleCandidateDetailBack,
+          backLabel: candidateDetailBackLabel,
+          canFavorite: canManageFavorites,
+          isFavorite: selectedCandidateProfile ? favoriteCandidateIds.has(selectedCandidateProfile.id) : false,
+          favoriteUpdating: selectedCandidateProfile ? favoriteUpdatingIds.has(selectedCandidateProfile.id) : false,
+          favoritesError: candidateFavoritesError,
+          onToggleFavorite: handleToggleCandidateFavorite,
+          invitationStatus: selectedCandidateProfile
+            ? invitationStatusByCandidateId[selectedCandidateProfile.id] ?? null
+            : null,
+          invitationUpdating: selectedCandidateProfile ? inviteUpdatingIds.has(selectedCandidateProfile.id) : false,
+          invitationsError: employerInvitationsError,
+          canInvite: canManageInvitations,
+          onInvite: () => {
+            if (!selectedCandidateProfile) return;
+            handleInviteCandidate(selectedCandidateProfile.id);
+          },
+        }}
+        candidateFavoritesViewProps={{
+          view,
+          nav,
+          role,
+          favorites: candidateFavorites,
+          loading: candidateFavoritesLoading,
+          error: candidateFavoritesError,
+          canFavorite: canManageFavorites,
+          favoriteUpdatingIds,
+          onViewCandidate: openCandidateProfileFromFavorites,
+          onRemoveFavorite: handleRemoveCandidateFavorite,
+        }}
+        employerInvitationsViewProps={{
+          view,
+          nav,
+          role,
+          invitations: employerInvitations,
+          loading: employerInvitationsLoading,
+          error: employerInvitationsError,
+          canInvite: canManageInvitations,
+          onViewCandidate: openCandidateProfileFromInvitations,
+        }}
+        candidateSearchFlowProps={{
+          view,
+          nav,
+          role,
+          isAuthenticated: previewAuthenticated,
+          favoriteCandidateIds,
+          favoriteUpdatingIds,
+          favoritesError: candidateFavoritesError,
+          canFavorite: canManageFavorites,
+          onAddFavorite: handleAddCandidateFavorite,
+          onRemoveFavorite: handleRemoveCandidateFavorite,
+          invitationStatusByCandidateId,
+          inviteUpdatingIds,
+          invitationsError: employerInvitationsError,
+          canInvite: canManageInvitations,
+          onInviteCandidate: handleInviteCandidate,
+          onViewCandidate: openCandidateProfileFromSearch,
+        }}
+        candidateMatchesViewProps={{
+          view,
+          nav,
+          role,
+          job: selectedJobForMatches,
+          favoriteCandidateIds,
+          favoriteUpdatingIds,
+          favoritesError: candidateFavoritesError,
+          canFavorite: canManageFavorites,
+          onAddFavorite: handleAddCandidateFavorite,
+          onRemoveFavorite: handleRemoveCandidateFavorite,
+          invitationStatusByCandidateId,
+          inviteUpdatingIds,
+          invitationsError: employerInvitationsError,
+          canInvite: canManageInvitations,
+          onInviteCandidate: handleInviteCandidate,
+          onViewCandidate: openCandidateProfileFromMatches,
+          onBackToJob: backToJobDetail,
+        }}
       />
 
-      <EmployerInvitationsView
-        view={view}
-        nav={nav}
-        role={role}
-        invitations={employerInvitations}
-        loading={employerInvitationsLoading}
-        error={employerInvitationsError}
-        canInvite={canManageInvitations}
-        onViewCandidate={openCandidateProfileFromInvitations}
-      />
-
-      <CandidateInvitationsView
-        view={view}
-        nav={nav}
-        role={role}
-        invitations={candidateInvitations}
-        loading={candidateInvitationsLoading}
-        error={candidateInvitationsError}
-        updatingIds={candidateInviteUpdatingIds}
-        onUpdateInvitation={handleCandidateInvitationUpdate}
-      />
-
-      <CandidateSearchFlow
-        view={view}
-        nav={nav}
-        role={role}
-        isAuthenticated={previewAuthenticated}
-        favoriteCandidateIds={favoriteCandidateIds}
-        favoriteUpdatingIds={favoriteUpdatingIds}
-        favoritesError={candidateFavoritesError}
-        canFavorite={canManageFavorites}
-        onAddFavorite={handleAddCandidateFavorite}
-        onRemoveFavorite={handleRemoveCandidateFavorite}
-        invitationStatusByCandidateId={invitationStatusByCandidateId}
-        inviteUpdatingIds={inviteUpdatingIds}
-        invitationsError={employerInvitationsError}
-        canInvite={canManageInvitations}
-        onInviteCandidate={handleInviteCandidate}
-        onViewCandidate={openCandidateProfileFromSearch}
-      />
-
-      <CandidateMatchesView
-        view={view}
-        nav={nav}
-        role={role}
-        job={selectedJobForMatches}
-        favoriteCandidateIds={favoriteCandidateIds}
-        favoriteUpdatingIds={favoriteUpdatingIds}
-        favoritesError={candidateFavoritesError}
-        canFavorite={canManageFavorites}
-        onAddFavorite={handleAddCandidateFavorite}
-        onRemoveFavorite={handleRemoveCandidateFavorite}
-        invitationStatusByCandidateId={invitationStatusByCandidateId}
-        inviteUpdatingIds={inviteUpdatingIds}
-        invitationsError={employerInvitationsError}
-        canInvite={canManageInvitations}
-        onInviteCandidate={handleInviteCandidate}
-        onViewCandidate={openCandidateProfileFromMatches}
-        onBackToJob={backToJobDetail}
+      <CandidateAppSection
+        candidateProfileFlowProps={{
+          view,
+          nav,
+          isAuthenticated: previewAuthenticated,
+          candidateStep,
+          goToStep: goToCandidateStep,
+          recorderOpen,
+          recordingState,
+          videoUrl,
+          candidateVideoObjectKey,
+          liveVideoRef,
+          playbackVideoRef,
+          recordLabel,
+          durationLabel,
+          startRecording,
+          pauseRecording,
+          resumeRecording,
+          stopRecording,
+          error,
+          recordedTakes,
+          selectedTakeId,
+          selectTake,
+          status,
+          uploadProgress,
+          processingMessage,
+          audioSessionTranscripts,
+          audioSessionStatuses,
+          fallbackTranscript: candidateTranscript,
+          fallbackTranscriptStatus: candidateTranscriptStatus,
+          isEditingProfile: candidateProfileExists,
+          keywords: filteredCandidateKeywords,
+          onSaveVideo: saveCandidateVideo,
+          profile: candidateProfile,
+          onProfileChange: handleCandidateProfileChange,
+          onSaveProfile: saveCandidateProfile,
+          profileSaving: candidateProfileSaving,
+          profileSaved: candidateProfileSaved,
+          canSaveProfile: canSaveCandidateProfile,
+          showValidation: candidateValidation,
+          onViewJobs: goToJobsOverview,
+        }}
+        candidateProfileViewProps={{
+          view,
+          nav,
+          profile: candidateProfileDetails,
+          keywords: filteredCandidateKeywords,
+          videoUrl,
+          loading: candidateProfileLoading,
+          error: candidateProfileError,
+          onCreateProfile: startCandidateFlow,
+          onEditProfile: goToCandidateProfileEdit,
+          onBrowseJobs: goToJobsOverview,
+        }}
+        candidateInvitationsViewProps={{
+          view,
+          nav,
+          role,
+          invitations: candidateInvitations,
+          loading: candidateInvitationsLoading,
+          error: candidateInvitationsError,
+          updatingIds: candidateInviteUpdatingIds,
+          onUpdateInvitation: handleCandidateInvitationUpdate,
+        }}
       />
 
       <JobSeekerFlow
@@ -3036,103 +2985,23 @@ function App() {
         onViewCandidateProfile={openCandidateProfileFromApplications}
         onViewMatches={openJobMatches}
       />
-
-      {overlayHost &&
-        candidatePostAuthOverlay &&
-        createPortal(
-          <div
-            className="auth-overlay"
-            role="status"
-            aria-live="polite"
-            aria-label="Preparing profile details"
-          >
-            <div className="panel auth-overlay-card" style={authOverlayCardInlineStyle}>
-              <div className="panel-header">
-                <div>
-                  <h2>Preparing your profile</h2>
-                  <p className="hint">Please wait while we finish your video and open profile details.</p>
-                </div>
-              </div>
-              <div className="notice notice-with-spinner">
-                <span className="inline-spinner" aria-hidden="true" />
-                <span>{candidatePostAuthOverlayMessage}</span>
-              </div>
-            </div>
-          </div>,
-          overlayHost,
-        )}
-
-      {overlayHost &&
-        authPrompt &&
-        !candidatePostAuthOverlay &&
-        createPortal(
-          <div
-            className="auth-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="authPromptTitle"
-          >
-            <div className="panel auth-overlay-card" style={authOverlayCardInlineStyle}>
-              <div className="panel-header">
-                <div>
-                  <h2 id="authPromptTitle">{authPrompt.title}</h2>
-                  <p className="hint">{authPrompt.message}</p>
-                </div>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={closeAuthPrompt}
-                  disabled={authSubmitting}
-                >
-                  Not now
-                </button>
-              </div>
-              <form className="upload-form auth-form" onSubmit={handleAuthSubmit}>
-                <div className="field">
-                  <label htmlFor="authName">Name</label>
-                  <input
-                    id="authName"
-                    name="authName"
-                    value={authName}
-                    onChange={(event) => setAuthName(event.target.value)}
-                    autoComplete="username"
-                    placeholder="Your name"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="authPassword">Password</label>
-                  <input
-                    id="authPassword"
-                    name="authPassword"
-                    type="password"
-                    value={authPassword}
-                    onChange={(event) => setAuthPassword(event.target.value)}
-                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                    placeholder="At least 8 characters"
-                    required
-                    minLength={8}
-                  />
-                </div>
-                {authError && <div className="error">{authError}</div>}
-                <div className="panel-actions split">
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
-                    disabled={authSubmitting}
-                  >
-                    {authMode === 'login' ? 'Need an account?' : 'Already have an account?'}
-                  </button>
-                  <button type="submit" className="cta primary" disabled={authSubmitting}>
-                    {authSubmitting ? 'Please wait...' : authMode === 'login' ? 'Sign in' : 'Create account'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          overlayHost,
-        )}
+      <AuthOverlays
+        overlayHost={overlayHost}
+        candidatePostAuthOverlay={candidatePostAuthOverlay}
+        candidatePostAuthOverlayMessage={candidatePostAuthOverlayMessage}
+        authPrompt={authPrompt}
+        authOverlayCardInlineStyle={authOverlayCardInlineStyle}
+        authSubmitting={authSubmitting}
+        authMode={authMode}
+        authName={authName}
+        authPassword={authPassword}
+        authError={authError}
+        onCloseAuthPrompt={closeAuthPrompt}
+        onAuthSubmit={handleAuthSubmit}
+        onToggleAuthMode={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+        onAuthNameChange={setAuthName}
+        onAuthPasswordChange={setAuthPassword}
+      />
     </main>
   );
 }
