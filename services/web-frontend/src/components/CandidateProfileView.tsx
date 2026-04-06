@@ -37,7 +37,6 @@ export function CandidateProfileView({
         <div className="view-pill">My profile</div>
         <p className="tag">Zjobly</p>
         <h1>Your profile</h1>
-        <p className="lede">Keep your details up to date so employers can find you.</p>
 
         {error && <p className="error">{error}</p>}
 
@@ -50,8 +49,8 @@ export function CandidateProfileView({
             <div className="panel">
               <div className="panel-header">
                 <div>
-                  <h2>Profile detail</h2>
-                  <p className="hint">This is what employers see when they browse candidates.</p>
+                  <h2>Details</h2>
+                  <p className="hint">This is what employers see.</p>
                 </div>
                 <div className="panel-header-actions">
                   <span className="pill soft">Discoverable: {profile.discoverable ? "Yes" : "No"}</span>

@@ -108,6 +108,14 @@ export function AppNavigation({
         view={view}
         role={primaryNavRole}
         sticky={!showDevNav}
+        authUserName={previewAuthenticated ? previewAuthUser?.name ?? null : null}
+        showAdminConfig={previewAuthenticated && canSeeAdminConfigButton && view !== 'adminConfig'}
+        onGoToAdminConfig={
+          previewAuthenticated && canSeeAdminConfigButton && view !== 'adminConfig'
+            ? onGoToAdminConfig
+            : undefined
+        }
+        onLogout={previewAuthenticated && authUser ? onLogout : undefined}
         onHome={onHome}
         onBrowseJobs={onBrowseJobs}
         onMyApplications={onMyApplications}
@@ -202,67 +210,49 @@ export function AppNavigation({
           )}
         </div>
       )}
-      {(previewAuthenticated || view !== 'welcome') && !hideGuestAuthSessionRow && (
+      {!previewAuthenticated && view !== 'welcome' && !hideGuestAuthSessionRow && (
         <div className="auth-session-row">
-          {previewAuthenticated ? (
-            <>
-              <span className="hint">
-                {devAuthPreviewMode === 'loggedIn' && !authUser
-                  ? 'Dev preview: logged in (no real session)'
-                  : `Signed in as ${previewAuthUser?.name}`}
-              </span>
-              {canSeeAdminConfigButton && view !== 'adminConfig' && (
-                <button type="button" className="ghost" onClick={onGoToAdminConfig}>
-                  Admin config
+          <>
+            <span className="hint">
+              {devAuthPreviewMode === 'loggedOut' && authUser
+                ? 'Dev preview: logged out'
+                : 'Browse first. Create an account when you want to save, apply, or contact.'}
+            </span>
+            {devAuthPreviewMode !== 'real' ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={onUseRealAuth}
+              >
+                Use real auth
+              </button>
+            ) : (
+              <>
+                <button type="button" className="ghost" onClick={onOpenLogin}>
+                  Login
                 </button>
-              )}
-              {devAuthPreviewMode !== 'real' ? (
                 <button
                   type="button"
-                  className="ghost"
-                  onClick={onUseRealAuth}
+                  className="cta secondary"
+                  onClick={onOpenRegister}
                 >
-                  Use real auth
+                  Register
                 </button>
-              ) : (
-                authUser && (
-                  <button type="button" className="ghost" onClick={onLogout}>
-                    Log out
-                  </button>
-                )
-              )}
-            </>
-          ) : (
-            <>
-              <span className="hint">
-                {devAuthPreviewMode === 'loggedOut' && authUser
-                  ? 'Dev preview: logged out'
-                  : 'Browse first. Create an account when you want to save, apply, or contact.'}
-              </span>
-              {devAuthPreviewMode !== 'real' ? (
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={onUseRealAuth}
-                >
-                  Use real auth
-                </button>
-              ) : (
-                <>
-                  <button type="button" className="ghost" onClick={onOpenLogin}>
-                    Login
-                  </button>
-                  <button
-                    type="button"
-                    className="cta secondary"
-                    onClick={onOpenRegister}
-                  >
-                    Register
-                  </button>
-                </>
-              )}
-            </>
-          )}
+              </>
+            )}
+          </>
+        </div>
+      )}
+      {previewAuthenticated && devAuthPreviewMode === 'loggedIn' && !authUser && !hideGuestAuthSessionRow && (
+        <div className="auth-session-row">
+          <span className="hint">Dev preview: logged in (no real session)</span>
+          <button
+            type="button"
+            className="ghost"
+            onClick={onUseRealAuth}
+          >
+            Use real auth
+          </button>
         </div>
       )}
     </>

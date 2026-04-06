@@ -11,6 +11,10 @@ type Props = {
   view: ViewMode;
   role: UserRole | null;
   sticky?: boolean;
+  authUserName?: string | null;
+  showAdminConfig?: boolean;
+  onGoToAdminConfig?: () => void;
+  onLogout?: () => void;
   onHome: () => void;
   onBrowseJobs: () => void;
   onMyApplications: () => void;
@@ -26,6 +30,10 @@ export function PrimaryNav({
   view,
   role,
   sticky = false,
+  authUserName,
+  showAdminConfig = false,
+  onGoToAdminConfig,
+  onLogout,
   onHome,
   onBrowseJobs,
   onMyApplications,
@@ -38,6 +46,9 @@ export function PrimaryNav({
 }: Props) {
   const isCandidate = role === "candidate";
   const isEmployer = role === "employer";
+  const normalizedUserName = (authUserName || "").trim();
+  const truncatedUserName =
+    normalizedUserName.length > 30 ? `${normalizedUserName.slice(0, 30)}...` : normalizedUserName;
 
   const candidateItems: NavItem[] = [
     {
@@ -91,11 +102,14 @@ export function PrimaryNav({
   ];
 
   const items = isCandidate ? candidateItems : isEmployer ? employerItems : [];
+  const hasSessionActions = Boolean(normalizedUserName || onLogout || (showAdminConfig && onGoToAdminConfig));
+  const hasMenuContent = items.length > 0 || hasSessionActions;
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggleLabel = truncatedUserName || (menuOpen ? "Close" : "Menu");
 
   useEffect(() => {
     setMenuOpen(false);
-  }, [view, role]);
+  }, [view, role, normalizedUserName]);
 
   const handleItemClick = (onClick: () => void) => {
     onClick();
@@ -108,7 +122,7 @@ export function PrimaryNav({
         <span className="brand-mark" aria-hidden="true" />
         Zjobly
       </button>
-      {items.length > 0 && (
+      {hasMenuContent && (
         <button
           type="button"
           className={`primary-nav-toggle ${menuOpen ? "open" : ""}`}
@@ -122,21 +136,42 @@ export function PrimaryNav({
             <span />
             <span />
           </span>
-          <span className="primary-nav-toggle-label">{menuOpen ? "Close" : "Menu"}</span>
+          <span className="primary-nav-toggle-label" title={normalizedUserName || "Menu"}>
+            {menuToggleLabel}
+          </span>
         </button>
       )}
-      <div id="primary-nav-links" className={`primary-nav-links ${menuOpen ? "open" : ""}`}>
-        {items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            className={`nav-btn ${item.isActive ? "active" : ""}`}
-            onClick={() => handleItemClick(item.onClick)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {hasMenuContent && (
+        <div id="primary-nav-links" className={`primary-nav-links ${menuOpen ? "open" : ""}`}>
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className={`nav-btn ${item.isActive ? "active" : ""}`}
+              onClick={() => handleItemClick(item.onClick)}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          {hasSessionActions && items.length > 0 && <div className="primary-nav-divider" aria-hidden="true" />}
+          {normalizedUserName && (
+            <div className="primary-nav-user" title={`Signed in as ${normalizedUserName}`}>
+              Signed in as {truncatedUserName}
+            </div>
+          )}
+          {showAdminConfig && onGoToAdminConfig && (
+            <button type="button" className="nav-btn" onClick={() => handleItemClick(onGoToAdminConfig)}>
+              Admin config
+            </button>
+          )}
+          {onLogout && (
+            <button type="button" className="nav-btn" onClick={() => handleItemClick(onLogout)}>
+              Log out
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
