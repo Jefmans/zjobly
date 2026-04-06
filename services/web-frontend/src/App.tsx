@@ -48,11 +48,13 @@ import {
   DevAuthPreviewMode,
   ENABLE_AUDIO_CHUNKS,
   formatLocationSuggestion,
+  getPathForView,
   getScreenLabel,
   getStoredDevAuthPreviewMode,
   getStoredRole,
   getStoredUserId,
   getStoredView,
+  getViewFromPath,
   INITIAL_CANDIDATE_PROFILE,
   INITIAL_FORM_STATE,
   isAdminUser,
@@ -237,7 +239,6 @@ function App() {
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftHandledTranscriptRef = useRef<string | null>(null);
   const candidateLocationHandledTranscriptRef = useRef<string | null>(null);
-  const authBootstrapStartedRef = useRef(false);
   const activeDevAuthPreviewMode = SHOW_DEVELOPMENT_NAVIGATION ? devAuthPreviewMode : 'real';
   const previewAuthUser =
     activeDevAuthPreviewMode === 'loggedOut'
@@ -340,11 +341,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (authBootstrapStartedRef.current) {
-      return;
-    }
-    authBootstrapStartedRef.current = true;
-
     let cancelled = false;
     void (async () => {
       try {
@@ -355,7 +351,15 @@ function App() {
         if (current) {
           const storedRole = getStoredRole();
           persistRole(storedRole ?? 'candidate');
-          setView(getStoredView());
+          const storedView = getStoredView();
+          const safeStoredView =
+            storedView === 'adminConfig' && !isAdminUser(current) ? 'welcome' : storedView;
+          const pathView = getViewFromPath(window.location.pathname);
+          if (pathView === 'adminConfig' && isAdminUser(current)) {
+            setView('adminConfig');
+          } else {
+            setView(safeStoredView);
+          }
         } else {
           persistRole(null);
           setView('welcome');
@@ -376,6 +380,21 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    const nextPath = getPathForView(view);
+    if (window.location.pathname === nextPath) return;
+    const nextUrl = `${nextPath}${window.location.search}${window.location.hash}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [authLoading, view]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (view !== 'adminConfig') return;
+    if (canSeeAdminConfigButton) return;
+    setView('welcome');
+  }, [authLoading, canSeeAdminConfigButton, view]);
 
   const resetCandidateFlow = () => {
     clearVideoSelection();

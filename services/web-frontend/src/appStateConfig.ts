@@ -25,6 +25,7 @@ export const VIEW_STORAGE_KEY = 'zjobly-view';
 export const USER_STORAGE_KEY = 'zjobly-user-id';
 export const COMPANY_STORAGE_KEY = 'zjobly-company-id';
 export const DEV_AUTH_PREVIEW_STORAGE_KEY = 'zjobly-dev-auth-preview';
+export const ADMIN_CONFIG_PATH = '/admin';
 export const INITIAL_CANDIDATE_PROFILE: CandidateProfileInput = {
   headline: '',
   location: '',
@@ -129,6 +130,29 @@ export const getStoredView = (): ViewMode => {
     // ignore storage failures
   }
   return 'welcome';
+};
+
+const normalizePath = (pathname: string): string => {
+  if (!pathname) return '/';
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+};
+
+export const getViewFromPath = (pathname: string): ViewMode | null => {
+  const normalized = normalizePath(pathname);
+  if (normalized === ADMIN_CONFIG_PATH && SHOW_DEVELOPMENT_NAVIGATION) {
+    return 'adminConfig';
+  }
+  return null;
+};
+
+export const getPathForView = (view: ViewMode): string => {
+  if (view === 'adminConfig' && SHOW_DEVELOPMENT_NAVIGATION) {
+    return ADMIN_CONFIG_PATH;
+  }
+  return '/';
 };
 
 export const getScreenLabel = (
