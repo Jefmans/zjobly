@@ -35,7 +35,6 @@ export function CandidateProfileView({
       {nav}
       <section className="hero">
         <h1>Your profile</h1>
-        <p className="lede">This is what employers see.</p>
 
         {error && <p className="error">{error}</p>}
 
