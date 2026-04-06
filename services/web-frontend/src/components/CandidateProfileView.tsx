@@ -51,10 +51,9 @@ export function CandidateProfileView({
                   <h2>Details</h2>
                 </div>
                 <div className="panel-header-actions">
-                  <span className="pill soft">Discoverable: {profile.discoverable ? "Yes" : "No"}</span>
-                  <button type="button" className="ghost" onClick={onEditProfile}>
-                    Edit profile
-                  </button>
+                  <span className="pill soft">
+                    {profile.discoverable ? "Profile visible" : "Profile not visible"}
+                  </span>
                 </div>
               </div>
               <div className="detail-row">
