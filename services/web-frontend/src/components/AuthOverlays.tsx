@@ -43,28 +43,57 @@ export function AuthOverlays({
     if (!overlayOpen) return;
     const html = document.documentElement;
     const body = document.body;
+    const scrollY = window.scrollY;
     const prevHtmlOverflow = html.style.overflow;
     const prevHtmlOverflowX = html.style.overflowX;
+    const prevHtmlOverscrollBehaviorX = html.style.overscrollBehaviorX;
     const prevBodyOverflow = body.style.overflow;
     const prevBodyOverflowX = body.style.overflowX;
-    const prevHtmlOverscrollBehaviorX = html.style.overscrollBehaviorX;
     const prevBodyOverscrollBehaviorX = body.style.overscrollBehaviorX;
     const prevBodyTouchAction = body.style.touchAction;
+    const prevBodyPosition = body.style.position;
+    const prevBodyTop = body.style.top;
+    const prevBodyLeft = body.style.left;
+    const prevBodyRight = body.style.right;
+    const prevBodyWidth = body.style.width;
+    const prevBodyMaxWidth = body.style.maxWidth;
+
+    // Reset any residual horizontal offset before locking the viewport.
+    window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+    html.scrollLeft = 0;
+    body.scrollLeft = 0;
+
     html.style.overflow = 'hidden';
     html.style.overflowX = 'hidden';
+    html.style.overscrollBehaviorX = 'none';
+
+    // iOS-safe modal lock: pin body to viewport while preserving vertical position.
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.maxWidth = '100%';
     body.style.overflow = 'hidden';
     body.style.overflowX = 'hidden';
-    html.style.overscrollBehaviorX = 'none';
     body.style.overscrollBehaviorX = 'none';
     body.style.touchAction = 'pan-y';
+
     return () => {
       html.style.overflow = prevHtmlOverflow;
       html.style.overflowX = prevHtmlOverflowX;
+      html.style.overscrollBehaviorX = prevHtmlOverscrollBehaviorX;
       body.style.overflow = prevBodyOverflow;
       body.style.overflowX = prevBodyOverflowX;
-      html.style.overscrollBehaviorX = prevHtmlOverscrollBehaviorX;
       body.style.overscrollBehaviorX = prevBodyOverscrollBehaviorX;
       body.style.touchAction = prevBodyTouchAction;
+      body.style.position = prevBodyPosition;
+      body.style.top = prevBodyTop;
+      body.style.left = prevBodyLeft;
+      body.style.right = prevBodyRight;
+      body.style.width = prevBodyWidth;
+      body.style.maxWidth = prevBodyMaxWidth;
+      window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
     };
   }, [overlayOpen]);
 
