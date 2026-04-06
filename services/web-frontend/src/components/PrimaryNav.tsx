@@ -48,7 +48,7 @@ export function PrimaryNav({
   const isEmployer = role === "employer";
   const normalizedUserName = (authUserName || "").trim();
   const truncatedUserName =
-    normalizedUserName.length > 30 ? `${normalizedUserName.slice(0, 30)}...` : normalizedUserName;
+    normalizedUserName.length > 20 ? `${normalizedUserName.slice(0, 20)}...` : normalizedUserName;
 
   const candidateItems: NavItem[] = [
     {

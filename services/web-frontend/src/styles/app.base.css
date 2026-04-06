@@ -258,7 +258,7 @@
 
 .primary-nav-toggle-label {
   font-size: 0.9rem;
-  max-width: 30ch;
+  max-width: 20ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
