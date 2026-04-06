@@ -461,7 +461,7 @@ export function CandidateProfileFlow({
                   {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
-                  {canViewJobs && (
+                  {canViewJobs && !isEditingProfile && (
                     <button type="button" className="cta secondary" onClick={onViewJobs}>
                       View jobs
                     </button>
