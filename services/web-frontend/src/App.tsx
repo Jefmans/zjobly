@@ -1,13 +1,12 @@
 import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
+import { AppNavigation } from './components/AppNavigation';
 import { AuthOverlays } from './components/AuthOverlays';
 import { CandidateAppSection } from './components/CandidateAppSection';
 import { EmployerAppSection } from './components/EmployerAppSection';
 import { GeneralAppSection } from './components/GeneralAppSection';
 import { JobSeekerFlow } from './components/JobSeekerFlow';
-import { PrimaryNav } from './components/PrimaryNav';
 import { ScreenLabel } from './components/ScreenLabel';
-import { TopNav } from './components/TopNav';
 import {
   confirmUpload,
   confirmAudioChunk,
@@ -279,6 +278,17 @@ function App() {
       authRequestResolverRef.current = resolve;
       openAuthPrompt({ ...options, returnToHomeOnSuccess: false });
     });
+  };
+
+  const runAuthenticated = (
+    options: AuthPromptOptions,
+    action: () => void | Promise<void>,
+  ) => {
+    void (async () => {
+      const canContinue = await ensureAuthenticated(options);
+      if (!canContinue) return;
+      await action();
+    })();
   };
 
   const openVoluntaryAuth = (mode: 'login' | 'register') => {
@@ -2145,34 +2155,30 @@ function App() {
   };
 
   const goToCandidateProfileView = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view your profile',
-        message: 'Create an account before opening your saved candidate profile.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view your profile',
+      message: 'Create an account before opening your saved candidate profile.',
+    }, () => {
       if (role === 'candidate') {
         setView('profile');
       } else {
         setRoleAndView('candidate', 'profile');
       }
-    })();
+    });
   };
 
   const goToCandidateProfileEdit = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to edit your profile',
-        message: 'Create an account before editing your saved candidate profile.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to edit your profile',
+      message: 'Create an account before editing your saved candidate profile.',
+    }, () => {
       if (role === 'candidate') {
         setView('find');
       } else {
         setRoleAndView('candidate', 'find');
       }
       setCandidateStep('profile');
-    })();
+    });
   };
 
   const goToJobsOverview = () => {
@@ -2196,40 +2202,34 @@ function App() {
   };
 
   const goToCandidateFavorites = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view favorite candidates',
-        message: 'Create an account before opening your saved candidates.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view favorite candidates',
+      message: 'Create an account before opening your saved candidates.',
+    }, () => {
       setSelectedCandidateProfile(null);
       setCandidateSearchOrigin('favorites');
       goToEmployerView('candidateFavorites');
-    })();
+    });
   };
 
   const goToEmployerInvitations = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view invitations',
-        message: 'Create an account before opening your candidate invitations.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view invitations',
+      message: 'Create an account before opening your candidate invitations.',
+    }, () => {
       setSelectedCandidateProfile(null);
       setCandidateSearchOrigin('invitations');
       goToEmployerView('invitations');
-    })();
+    });
   };
 
   const goToCandidateInvitations = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view invitations',
-        message: 'Create an account before viewing company invitations.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view invitations',
+      message: 'Create an account before viewing company invitations.',
+    }, () => {
       goToCandidateView('invitations');
-    })();
+    });
   };
 
   const goToInvitations = () => {
@@ -2241,23 +2241,19 @@ function App() {
   };
 
   const goToAdminConfig = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Sign in to manage config',
-        message: 'Sign in before editing shared runtime settings.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Sign in to manage config',
+      message: 'Sign in before editing shared runtime settings.',
+    }, () => {
       setView('adminConfig');
-    })();
+    });
   };
 
   const openCandidateProfileFromSearch = (candidate: CandidateProfile) => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view full candidate profiles',
-        message: 'Sign in to open the full candidate detail page and continue recruiting.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view full candidate profiles',
+      message: 'Sign in to open the full candidate detail page and continue recruiting.',
+    }, async () => {
       let candidateToOpen = candidate;
       try {
         candidateToOpen = await getCandidateById(candidate.id);
@@ -2267,7 +2263,7 @@ function App() {
       setSelectedCandidateProfile(candidateToOpen);
       setCandidateSearchOrigin('search');
       goToEmployerView('candidateDetail');
-    })();
+    });
   };
 
   const openCandidateProfileFromFavorites = (candidate: CandidateProfile) => {
@@ -2508,8 +2504,7 @@ function App() {
     }
   };
 
-  const handleDevCompanyChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const nextId = event.target.value;
+  const handleDevCompanyChange = (nextId: string) => {
     const nextCompany = devCompanies.find((company) => company.id === nextId) ?? null;
     applyDevCompanySelection(nextCompany);
   };
@@ -2533,32 +2528,27 @@ function App() {
     setRoleAndView('candidate', 'profile');
   };
 
-  const handleDevCandidateChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const nextUserId = event.target.value;
+  const handleDevCandidateChange = (nextUserId: string) => {
     const nextCandidate = devCandidates.find((candidate) => candidate.user_id === nextUserId) ?? null;
     applyDevCandidateSelection(nextCandidate);
   };
 
   const goToCandidateApplications = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to view your applications',
-        message: 'Create an account before tracking the jobs you apply to.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to view your applications',
+      message: 'Create an account before tracking the jobs you apply to.',
+    }, () => {
       goToCandidateView('applications');
-    })();
+    });
   };
 
   const goToEmployerJobs = () => {
-    void (async () => {
-      const canContinue = await ensureAuthenticated({
-        title: 'Create an account to manage jobs',
-        message: 'Create an account before opening your company jobs.',
-      });
-      if (!canContinue) return;
+    runAuthenticated({
+      title: 'Create an account to manage jobs',
+      message: 'Create an account before opening your company jobs.',
+    }, () => {
       goToEmployerView('jobs');
-    })();
+    });
   };
 
   const selectTake = (id: string) => {
@@ -2575,172 +2565,56 @@ function App() {
     setProcessingMessage(null);
   };
   const hideGuestAuthSessionRow = !previewAuthenticated && view === 'find' && candidateStep === 'select';
-  const primaryNavRole = previewAuthenticated ? role : null;
 
   const nav = (
-    <>
-      <PrimaryNav
-        view={view}
-        role={primaryNavRole}
-        sticky={!showDevNav}
-        onHome={backToWelcome}
-        onBrowseJobs={() => goToCandidateView('jobs')}
-        onMyApplications={goToCandidateApplications}
-        onMyProfile={goToCandidateProfileView}
-        onMyJobs={goToEmployerJobs}
-        onCreateJob={() => goToEmployerView('create')}
-        onBrowseCandidates={goToCandidateSearch}
-        onFavoriteCandidates={goToCandidateFavorites}
-        onInvitations={goToInvitations}
-        onStartCandidate={startCandidateFlow}
-        onStartEmployer={startCreateFlow}
-      />
-      {showDevNav && (
-        <div className="dev-nav-wrap">
-          <div className="dev-nav-label">Development navigation</div>
-          <TopNav
-            view={view}
-            role={role}
-            onBack={backToWelcome}
-            onCreate={startCreateFlow}
-            onFind={startCandidateFlow}
-            onJobs={goToEmployerJobs}
-            onBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
-            onCandidates={goToCandidateSearch}
-            onFavorites={goToCandidateFavorites}
-            onInvitations={goToInvitations}
-            onApplications={goToCandidateApplications}
-            onRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
-          />
-          <div className="dev-company-row">
-            <label htmlFor="devAuthPreviewSelect">Auth preview</label>
-            <select
-              id="devAuthPreviewSelect"
-              value={devAuthPreviewMode}
-              onChange={(event) => setDevAuthPreviewMode(event.target.value as DevAuthPreviewMode)}
-            >
-              <option value="real">Real auth</option>
-              <option value="loggedOut">Force logged out</option>
-              <option value="loggedIn">Force logged in</option>
-            </select>
-            <span className="dev-company-meta">
-              Real session: {authUser ? authUser.name : 'none'}
-              {devAuthPreviewMode === 'loggedIn' && !authUser ? ' | preview only' : ''}
-            </span>
-          </div>
-          <div className="dev-company-row">
-            <label htmlFor="devCompanySelect">Company</label>
-            <select
-              id="devCompanySelect"
-              value={companyId ?? ''}
-              onChange={handleDevCompanyChange}
-              disabled={devCompaniesLoading}
-            >
-              <option value="">Select a company</option>
-              {devCompanies.map((company) => {
-                return (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          {devCompaniesError && <p className="error">{devCompaniesError}</p>}
-          <div className="dev-company-row">
-            <label htmlFor="devCandidateSelect">Candidate</label>
-            <select
-              id="devCandidateSelect"
-              value={devUserId}
-              onChange={handleDevCandidateChange}
-              disabled={devCandidatesLoading}
-            >
-              <option value="">Select a candidate</option>
-              {devCandidates.map((candidate) => {
-                const headline = candidate.headline || 'Candidate';
-                const displayName = headline.length > 20 ? headline.slice(0, 20) : headline;
-                return (
-                  <option key={candidate.id} value={candidate.user_id}>
-                    {displayName}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          {devCandidatesError && <p className="error">{devCandidatesError}</p>}
-          {canSeeAdminConfigButton && (
-            <div className="dev-company-row">
-              <button type="button" className="ghost" onClick={goToAdminConfig}>
-                Admin config panel
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {(previewAuthenticated || view !== 'welcome') && !hideGuestAuthSessionRow && (
-        <div className="auth-session-row">
-          {previewAuthenticated ? (
-            <>
-              <span className="hint">
-                {devAuthPreviewMode === 'loggedIn' && !authUser
-                  ? 'Dev preview: logged in (no real session)'
-                  : `Signed in as ${previewAuthUser?.name}`}
-              </span>
-              {canSeeAdminConfigButton && view !== 'adminConfig' && (
-                <button type="button" className="ghost" onClick={goToAdminConfig}>
-                  Admin config
-                </button>
-              )}
-              {devAuthPreviewMode !== 'real' ? (
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setDevAuthPreviewMode('real')}
-                >
-                  Use real auth
-                </button>
-              ) : (
-                authUser && (
-                  <button type="button" className="ghost" onClick={handleLogout}>
-                    Log out
-                  </button>
-                )
-              )}
-            </>
-          ) : (
-            <>
-              <span className="hint">
-                {devAuthPreviewMode === 'loggedOut' && authUser
-                  ? 'Dev preview: logged out'
-                  : 'Browse first. Create an account when you want to save, apply, or contact.'}
-              </span>
-              {devAuthPreviewMode !== 'real' ? (
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setDevAuthPreviewMode('real')}
-                >
-                  Use real auth
-                </button>
-              ) : (
-                <>
-                  <button type="button" className="ghost" onClick={() => openVoluntaryAuth('login')}>
-                    Login
-                  </button>
-                  <button
-                    type="button"
-                    className="cta secondary"
-                    onClick={() => openVoluntaryAuth('register')}
-                  >
-                    Register
-                  </button>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </>
+    <AppNavigation
+      view={view}
+      role={role}
+      previewAuthenticated={previewAuthenticated}
+      showDevNav={showDevNav}
+      canSeeAdminConfigButton={canSeeAdminConfigButton}
+      devAuthPreviewMode={devAuthPreviewMode}
+      authUser={authUser}
+      previewAuthUser={previewAuthUser}
+      companyId={companyId}
+      devCompanies={devCompanies}
+      devCompaniesLoading={devCompaniesLoading}
+      devCompaniesError={devCompaniesError}
+      devCandidates={devCandidates}
+      devCandidatesLoading={devCandidatesLoading}
+      devCandidatesError={devCandidatesError}
+      devUserId={devUserId}
+      hideGuestAuthSessionRow={hideGuestAuthSessionRow}
+      onHome={backToWelcome}
+      onBrowseJobs={() => goToCandidateView('jobs')}
+      onMyApplications={goToCandidateApplications}
+      onMyProfile={goToCandidateProfileView}
+      onMyJobs={goToEmployerJobs}
+      onCreateJob={() => goToEmployerView('create')}
+      onBrowseCandidates={goToCandidateSearch}
+      onFavoriteCandidates={goToCandidateFavorites}
+      onInvitations={goToInvitations}
+      onStartCandidate={startCandidateFlow}
+      onStartEmployer={startCreateFlow}
+      onTopNavBack={backToWelcome}
+      onTopNavCreate={startCreateFlow}
+      onTopNavFind={startCandidateFlow}
+      onTopNavJobs={goToEmployerJobs}
+      onTopNavBrowseJobs={() => setRoleAndView('candidate', 'jobs')}
+      onTopNavCandidates={goToCandidateSearch}
+      onTopNavFavorites={goToCandidateFavorites}
+      onTopNavInvitations={goToInvitations}
+      onTopNavApplications={goToCandidateApplications}
+      onTopNavRoleChange={(nextRole) => handleRoleSelection(nextRole, true)}
+      onAuthPreviewModeChange={setDevAuthPreviewMode}
+      onDevCompanyChange={handleDevCompanyChange}
+      onDevCandidateChange={handleDevCandidateChange}
+      onGoToAdminConfig={goToAdminConfig}
+      onUseRealAuth={() => setDevAuthPreviewMode('real')}
+      onLogout={handleLogout}
+      onOpenLogin={() => openVoluntaryAuth('login')}
+      onOpenRegister={() => openVoluntaryAuth('register')}
+    />
   );
 
   if (authLoading) {
