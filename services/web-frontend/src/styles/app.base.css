@@ -531,6 +531,59 @@ p {
   flex-wrap: wrap;
 }
 
+.flow-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.flow-intro-row {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) 1fr;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 1rem;
+}
+
+.flow-intro-row.reverse .flow-intro-image {
+  order: 2;
+}
+
+.flow-intro-row.reverse .flow-intro-copy {
+  order: 1;
+}
+
+.flow-intro-image {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.flow-intro-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.flow-intro-copy h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.flow-intro-copy p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.flow-intro-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .cta {
   border: none;
   border-radius: 12px;

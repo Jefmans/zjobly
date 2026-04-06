@@ -131,13 +131,17 @@ export function CandidateProfileFlow({
   const showTranscript = !isEditingProfile;
   const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
   const flowTitle =
-    candidateStep === "select"
+    candidateStep === "intro"
+      ? "How Find Zjob works"
+      : candidateStep === "select"
       ? "Select video"
       : candidateStep === "profile"
       ? "Profile detail"
       : "Record before you browse";
   const flowLede =
-    candidateStep === "select"
+    candidateStep === "intro"
+      ? "Before recording, here is what happens next."
+      : candidateStep === "select"
       ? "Pick your best take."
       : candidateStep === "record"
       ? "Record a short intro video."
@@ -182,7 +186,7 @@ export function CandidateProfileFlow({
     hasCandidateQuestions === false &&
     recordingState === "idle" &&
     !introStartPending;
-  const showNav = !(candidateStep === "record" && !isAuthenticated);
+  const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
     if (recordingState === "recording") {
@@ -282,6 +286,55 @@ export function CandidateProfileFlow({
         {flowLede && <p className="lede">{flowLede}</p>}
 
         <form className="upload-form" onSubmit={(event) => event.preventDefault()}>
+          {candidateStep === "intro" && (
+            <div className="flow-intro">
+              <div className="flow-intro-row">
+                <div className="flow-intro-image">
+                  <img src="/images/flow-record.svg" alt="Record your intro video" loading="lazy" />
+                </div>
+                <div className="flow-intro-copy">
+                  <h2>1. Record your intro video</h2>
+                  <p>
+                    Tell us what kind of job you want and where you want to work. Keep it short and clear so we can
+                    build your starting profile.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flow-intro-row reverse">
+                <div className="flow-intro-image">
+                  <img src="/images/flow-profile.svg" alt="Auto build your profile from video" loading="lazy" />
+                </div>
+                <div className="flow-intro-copy">
+                  <h2>2. We build your profile from the recording</h2>
+                  <p>
+                    We use your recording to draft your profile details automatically, so you can start quickly and
+                    edit anything you want afterward.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flow-intro-row">
+                <div className="flow-intro-image">
+                  <img src="/images/flow-search.svg" alt="Search jobs and get discovered by companies" loading="lazy" />
+                </div>
+                <div className="flow-intro-copy">
+                  <h2>3. Search jobs and get discovered</h2>
+                  <p>
+                    You can search jobs immediately, and you can also make your profile searchable so companies can
+                    find and contact you.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flow-intro-actions">
+                <button type="button" className="cta primary" onClick={() => goToStep("record")}>
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
           {candidateStep === "profile" && (
             <div className="panel">
               <div className="panel-actions split">

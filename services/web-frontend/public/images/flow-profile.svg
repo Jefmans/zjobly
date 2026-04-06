@@ -1,0 +1,21 @@
+<svg width="560" height="320" viewBox="0 0 560 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="560" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ECFDF5"/>
+      <stop offset="1" stop-color="#D1FAE5"/>
+    </linearGradient>
+  </defs>
+  <rect width="560" height="320" rx="24" fill="url(#bg2)"/>
+  <rect x="64" y="54" width="432" height="212" rx="20" fill="#FFFFFF"/>
+  <circle cx="132" cy="118" r="28" fill="#A7F3D0"/>
+  <rect x="176" y="98" width="284" height="16" rx="8" fill="#99F6E4"/>
+  <rect x="176" y="124" width="232" height="14" rx="7" fill="#99F6E4"/>
+  <rect x="96" y="164" width="364" height="14" rx="7" fill="#CBD5E1"/>
+  <rect x="96" y="188" width="332" height="14" rx="7" fill="#CBD5E1"/>
+  <rect x="96" y="212" width="294" height="14" rx="7" fill="#CBD5E1"/>
+  <path d="M454 236L486 204" stroke="#10B981" stroke-width="10" stroke-linecap="round"/>
+  <path d="M486 204L508 222" stroke="#10B981" stroke-width="10" stroke-linecap="round"/>
+  <text x="70" y="290" fill="#334155" font-family="Arial, sans-serif" font-size="24" font-weight="700">
+    Auto profile draft
+  </text>
+</svg>

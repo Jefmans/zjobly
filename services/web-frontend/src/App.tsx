@@ -1150,6 +1150,7 @@ function App() {
       setRoleAndView('candidate', 'jobs');
       return;
     }
+    setCandidateStep('intro');
     setRoleAndView('candidate', 'find');
   };
 

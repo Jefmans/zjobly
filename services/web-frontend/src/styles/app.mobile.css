@@ -178,6 +178,20 @@
     justify-content: center;
   }
 
+  .flow-intro-row {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-intro-row.reverse .flow-intro-image,
+  .flow-intro-row.reverse .flow-intro-copy {
+    order: initial;
+  }
+
+  .flow-intro-actions,
+  .flow-intro-actions .cta {
+    width: 100%;
+  }
+
   .record-panel-actions {
     justify-content: center;
   }

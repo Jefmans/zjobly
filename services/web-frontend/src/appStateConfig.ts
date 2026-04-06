@@ -166,7 +166,8 @@ export const getScreenLabel = (
   if (view === 'welcome') {
     base = 'Screen:Welcome';
   } else if (view === 'find') {
-    if (candidateStep === 'record') base = 'Screen:FindZjob/RecordVideo';
+    if (candidateStep === 'intro') base = 'Screen:FindZjob/FlowIntro';
+    else if (candidateStep === 'record') base = 'Screen:FindZjob/RecordVideo';
     else if (candidateStep === 'select') base = 'Screen:FindZjob/SelectVideo';
     else base = 'Screen:FindZjob/ProfileDetail';
   } else if (view === 'profile') {

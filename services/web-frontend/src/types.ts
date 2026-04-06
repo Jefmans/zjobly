@@ -16,7 +16,7 @@ export type ViewMode =
   | 'jobMatches'
   | 'adminConfig';
 export type CreateStep = 'record' | 'select' | 'details';
-export type CandidateStep = 'record' | 'select' | 'profile';
+export type CandidateStep = 'intro' | 'record' | 'select' | 'profile';
 export type UserRole = 'candidate' | 'employer';
 
 export type AuthUser = {
