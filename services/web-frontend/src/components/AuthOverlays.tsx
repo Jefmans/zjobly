@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent } from 'react';
+import { CSSProperties, FormEvent, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AuthPromptState } from '../appStateConfig';
 
@@ -37,6 +37,37 @@ export function AuthOverlays({
   onAuthNameChange,
   onAuthPasswordChange,
 }: Props) {
+  const overlayOpen = Boolean(candidatePostAuthOverlay || authPrompt);
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevHtmlOverflowX = html.style.overflowX;
+    const prevBodyOverflow = body.style.overflow;
+    const prevBodyOverflowX = body.style.overflowX;
+    const prevHtmlOverscrollBehaviorX = html.style.overscrollBehaviorX;
+    const prevBodyOverscrollBehaviorX = body.style.overscrollBehaviorX;
+    const prevBodyTouchAction = body.style.touchAction;
+    html.style.overflow = 'hidden';
+    html.style.overflowX = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.overflowX = 'hidden';
+    html.style.overscrollBehaviorX = 'none';
+    body.style.overscrollBehaviorX = 'none';
+    body.style.touchAction = 'pan-y';
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      html.style.overflowX = prevHtmlOverflowX;
+      body.style.overflow = prevBodyOverflow;
+      body.style.overflowX = prevBodyOverflowX;
+      html.style.overscrollBehaviorX = prevHtmlOverscrollBehaviorX;
+      body.style.overscrollBehaviorX = prevBodyOverscrollBehaviorX;
+      body.style.touchAction = prevBodyTouchAction;
+    };
+  }, [overlayOpen]);
+
   return (
     <>
       {overlayHost &&
