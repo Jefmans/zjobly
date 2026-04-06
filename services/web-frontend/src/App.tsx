@@ -435,13 +435,75 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (authLoading) return;
+      const state = event.state as Partial<AppHistoryState> | null;
+      if (!state || state.__zjobly !== true) return;
+
+      const nextView = isViewMode(state.view)
+        ? state.view
+        : getViewFromPath(window.location.pathname) ?? 'welcome';
+      const nextRole =
+        state.role === 'candidate' || state.role === 'employer' ? state.role : null;
+      const nextCreateStep = isCreateStep(state.createStep) ? state.createStep : 'record';
+      const nextCandidateStep = isCandidateStep(state.candidateStep) ? state.candidateStep : 'record';
+
+      applyingHistoryStateRef.current = true;
+      persistRole(nextRole);
+      setCreateStep(nextCreateStep);
+      setCandidateStep(nextCandidateStep);
+      setView(nextView);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [authLoading]);
+
+  useEffect(() => {
     if (authLoading) return;
     if (adminPathAuthRequired) return;
+
     const nextPath = getPathForView(view);
-    if (window.location.pathname === nextPath) return;
     const nextUrl = `${nextPath}${window.location.search}${window.location.hash}`;
-    window.history.replaceState(null, '', nextUrl);
-  }, [adminPathAuthRequired, authLoading, view]);
+    const nextState: AppHistoryState = {
+      __zjobly: true,
+      view,
+      role,
+      createStep,
+      candidateStep,
+    };
+    const serializedState = JSON.stringify(nextState);
+
+    if (applyingHistoryStateRef.current) {
+      applyingHistoryStateRef.current = false;
+      historyInitializedRef.current = true;
+      lastHistoryStateRef.current = serializedState;
+      window.history.replaceState(nextState, '', nextUrl);
+      return;
+    }
+
+    if (!historyInitializedRef.current) {
+      historyInitializedRef.current = true;
+      lastHistoryStateRef.current = serializedState;
+      window.history.replaceState(nextState, '', nextUrl);
+      return;
+    }
+
+    const pathChanged = window.location.pathname !== nextPath;
+    const stateChanged = serializedState !== lastHistoryStateRef.current;
+
+    if (pathChanged || stateChanged) {
+      lastHistoryStateRef.current = serializedState;
+      window.history.pushState(nextState, '', nextUrl);
+      return;
+    }
+
+    const currentState = window.history.state as Partial<AppHistoryState> | null;
+    if (!currentState || currentState.__zjobly !== true) {
+      window.history.replaceState(nextState, '', nextUrl);
+      lastHistoryStateRef.current = serializedState;
+    }
+  }, [adminPathAuthRequired, authLoading, candidateStep, createStep, role, view]);
 
   useEffect(() => {
     if (authLoading) return;
