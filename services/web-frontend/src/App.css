@@ -17,7 +17,7 @@
   overflow-x: hidden !important;
 }
 
-.app-shell.select-video-loggedout-shell > * {
+.app-shell.select-video-loggedout-shell > :not(.screen-label) {
   width: min(100%, 780px);
   max-width: 100%;
   min-width: 0;
