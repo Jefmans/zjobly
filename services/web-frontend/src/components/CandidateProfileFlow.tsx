@@ -132,7 +132,7 @@ export function CandidateProfileFlow({
   const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
   const flowTitle =
     candidateStep === "intro"
-      ? "How Find Zjob works"
+      ? "How it works"
       : candidateStep === "select"
       ? "Select video"
       : candidateStep === "profile"
@@ -290,13 +290,12 @@ export function CandidateProfileFlow({
             <div className="flow-intro">
               <div className="flow-intro-row">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-record.svg" alt="Record your intro video" loading="lazy" />
+                  <img src="/images/flow-record.png" alt="Record your intro video" loading="lazy" />
                 </div>
                 <div className="flow-intro-copy">
                   <h2>1. Record your intro video</h2>
                   <p>
-                    Tell us what kind of job you want and where you want to work. Keep it short and clear so we can
-                    build your starting profile.
+                    Tell us what kind of job you want and where you want to work. Videos are 3 min max.
                   </p>
                 </div>
               </div>
@@ -306,7 +305,7 @@ export function CandidateProfileFlow({
                   <img src="/images/flow-profile.svg" alt="Auto build your profile from video" loading="lazy" />
                 </div>
                 <div className="flow-intro-copy">
-                  <h2>2. We build your profile from the recording</h2>
+                  <h2>2. We auto build your profile</h2>
                   <p>
                     We use your recording to draft your profile details automatically, so you can start quickly and
                     edit anything you want afterward.
