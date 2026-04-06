@@ -197,12 +197,12 @@ function App() {
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
 
   const authOverlayCardInlineStyle: CSSProperties = {
-    width: 'min(640px, calc(100vw - 1rem))',
-    maxWidth: 'calc(100vw - 1rem)',
+    width: 'min(640px, 100%)',
+    maxWidth: '100%',
     minWidth: 0,
     boxSizing: 'border-box',
     marginInline: 'auto',
-    overflowX: 'clip',
+    overflowX: 'hidden',
   };
   const [devCandidatesLoading, setDevCandidatesLoading] = useState(false);
   const [devCandidatesError, setDevCandidatesError] = useState<string | null>(null);

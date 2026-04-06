@@ -1,7 +1,7 @@
 @media (max-width: 900px) {
   .hero.hero-select-loggedout {
     touch-action: pan-y;
-    overflow-x: clip;
+    overflow-x: hidden;
   }
 
   .hero.hero-select-loggedout .video-preview video {
@@ -199,8 +199,8 @@
   }
 
   .auth-overlay-card {
-    width: calc(100vw - 1rem);
-    max-width: calc(100vw - 1rem);
+    width: 100%;
+    max-width: 100%;
   }
 
   .auth-form {

@@ -330,7 +330,7 @@
 }
 
 .hero.hero-select-loggedout {
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .hero.hero-select-loggedout .upload-form,
@@ -1990,20 +1990,20 @@ button[type='submit']:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100vw;
-  max-width: 100vw;
+  width: auto;
+  max-width: none;
   padding: clamp(0.75rem, 2vw, 1.5rem);
   padding-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
   box-sizing: border-box;
-  overflow-x: clip;
+  overflow-x: hidden;
   background: rgba(3, 7, 18, 0.72);
   backdrop-filter: blur(10px);
 }
 
 .auth-overlay-card,
 .panel.auth-overlay-card {
-  width: min(640px, calc(100vw - 1rem));
-  max-width: calc(100vw - 1rem);
+  width: min(640px, 100%);
+  max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
@@ -2017,7 +2017,7 @@ button[type='submit']:disabled {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .candidate-select-panel .panel-header,
