@@ -185,6 +185,7 @@ export function CandidateProfileFlow({
     hasCandidateQuestions === false &&
     recordingState === "idle" &&
     !introStartPending;
+  const isLoggedOutSelectStep = !isAuthenticated && candidateStep === "select";
   const showNav = !(candidateStep === "record" && !isAuthenticated);
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
@@ -278,7 +279,7 @@ export function CandidateProfileFlow({
   return (
     <>
       {showNav && nav}
-      <section className="hero">
+      <section className={`hero ${isLoggedOutSelectStep ? "hero-select-loggedout" : ""}`}>
         <div className="view-pill">Find Zjob</div>
         <p className="tag">Zjobly</p>
         <h1>{flowTitle}</h1>

@@ -329,6 +329,45 @@
   box-sizing: border-box;
 }
 
+.hero-select-loggedout {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.hero-select-loggedout .upload-form,
+.hero-select-loggedout .panel,
+.hero-select-loggedout .panel-header,
+.hero-select-loggedout .panel-header > div,
+.hero-select-loggedout .panel-actions,
+.hero-select-loggedout .panel-actions.split,
+.hero-select-loggedout .panel-action-right,
+.hero-select-loggedout .video-preview,
+.hero-select-loggedout .take-list,
+.hero-select-loggedout .take-card,
+.hero-select-loggedout .take-card-top,
+.hero-select-loggedout .take-label,
+.hero-select-loggedout .checkbox-field .toggle,
+.hero-select-loggedout .toggle-copy {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.hero-select-loggedout .panel-header,
+.hero-select-loggedout .panel-actions.split,
+.hero-select-loggedout .take-card-top,
+.hero-select-loggedout .take-label {
+  flex-wrap: wrap;
+}
+
+.hero-select-loggedout .toggle-title,
+.hero-select-loggedout .toggle-sub {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .hero.welcome {
   text-align: center;
   background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.12), transparent 32%),
