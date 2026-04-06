@@ -1019,7 +1019,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view !== 'profile' || role !== 'candidate' || !canUseAuthenticatedApi) return;
+    const isCandidateProfileContext =
+      role === 'candidate' &&
+      (view === 'profile' || (view === 'find' && candidateStep === 'profile'));
+    if (!isCandidateProfileContext || !canUseAuthenticatedApi) return;
 
     const controller = new AbortController();
     let isActive = true;
@@ -1067,7 +1070,7 @@ function App() {
       isActive = false;
       controller.abort();
     };
-  }, [view, role, canUseAuthenticatedApi]);
+  }, [view, role, candidateStep, canUseAuthenticatedApi]);
 
   useEffect(() => {
     if (createStep !== 'details') {
