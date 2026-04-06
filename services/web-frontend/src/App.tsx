@@ -105,6 +105,42 @@ const JobSeekerFlow = lazy(() =>
   import('./components/JobSeekerFlow').then((module) => ({ default: module.JobSeekerFlow })),
 );
 
+type AppHistoryState = {
+  __zjobly: true;
+  view: ViewMode;
+  role: UserRole | null;
+  createStep: CreateStep;
+  candidateStep: CandidateStep;
+};
+
+const VIEW_MODES: ViewMode[] = [
+  'welcome',
+  'create',
+  'find',
+  'profile',
+  'jobs',
+  'jobDetail',
+  'apply',
+  'applications',
+  'candidates',
+  'candidateFavorites',
+  'candidateDetail',
+  'invitations',
+  'jobMatches',
+  'adminConfig',
+];
+const CREATE_STEPS: CreateStep[] = ['record', 'select', 'details'];
+const CANDIDATE_STEPS: CandidateStep[] = ['intro', 'record', 'select', 'profile'];
+
+const isViewMode = (value: unknown): value is ViewMode =>
+  typeof value === 'string' && VIEW_MODES.includes(value as ViewMode);
+
+const isCreateStep = (value: unknown): value is CreateStep =>
+  typeof value === 'string' && CREATE_STEPS.includes(value as CreateStep);
+
+const isCandidateStep = (value: unknown): value is CandidateStep =>
+  typeof value === 'string' && CANDIDATE_STEPS.includes(value as CandidateStep);
+
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
   const [role, setRole] = useState<UserRole | null>(null);
@@ -239,6 +275,9 @@ function App() {
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftHandledTranscriptRef = useRef<string | null>(null);
   const candidateLocationHandledTranscriptRef = useRef<string | null>(null);
+  const historyInitializedRef = useRef(false);
+  const applyingHistoryStateRef = useRef(false);
+  const lastHistoryStateRef = useRef<string>('');
   const activeDevAuthPreviewMode = SHOW_DEVELOPMENT_NAVIGATION ? devAuthPreviewMode : 'real';
   const previewAuthUser =
     activeDevAuthPreviewMode === 'loggedOut'
