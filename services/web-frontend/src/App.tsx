@@ -2605,8 +2605,6 @@ function App() {
       onBrowseCandidates={goToCandidateSearch}
       onFavoriteCandidates={goToCandidateFavorites}
       onInvitations={goToInvitations}
-      onStartCandidate={startCandidateFlow}
-      onStartEmployer={startCreateFlow}
       onTopNavBack={backToWelcome}
       onTopNavCreate={startCreateFlow}
       onTopNavFind={startCandidateFlow}
@@ -2812,7 +2810,6 @@ function App() {
               recorderOpen,
               recordingState,
               videoUrl,
-              candidateVideoObjectKey,
               liveVideoRef,
               playbackVideoRef,
               recordLabel,

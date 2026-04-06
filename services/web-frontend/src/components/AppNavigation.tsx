@@ -30,8 +30,6 @@ type Props = {
   onBrowseCandidates: () => void;
   onFavoriteCandidates: () => void;
   onInvitations: () => void;
-  onStartCandidate: () => void;
-  onStartEmployer: () => void;
   onTopNavBack: () => void;
   onTopNavCreate: () => void;
   onTopNavFind: () => void;
@@ -79,8 +77,6 @@ export function AppNavigation({
   onBrowseCandidates,
   onFavoriteCandidates,
   onInvitations,
-  onStartCandidate,
-  onStartEmployer,
   onTopNavBack,
   onTopNavCreate,
   onTopNavFind,
@@ -117,8 +113,6 @@ export function AppNavigation({
         onBrowseCandidates={onBrowseCandidates}
         onFavoriteCandidates={onFavoriteCandidates}
         onInvitations={onInvitations}
-        onStartCandidate={onStartCandidate}
-        onStartEmployer={onStartEmployer}
       />
       {showDevNav && (
         <div className="dev-nav-wrap">

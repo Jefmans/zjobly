@@ -20,8 +20,6 @@ type Props = {
   onBrowseCandidates: () => void;
   onFavoriteCandidates: () => void;
   onInvitations: () => void;
-  onStartCandidate: () => void;
-  onStartEmployer: () => void;
 };
 
 export function PrimaryNav({
@@ -37,8 +35,6 @@ export function PrimaryNav({
   onBrowseCandidates,
   onFavoriteCandidates,
   onInvitations,
-  onStartCandidate,
-  onStartEmployer,
 }: Props) {
   const isCandidate = role === "candidate";
   const isEmployer = role === "employer";

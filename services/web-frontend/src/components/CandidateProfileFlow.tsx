@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from "react";
 import { formatDuration } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
@@ -13,7 +13,6 @@ type Props = {
   recorderOpen: boolean;
   recordingState: RecordingState;
   videoUrl: string | null;
-  candidateVideoObjectKey: string | null;
   liveVideoRef: RefObject<HTMLVideoElement>;
   playbackVideoRef: RefObject<HTMLVideoElement>;
   recordLabel: string | null;
@@ -55,7 +54,6 @@ export function CandidateProfileFlow({
   recorderOpen,
   recordingState,
   videoUrl,
-  candidateVideoObjectKey,
   liveVideoRef,
   playbackVideoRef,
   recordLabel,
@@ -90,7 +88,6 @@ export function CandidateProfileFlow({
   if (view !== "find") return null;
 
   const isSavingVideo = status === "presigning" || status === "uploading" || status === "confirming";
-  const videoSaved = Boolean(candidateVideoObjectKey);
   const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
   const hasTakes = recordedTakes.length > 0;
   const isRecording = recordingState === "recording";
