@@ -388,16 +388,33 @@ function App() {
         if (cancelled) return;
         authUserRef.current = current;
         setAuthUser(current);
+        const rawHistoryState = window.history.state as Partial<AppHistoryState> | null;
+        const historyState = rawHistoryState && rawHistoryState.__zjobly === true ? rawHistoryState : null;
+        const historyView = historyState && isViewMode(historyState.view) ? historyState.view : null;
+        const historyRole =
+          historyState && (historyState.role === 'candidate' || historyState.role === 'employer')
+            ? historyState.role
+            : null;
+        const historyCreateStep =
+          historyState && isCreateStep(historyState.createStep) ? historyState.createStep : null;
+        const historyCandidateStep =
+          historyState && isCandidateStep(historyState.candidateStep) ? historyState.candidateStep : null;
         if (current) {
+          const isAdmin = isAdminUser(current);
+          const pathView = getViewFromPath(window.location.pathname);
           const storedRole = getStoredRole();
-          persistRole(storedRole ?? 'candidate');
+          persistRole(historyRole ?? storedRole ?? 'candidate');
+          if (historyCreateStep) setCreateStep(historyCreateStep);
+          if (historyCandidateStep) setCandidateStep(historyCandidateStep);
           const storedView = getStoredView();
           const safeStoredView =
-            storedView === 'adminConfig' && !isAdminUser(current) ? 'welcome' : storedView;
-          const pathView = getViewFromPath(window.location.pathname);
-          if (pathView === 'adminConfig' && isAdminUser(current)) {
+            storedView === 'adminConfig' && !isAdmin ? 'welcome' : storedView;
+          if (pathView === 'adminConfig') {
             setAdminPathAuthRequired(false);
-            setView('adminConfig');
+            setView(isAdmin ? 'adminConfig' : 'welcome');
+          } else if (historyView && (historyView !== 'adminConfig' || isAdmin)) {
+            setAdminPathAuthRequired(false);
+            setView(historyView);
           } else {
             setAdminPathAuthRequired(false);
             setView(safeStoredView);
@@ -412,9 +429,20 @@ function App() {
               message: 'Sign in with an admin account to manage config settings.',
               returnToHomeOnSuccess: false,
             });
+            persistRole(null);
+            setView('welcome');
+          } else {
+            setAdminPathAuthRequired(false);
+            persistRole(historyRole ?? null);
+            if (historyCreateStep) setCreateStep(historyCreateStep);
+            if (historyCandidateStep) setCandidateStep(historyCandidateStep);
+            if (historyView && historyView !== 'adminConfig') {
+              setView(historyView);
+            } else {
+              const storedView = getStoredView();
+              setView(storedView === 'adminConfig' ? 'welcome' : storedView);
+            }
           }
-          persistRole(null);
-          setView('welcome');
         }
       } catch (err) {
         if (cancelled) return;
