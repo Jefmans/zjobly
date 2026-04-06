@@ -1,3 +1,49 @@
+@media (max-width: 900px) {
+  .candidate-select-panel,
+  .candidate-select-panel .video-preview,
+  .candidate-select-panel .take-list,
+  .candidate-select-panel .panel-actions,
+  .candidate-select-panel .panel-action-right {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .candidate-select-panel .panel-header,
+  .candidate-select-panel .panel-actions.split {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
+  .candidate-select-panel .panel-header > .ghost,
+  .candidate-select-panel .panel-actions.split > .ghost,
+  .candidate-select-panel .panel-action-right,
+  .candidate-select-panel .panel-action-right > * {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  .candidate-select-panel .take-list {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-select-panel .take-card,
+  .candidate-select-panel .take-card-top,
+  .candidate-select-panel .take-label,
+  .candidate-select-panel .checkbox-field .toggle,
+  .candidate-select-panel .toggle-copy {
+    min-width: 0;
+  }
+
+  .candidate-select-panel .take-card-top,
+  .candidate-select-panel .take-label {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 640px) {
   .screen-label {
     display: none;

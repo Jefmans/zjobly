@@ -1997,12 +1997,32 @@ button[type='submit']:disabled {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+.candidate-select-panel .panel-header,
+.candidate-select-panel .panel-actions.split,
+.candidate-select-panel .video-preview,
+.candidate-select-panel .take-list,
+.candidate-select-panel .take-card,
+.candidate-select-panel .take-card-top,
+.candidate-select-panel .take-label,
+.candidate-select-panel .checkbox-field .toggle,
+.candidate-select-panel .toggle-copy,
+.candidate-select-panel .panel-action-right {
+  min-width: 0;
 }
 
 .candidate-select-panel .panel-header > div,
 .candidate-select-panel .panel-action-right {
   min-width: 0;
+}
+
+.candidate-select-panel .toggle-title,
+.candidate-select-panel .toggle-sub,
+.candidate-select-panel .hint {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .auth-overlay-card .auth-form {
