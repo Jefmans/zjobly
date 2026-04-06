@@ -4,10 +4,8 @@ import {
   getAdminConfigBundle,
   updateAdminConfigBundle,
 } from "../api";
-import { ViewMode } from "../types";
 
 type Props = {
-  view: ViewMode;
   nav: ReactNode;
 };
 
@@ -20,7 +18,7 @@ const DEFAULT_CONFIG: AdminConfigBundle = {
 const stringifyConfig = (value: Record<string, unknown>) =>
   JSON.stringify(value ?? {}, null, 2);
 
-export function ConfigAdminView({ view, nav }: Props) {
+export function ConfigAdminView({ nav }: Props) {
   const [runtimeText, setRuntimeText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.runtime));
   const [questionsText, setQuestionsText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.questions));
   const [promptsText, setPromptsText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.prompts));
@@ -47,9 +45,8 @@ export function ConfigAdminView({ view, nav }: Props) {
   };
 
   useEffect(() => {
-    if (view !== "adminConfig") return;
     void loadConfig();
-  }, [view]);
+  }, []);
 
   const parseConfigSection = (label: string, text: string): Record<string, unknown> => {
     let parsed: unknown;
@@ -86,8 +83,6 @@ export function ConfigAdminView({ view, nav }: Props) {
       setSaving(false);
     }
   };
-
-  if (view !== "adminConfig") return null;
 
   return (
     <>

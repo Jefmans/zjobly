@@ -237,6 +237,7 @@ function App() {
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftHandledTranscriptRef = useRef<string | null>(null);
   const candidateLocationHandledTranscriptRef = useRef<string | null>(null);
+  const authBootstrapStartedRef = useRef(false);
   const activeDevAuthPreviewMode = SHOW_DEVELOPMENT_NAVIGATION ? devAuthPreviewMode : 'real';
   const previewAuthUser =
     activeDevAuthPreviewMode === 'loggedOut'
@@ -339,6 +340,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (authBootstrapStartedRef.current) {
+      return;
+    }
+    authBootstrapStartedRef.current = true;
+
     let cancelled = false;
     void (async () => {
       try {
@@ -2662,7 +2668,6 @@ function App() {
       <Suspense fallback={null}>
         {shouldRenderGeneralSection && (
           <GeneralAppSection
-            view={view}
             nav={nav}
             previewAuthenticated={previewAuthenticated}
             authError={authError}
@@ -2672,7 +2677,7 @@ function App() {
           />
         )}
 
-        {shouldRenderConfigAdminSection && <ConfigAdminView view={view} nav={nav} />}
+        {shouldRenderConfigAdminSection && <ConfigAdminView nav={nav} />}
 
         {shouldRenderEmployerSection && (
           <EmployerAppSection
