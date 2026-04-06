@@ -1,0 +1,248 @@
+@media (max-width: 640px) {
+  .screen-label {
+    display: none;
+  }
+
+  .app-shell {
+    --app-shell-padding: 0.25rem;
+  }
+
+  .hero {
+    padding: 0.25rem;
+  }
+
+  .welcome-stage {
+    min-height: calc(100vh - 7rem);
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .top-nav,
+  .primary-nav,
+  .dev-nav-wrap {
+    max-width: 100%;
+  }
+
+  .top-nav {
+    align-items: center;
+    padding-inline: 0.4rem;
+    box-sizing: border-box;
+  }
+
+  .top-nav-toggle {
+    display: inline-flex;
+  }
+
+  .top-nav-actions {
+    display: none;
+    width: 100%;
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 12px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .top-nav-actions.open {
+    display: flex;
+  }
+
+  .top-nav-actions .nav-btn {
+    width: 100%;
+    text-align: left;
+  }
+
+  .top-nav-actions .role-switcher {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
+  .top-nav-actions .role-switcher select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dev-company-row select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .primary-nav {
+    align-items: center;
+    padding-inline: 0.4rem;
+    box-sizing: border-box;
+  }
+
+  .fullscreen-recorder {
+    padding: 0.5rem;
+  }
+
+  .primary-nav-brand {
+    flex: 1 1 auto;
+  }
+
+  .primary-nav-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .primary-nav-links {
+    display: none;
+    width: 100%;
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 12px;
+    padding: 0.5rem;
+  }
+
+  .primary-nav-links.open {
+    display: flex;
+  }
+
+  .primary-nav-links .nav-btn {
+    width: 100%;
+    text-align: left;
+  }
+
+  .job-card {
+    align-items: flex-start;
+  }
+
+  .job-card-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .job-application-counts {
+    text-align: left;
+  }
+
+  .auth-session-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .auth-overlay {
+    padding: 0.5rem;
+  }
+
+  .auth-overlay-card {
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
+  }
+
+  .auth-form {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .auth-overlay-card .panel-header {
+    flex-wrap: wrap;
+  }
+
+  .auth-overlay-card .panel-actions.split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-overlay-card .panel-action-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .auth-overlay-card .panel-action-right > * {
+    width: 100%;
+  }
+
+  .welcome-auth-line {
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .welcome-auth-links {
+    justify-content: center;
+  }
+
+  .record-panel-actions {
+    justify-content: center;
+  }
+
+  .take-list {
+    grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .upload-form,
+  .candidate-select-panel,
+  .candidate-select-panel .video-preview,
+  .candidate-select-panel .take-list,
+  .candidate-select-panel .panel-actions,
+  .candidate-select-panel .panel-action-right {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .candidate-select-panel .panel-header,
+  .candidate-select-panel .panel-actions.split {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
+  .candidate-select-panel .panel-header > .ghost,
+  .candidate-select-panel .panel-actions.split > .ghost,
+  .candidate-select-panel .panel-action-right,
+  .candidate-select-panel .panel-action-right > * {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  .take-card,
+  .take-card-top,
+  .take-label,
+  .checkbox-field .toggle,
+  .toggle-copy {
+    min-width: 0;
+  }
+
+  .take-card-top {
+    flex-wrap: wrap;
+  }
+
+  .checkbox-field .toggle {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .toggle-copy {
+    flex: 1 1 auto;
+  }
+
+  .toggle-title,
+  .toggle-sub {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .take-label {
+    flex-wrap: wrap;
+  }
+}
