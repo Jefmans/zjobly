@@ -412,12 +412,12 @@ function App() {
     setView('welcome');
   }, [authLoading, canSeeAdminConfigButton, view]);
 
-  const resetCandidateFlow = () => {
+  const resetCandidateFlow = (initialStep: CandidateStep = 'record') => {
     clearVideoSelection();
     clearRecordedTakes();
     resetRecordTimer();
     setRecordingState('idle');
-    setCandidateStep('record');
+    setCandidateStep(initialStep);
     setCandidateProfile({ ...INITIAL_CANDIDATE_PROFILE });
     setCandidateProfileDetails(null);
     setCandidateProfileLoading(false);
@@ -438,14 +438,20 @@ function App() {
     candidateProfileEditedRef.current = { headline: false, location: false, summary: false };
   };
 
-  const setRoleAndView = (nextRole: UserRole, nextView?: ViewMode) => {
+  const setRoleAndView = (
+    nextRole: UserRole,
+    nextView?: ViewMode,
+    options?: {
+      candidateStep?: CandidateStep;
+    },
+  ) => {
     persistRole(nextRole);
     setSelectedJobId(null);
     if (nextRole === 'employer') {
       setCreateStep('record');
       setShowDetailValidation(false);
     } else {
-      resetCandidateFlow();
+      resetCandidateFlow(options?.candidateStep ?? 'record');
     }
     setView(nextView ?? (nextRole === 'employer' ? 'create' : 'find'));
   };
@@ -1150,8 +1156,7 @@ function App() {
       setRoleAndView('candidate', 'jobs');
       return;
     }
-    setCandidateStep('intro');
-    setRoleAndView('candidate', 'find');
+    setRoleAndView('candidate', 'find', { candidateStep: 'intro' });
   };
 
   const primeCandidateProfileFromTranscript = useCallback(async (transcript: string) => {
