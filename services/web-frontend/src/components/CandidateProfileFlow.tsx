@@ -187,6 +187,8 @@ export function CandidateProfileFlow({
     recordingState === "idle" &&
     !introStartPending;
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
+  const heroClassName =
+    candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
   const handlePreviousQuestion = () => {
     if (!canPrevCandidateQuestion) return;
     if (recordingState === "recording") {
@@ -279,7 +281,7 @@ export function CandidateProfileFlow({
   return (
     <>
       {showNav && nav}
-      <section className="hero">
+      <section className={heroClassName}>
         <div className="view-pill">Find Zjob</div>
         <p className="tag">Zjobly</p>
         <h1>{flowTitle}</h1>

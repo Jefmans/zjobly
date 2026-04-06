@@ -329,6 +329,26 @@
   box-sizing: border-box;
 }
 
+.hero.hero-select-loggedout {
+  overflow-x: clip;
+}
+
+.hero.hero-select-loggedout .upload-form,
+.hero.hero-select-loggedout .candidate-select-panel,
+.hero.hero-select-loggedout .candidate-select-panel .video-preview,
+.hero.hero-select-loggedout .candidate-select-panel .take-list,
+.hero.hero-select-loggedout .candidate-select-panel .panel-actions,
+.hero.hero-select-loggedout .candidate-select-panel .panel-action-right,
+.hero.hero-select-loggedout .candidate-select-panel .take-card,
+.hero.hero-select-loggedout .candidate-select-panel .take-card-top,
+.hero.hero-select-loggedout .candidate-select-panel .take-label,
+.hero.hero-select-loggedout .candidate-select-panel .checkbox-field .toggle,
+.hero.hero-select-loggedout .candidate-select-panel .toggle-copy {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .hero.welcome {
   text-align: center;
   background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.12), transparent 32%),

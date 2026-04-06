@@ -1,4 +1,16 @@
 @media (max-width: 900px) {
+  .hero.hero-select-loggedout {
+    touch-action: pan-y;
+    overflow-x: clip;
+  }
+
+  .hero.hero-select-loggedout .video-preview video {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .candidate-select-panel,
   .candidate-select-panel .video-preview,
   .candidate-select-panel .take-list,
