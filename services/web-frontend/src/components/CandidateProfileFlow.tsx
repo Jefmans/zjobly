@@ -317,7 +317,7 @@ export function CandidateProfileFlow({
 
               <div className="flow-intro-row">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-search.svg" alt="Search jobs and get discovered by companies" loading="lazy" />
+                  <img src="/images/flow-search.png" alt="Search jobs and get discovered by companies" loading="lazy" />
                 </div>
                 <div className="flow-intro-copy">
                   <h2>3. Search jobs and get discovered</h2>
