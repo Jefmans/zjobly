@@ -1,7 +1,11 @@
+import { Suspense, lazy } from 'react';
 import { DevAuthPreviewMode } from '../appStateConfig';
 import { AuthUser, CandidateDev, CompanyDev, UserRole, ViewMode } from '../types';
 import { PrimaryNav } from './PrimaryNav';
-import { TopNav } from './TopNav';
+
+const TopNav = lazy(() =>
+  import('./TopNav').then((module) => ({ default: module.TopNav })),
+);
 
 type Props = {
   view: ViewMode;
@@ -117,20 +121,22 @@ export function AppNavigation({
       {showDevNav && (
         <div className="dev-nav-wrap">
           <div className="dev-nav-label">Development navigation</div>
-          <TopNav
-            view={view}
-            role={role}
-            onBack={onTopNavBack}
-            onCreate={onTopNavCreate}
-            onFind={onTopNavFind}
-            onJobs={onTopNavJobs}
-            onBrowseJobs={onTopNavBrowseJobs}
-            onCandidates={onTopNavCandidates}
-            onFavorites={onTopNavFavorites}
-            onInvitations={onTopNavInvitations}
-            onApplications={onTopNavApplications}
-            onRoleChange={onTopNavRoleChange}
-          />
+          <Suspense fallback={null}>
+            <TopNav
+              view={view}
+              role={role}
+              onBack={onTopNavBack}
+              onCreate={onTopNavCreate}
+              onFind={onTopNavFind}
+              onJobs={onTopNavJobs}
+              onBrowseJobs={onTopNavBrowseJobs}
+              onCandidates={onTopNavCandidates}
+              onFavorites={onTopNavFavorites}
+              onInvitations={onTopNavInvitations}
+              onApplications={onTopNavApplications}
+              onRoleChange={onTopNavRoleChange}
+            />
+          </Suspense>
           <div className="dev-company-row">
             <label htmlFor="devAuthPreviewSelect">Auth preview</label>
             <select
