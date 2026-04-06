@@ -295,7 +295,9 @@ export function CandidateProfileFlow({
                 <div className="flow-intro-copy">
                   <h2>1. Record your intro video</h2>
                   <p>
-                    Tell us what kind of job you want and where you want to work. Videos are 3 min max.
+                    Tell us what kind of job you want, where you want to work and what you&apos;re good at.
+                    <br />
+                    Videos are 3 min max.
                   </p>
                 </div>
               </div>
