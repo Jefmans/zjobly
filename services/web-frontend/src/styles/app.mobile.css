@@ -199,8 +199,8 @@
   }
 
   .auth-overlay-card {
-    width: calc(100% - 1rem);
-    max-width: calc(100% - 1rem);
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
   }
 
   .auth-form {
