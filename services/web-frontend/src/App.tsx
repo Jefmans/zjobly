@@ -116,6 +116,7 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authPrompt, setAuthPrompt] = useState<AuthPromptState | null>(null);
+  const [adminPathAuthRequired, setAdminPathAuthRequired] = useState(false);
   const [candidatePostAuthOverlay, setCandidatePostAuthOverlay] = useState(false);
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
@@ -281,6 +282,7 @@ function App() {
 
   const closeAuthPrompt = () => {
     resolveAuthRequest(false);
+    setAdminPathAuthRequired(false);
     setAuthPrompt(null);
     setAuthError(null);
   };
@@ -356,17 +358,30 @@ function App() {
             storedView === 'adminConfig' && !isAdminUser(current) ? 'welcome' : storedView;
           const pathView = getViewFromPath(window.location.pathname);
           if (pathView === 'adminConfig' && isAdminUser(current)) {
+            setAdminPathAuthRequired(false);
             setView('adminConfig');
           } else {
+            setAdminPathAuthRequired(false);
             setView(safeStoredView);
           }
         } else {
+          const pathView = getViewFromPath(window.location.pathname);
+          if (pathView === 'adminConfig') {
+            setAdminPathAuthRequired(true);
+            openAuthPrompt({
+              mode: 'login',
+              title: 'Admin login required',
+              message: 'Sign in with an admin account to manage config settings.',
+              returnToHomeOnSuccess: false,
+            });
+          }
           persistRole(null);
           setView('welcome');
         }
       } catch (err) {
         if (cancelled) return;
         authUserRef.current = null;
+        setAdminPathAuthRequired(false);
         setAuthError(err instanceof Error ? err.message : 'Could not verify your login session.');
         persistRole(null);
         setView('welcome');
@@ -383,11 +398,12 @@ function App() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (adminPathAuthRequired) return;
     const nextPath = getPathForView(view);
     if (window.location.pathname === nextPath) return;
     const nextUrl = `${nextPath}${window.location.search}${window.location.hash}`;
     window.history.replaceState(null, '', nextUrl);
-  }, [authLoading, view]);
+  }, [adminPathAuthRequired, authLoading, view]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -2114,6 +2130,7 @@ function App() {
     setAuthError(null);
     try {
       const activePrompt = authPrompt;
+      const wasAdminPathAuthRequired = adminPathAuthRequired;
       const user =
         authMode === 'login'
           ? await loginAccount(name, password)
@@ -2124,11 +2141,20 @@ function App() {
       if (role) {
         persistRole(role);
       }
+      if (wasAdminPathAuthRequired) {
+        setAdminPathAuthRequired(false);
+      }
       setAuthPrompt(null);
       const resolver = authRequestResolverRef.current;
       if (resolver) {
         authRequestResolverRef.current = null;
         resolver(true);
+      } else if (wasAdminPathAuthRequired) {
+        if (isAdminUser(user)) {
+          setView('adminConfig');
+        } else {
+          setView('welcome');
+        }
       } else if (activePrompt?.returnToHomeOnSuccess) {
         setRoleAndView('candidate', 'profile');
       }
