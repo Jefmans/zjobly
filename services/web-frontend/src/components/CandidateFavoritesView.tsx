@@ -35,8 +35,6 @@ export function CandidateFavoritesView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Favorite candidates</div>
-        <p className="tag">Zjobly</p>
         <h1>Saved candidates</h1>
         <p className="lede">Keep track of top profiles to revisit quickly.</p>
         {!isEmployer ? (
@@ -91,3 +89,4 @@ export function CandidateFavoritesView({
     </>
   );
 }
+

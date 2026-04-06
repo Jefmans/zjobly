@@ -405,17 +405,6 @@
   width: 100%;
 }
 
-.tag {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  background: #e0f2fe;
-  color: #075985;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  margin-bottom: 1rem;
-}
-
 h1 {
   margin: 0 0 0.5rem;
   font-size: 2.4rem;
@@ -566,19 +555,6 @@ p {
   right: 1rem;
   max-width: 340px;
   z-index: 40;
-}
-
-.view-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #475569;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
 }
 
 .welcome-actions {

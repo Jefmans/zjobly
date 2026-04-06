@@ -48,8 +48,6 @@ export function CandidateDetailView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Candidate profile</div>
-        <p className="tag">Zjobly</p>
         <h1>Candidate profile</h1>
         <p className="lede">Review the candidate details and intro video.</p>
         {favoritesError && isEmployer && <p className="error">{favoritesError}</p>}
@@ -210,3 +208,4 @@ export function CandidateDetailView({
     </>
   );
 }
+

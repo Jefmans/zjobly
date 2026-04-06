@@ -779,8 +779,6 @@ export function JobSeekerFlow({
       <>
         {nav}
         <section className="hero">
-          <div className="view-pill">{isCandidate ? "Find Zjob" : "My Jobs"}</div>
-          <p className="tag">Zjobly</p>
           <h1>{isCandidate ? "Open jobs" : "Your jobs"}</h1>
           <p className="lede">
             {isCandidate ? "Browse published jobs and tap one for details." : "Click a job to see its details."}
@@ -895,8 +893,6 @@ export function JobSeekerFlow({
       <>
         {nav}
         <section className="hero">
-          <div className="view-pill">Find Zjob</div>
-          <p className="tag">Zjobly</p>
           <h1>My applications</h1>
           <p className="lede">Track the jobs you have applied for and their status.</p>
           {!isCandidate && <p className="hint">Switch to candidate mode to view applications.</p>}
@@ -1012,8 +1008,6 @@ export function JobSeekerFlow({
         <>
           {nav}
           <section className="hero">
-            <div className="view-pill">Find Zjob</div>
-            <p className="tag">Zjobly</p>
             <h1>Create an account to apply</h1>
             <p className="lede">Sign in before recording and sending your application video.</p>
             <div className="panel">
@@ -1052,8 +1046,6 @@ export function JobSeekerFlow({
       <>
         {nav}
         <section className="hero">
-          <div className="view-pill">Find Zjob</div>
-          <p className="tag">Zjobly</p>
           <h1>Record your application</h1>
           <p className="lede">
             {job ? `Tell the recruiter why you want ${job.title}.` : "Select a job to apply."}
@@ -1282,8 +1274,6 @@ export function JobSeekerFlow({
       <>
         {nav}
       <section className="hero">
-        <div className="view-pill">{isCandidate ? "Zjob Detail" : "Job Detail"}</div>
-        <p className="tag">Zjobly</p>
           {jobsLoading && <p className="hint">Loading jobs...</p>}
           {jobsError && <p className="error">{jobsError}</p>}
           {!job && !jobsLoading && (
@@ -1705,3 +1695,4 @@ export function JobSeekerFlow({
 
   return null;
 }
+

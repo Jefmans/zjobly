@@ -88,8 +88,6 @@ export function ConfigAdminView({ nav }: Props) {
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Admin config</div>
-        <p className="tag">Zjobly</p>
         <h1>Config admin panel</h1>
         <p className="lede">Edit runtime, questions, and prompts without restarting Docker services.</p>
         <div className="panel">
@@ -151,3 +149,4 @@ export function ConfigAdminView({ nav }: Props) {
     </>
   );
 }
+

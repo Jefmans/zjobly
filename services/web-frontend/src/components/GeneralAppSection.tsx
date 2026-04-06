@@ -20,7 +20,6 @@ export function GeneralAppSection({
       {nav}
       <div className="welcome-stage">
         <section className="hero welcome">
-          <p className="tag">Zjobly</p>
           <h1>Welcome</h1>
           <div className="welcome-actions">
             <button type="button" className="cta primary" onClick={onStartCandidateFlow}>

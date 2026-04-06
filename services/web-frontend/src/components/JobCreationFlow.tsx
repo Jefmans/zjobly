@@ -124,8 +124,6 @@ export function JobCreationFlow({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Create Zjob</div>
-        <p className="tag">Zjobly</p>
         <h1>Post a role with a video intro</h1>
         <p className="lede">
           Record a quick clip (hard stop at {maxVideoLabel}), select the take you want, save it, then complete and save the job details.
@@ -481,3 +479,4 @@ export function JobCreationFlow({
     </>
   );
 }
+

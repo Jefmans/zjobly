@@ -29,8 +29,6 @@ export function CandidateInvitationsView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">My invitations</div>
-        <p className="tag">Zjobly</p>
         <h1>Company invitations</h1>
         <p className="lede">Respond to companies showing interest in your profile.</p>
         {error && <p className="error">{error}</p>}
@@ -85,3 +83,4 @@ export function CandidateInvitationsView({
     </>
   );
 }
+

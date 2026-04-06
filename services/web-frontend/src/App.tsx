@@ -2833,7 +2833,6 @@ function App() {
       <main className={shellClassName}>
         <ScreenLabel label="Screen:Auth/Loading/LoggedOut" />
         <section className="hero welcome">
-          <p className="tag">Zjobly</p>
           <h1>Checking your session...</h1>
           <p className="lede">Please wait while we verify your login.</p>
         </section>

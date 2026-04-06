@@ -282,8 +282,6 @@ export function CandidateProfileFlow({
     <>
       {showNav && nav}
       <section className={heroClassName}>
-        <div className="view-pill">Find Zjob</div>
-        <p className="tag">Zjobly</p>
         <h1>{flowTitle}</h1>
         {flowLede && <p className="lede">{flowLede}</p>}
 
@@ -786,3 +784,4 @@ export function CandidateProfileFlow({
     </>
   );
 }
+

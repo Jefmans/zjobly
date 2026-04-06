@@ -83,8 +83,6 @@ export function CandidateSearchFlow({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Find Candidates</div>
-        <p className="tag">Zjobly</p>
         <h1>Search candidates</h1>
         <p className="lede">
           {isAuthenticated
@@ -221,3 +219,4 @@ export function CandidateSearchFlow({
     </>
   );
 }
+

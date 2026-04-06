@@ -29,8 +29,6 @@ export function EmployerInvitationsView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Candidate invitations</div>
-        <p className="tag">Zjobly</p>
         <h1>Invitations</h1>
         <p className="lede">Track candidate interest and responses.</p>
         {!canInvite ? (
@@ -76,3 +74,4 @@ export function EmployerInvitationsView({
     </>
   );
 }
+

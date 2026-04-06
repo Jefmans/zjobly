@@ -75,8 +75,6 @@ export function CandidateMatchesView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">Matched candidates</div>
-        <p className="tag">Zjobly</p>
         <h1>{job ? `Top matches for ${job.title}` : "Top job matches"}</h1>
         <p className="lede">
           We rank candidates by skills, experience, and proximity to this job.
@@ -193,3 +191,4 @@ export function CandidateMatchesView({
     </>
   );
 }
+
