@@ -10,6 +10,21 @@
   overflow-x: hidden;
 }
 
+.app-shell.select-video-loggedout-shell {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
+.app-shell.select-video-loggedout-shell > * {
+  width: min(100%, 780px);
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
 .app-shell.sticky-nav {
   padding-top: 0;
 }
@@ -333,7 +348,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
 }
 
 .hero-select-loggedout .upload-form,
@@ -2076,6 +2091,13 @@ button[type='submit']:disabled {
 
   .app-shell {
     --app-shell-padding: 0.25rem;
+  }
+
+  .app-shell.select-video-loggedout-shell {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden !important;
   }
 
   .hero {

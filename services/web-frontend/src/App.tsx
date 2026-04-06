@@ -2190,7 +2190,14 @@ function App() {
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(view, createStep, candidateStep, role, previewAuthenticated);
   const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
-  const shellClassName = showDevNav ? 'app-shell' : 'app-shell sticky-nav';
+  const isLoggedOutCandidateSelectScreen = !previewAuthenticated && view === 'find' && candidateStep === 'select';
+  const shellClassName = [
+    'app-shell',
+    showDevNav ? null : 'sticky-nav',
+    isLoggedOutCandidateSelectScreen ? 'select-video-loggedout-shell' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
   const filteredCandidateKeywords = filterKeywordsByLocation(
     candidateKeywords,
