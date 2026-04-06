@@ -34,8 +34,6 @@ export function CandidateProfileView({
     <>
       {nav}
       <section className="hero">
-        <div className="view-pill">My profile</div>
-        <p className="tag">Zjobly</p>
         <h1>Your profile</h1>
         <p className="lede">This is what employers see.</p>
 
