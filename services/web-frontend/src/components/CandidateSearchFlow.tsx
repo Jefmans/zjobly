@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import { searchCandidates } from "../api";
+import { formatInvitationStatusLabel, formatLocationLabel } from "../helpers";
 import { CandidateProfile, InvitationStatus, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -74,14 +75,6 @@ export function CandidateSearchFlow({
 
   const handleQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value);
-  };
-
-  const formatLocation = (candidate: CandidateProfile) => {
-    if (candidate.location) return candidate.location;
-    const details = candidate.location_details;
-    if (!details) return "Location not provided";
-    const parts = [details.city, details.region, details.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Location not provided";
   };
 
   if (view !== "candidates") return null;
@@ -214,11 +207,11 @@ export function CandidateSearchFlow({
                     if (!status) return null;
                     return (
                       <span className={`invitation-status ${status}`}>
-                        {status === "pending" ? "Pending" : status === "accepted" ? "Accepted" : "Rejected"}
+                        {formatInvitationStatusLabel(status)}
                       </span>
                     );
                   })()}
-                  <div className="candidate-meta">{formatLocation(candidate)}</div>
+                  <div className="candidate-meta">{formatLocationLabel(candidate)}</div>
                 </div>
               ))}
             </div>

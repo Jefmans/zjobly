@@ -8,7 +8,7 @@ import {
   updateJobApplication,
   uploadFileToUrl,
 } from "../api";
-import { filterKeywordsByLocation, formatDuration } from "../helpers";
+import { filterKeywordsByLocation, formatDateLabel, formatDuration } from "../helpers";
 import {
   ApplicationStatus,
   CandidateApplication,
@@ -202,12 +202,6 @@ export function JobSeekerFlow({
     return jobApplications.filter((application) => application.status === applicationFilter);
   }, [applicationFilter, jobApplications]);
 
-  const formatDate = (value?: string | null) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  };
   const formatApplicationStatus = (status?: string | null) => {
     if (!status) return "Unknown";
     if (status === "reviewing") return "Withheld";
@@ -829,9 +823,9 @@ export function JobSeekerFlow({
                   <div className="job-title">{job.title}</div>
                   <div className="job-meta">{job.location || "Location TBD"}</div>
                   <div className="job-meta-row">
-                    <span>Created: {formatDate(job.created_at)}</span>
+                    <span>Created: {formatDateLabel(job.created_at)}</span>
                     <span>
-                      Published: {isPublishedJob(job) ? formatDate(job.updated_at || job.created_at) : "Not published"}
+                      Published: {isPublishedJob(job) ? formatDateLabel(job.updated_at || job.created_at) : "Not published"}
                     </span>
                   </div>
                 </div>
@@ -958,7 +952,7 @@ export function JobSeekerFlow({
                                 {formatApplicationStatus(application.status)}
                               </span>
                               <span className={`job-status ${status.className}`}>{status.label}</span>
-                              <span className="applied-date">Applied {formatDate(application.applied_at)}</span>
+                              <span className="applied-date">Applied {formatDateLabel(application.applied_at)}</span>
                               <span className="toggle-label">{isOpen ? "Hide details" : "View details"}</span>
                             </div>
                           </button>
@@ -1506,7 +1500,7 @@ export function JobSeekerFlow({
                                 <span className={`application-status ${application.status}`}>
                                   {formatApplicationStatus(application.status)}
                                 </span>
-                                <span className="applied-date">Applied {formatDate(application.applied_at)}</span>
+                                <span className="applied-date">Applied {formatDateLabel(application.applied_at)}</span>
                                 <span className="toggle-label">{isOpen ? "Hide details" : "View profile"}</span>
                               </div>
                             </button>
@@ -1620,7 +1614,7 @@ export function JobSeekerFlow({
                     <>
                       <p className="hint">
                         Status: {formatApplicationStatus(appliedStatus || "applied")}
-                        {candidateApplication?.applied_at && ` · Applied ${formatDate(candidateApplication.applied_at)}`}
+                        {candidateApplication?.applied_at && ` - Applied ${formatDateLabel(candidateApplication.applied_at)}`}
                       </p>
                       {candidateApplication?.playback_url ? (
                         <video

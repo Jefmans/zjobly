@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { filterKeywordsByLocation } from "../helpers";
+import { filterKeywordsByLocation, formatInvitationStatusLabel, formatLocationLabel } from "../helpers";
 import { CandidateProfile, InvitationStatus, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -42,13 +42,6 @@ export function CandidateDetailView({
   if (view !== "candidateDetail") return null;
 
   const isEmployer = role === "employer";
-  const formatLocation = (profile: CandidateProfile) => {
-    if (profile.location) return profile.location;
-    const details = profile.location_details;
-    if (!details) return "Location not provided";
-    const parts = [details.city, details.region, details.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Location not provided";
-  };
   const keywords = candidate ? filterKeywordsByLocation(candidate.keywords, candidate.location) : [];
 
   return (
@@ -98,11 +91,7 @@ export function CandidateDetailView({
                   </button>
                   {invitationStatus && (
                     <span className={`invitation-status ${invitationStatus}`}>
-                      {invitationStatus === "pending"
-                        ? "Pending"
-                        : invitationStatus === "accepted"
-                        ? "Accepted"
-                        : "Rejected"}
+                      {formatInvitationStatusLabel(invitationStatus)}
                     </span>
                   )}
                   <button
@@ -147,7 +136,7 @@ export function CandidateDetailView({
               </div>
               <div className="detail-row">
                 <span className="detail-label">Location</span>
-                <span>{formatLocation(candidate)}</span>
+                <span>{formatLocationLabel(candidate)}</span>
               </div>
               {candidate.location_details && (
                 <>

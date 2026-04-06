@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { formatDateLabel, formatInvitationStatusLabel, formatLocationLabel } from "../helpers";
 import { CandidateInvitation, CandidateProfile, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -23,19 +24,6 @@ export function EmployerInvitationsView({
   onViewCandidate,
 }: Props) {
   if (view !== "invitations" || role !== "employer") return null;
-  const formatLocation = (candidate: CandidateProfile) => {
-    if (candidate.location) return candidate.location;
-    const details = candidate.location_details;
-    if (!details) return "Location not provided";
-    const parts = [details.city, details.region, details.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Location not provided";
-  };
-  const formatDate = (value?: string) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  };
 
   return (
     <>
@@ -72,15 +60,11 @@ export function EmployerInvitationsView({
                           {candidate.headline || "Candidate profile"}
                         </button>
                         <span className={`invitation-status ${invitation.status}`}>
-                          {invitation.status === "pending"
-                            ? "Pending"
-                            : invitation.status === "accepted"
-                            ? "Accepted"
-                            : "Rejected"}
+                          {formatInvitationStatusLabel(invitation.status)}
                         </span>
                       </div>
-                      <div className="candidate-meta">{formatLocation(candidate)}</div>
-                      <p className="hint">Invited {formatDate(invitation.created_at)}</p>
+                      <div className="candidate-meta">{formatLocationLabel(candidate)}</div>
+                      <p className="hint">Invited {formatDateLabel(invitation.created_at)}</p>
                     </div>
                   );
                 })}

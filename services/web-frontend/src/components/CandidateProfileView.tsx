@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { formatLocationLabel } from "../helpers";
 import { CandidateProfile, ViewMode } from "../types";
 
 type Props = {
@@ -27,14 +28,6 @@ export function CandidateProfileView({
   onBrowseJobs,
 }: Props) {
   if (view !== "profile") return null;
-
-  const formatLocation = (candidate: CandidateProfile) => {
-    if (candidate.location) return candidate.location;
-    const details = candidate.location_details;
-    if (!details) return "Location not provided";
-    const parts = [details.city, details.region, details.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Location not provided";
-  };
   const resolvedVideoUrl = profile?.playback_url || videoUrl;
 
   return (
@@ -73,7 +66,7 @@ export function CandidateProfileView({
               </div>
               <div className="detail-row">
                 <span className="detail-label">Location</span>
-                <span>{formatLocation(profile)}</span>
+                <span>{formatLocationLabel(profile)}</span>
               </div>
               {profile.location_details && (
                 <>

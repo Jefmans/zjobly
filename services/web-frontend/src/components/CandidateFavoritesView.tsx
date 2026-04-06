@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { formatLocationLabel } from "../helpers";
 import { CandidateProfile, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -29,13 +30,6 @@ export function CandidateFavoritesView({
   if (view !== "candidateFavorites") return null;
 
   const isEmployer = role === "employer";
-  const formatLocation = (candidate: CandidateProfile) => {
-    if (candidate.location) return candidate.location;
-    const details = candidate.location_details;
-    if (!details) return "Location not provided";
-    const parts = [details.city, details.region, details.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "Location not provided";
-  };
 
   return (
     <>
@@ -85,7 +79,7 @@ export function CandidateFavoritesView({
                           </button>
                         </div>
                       </div>
-                      <div className="candidate-meta">{formatLocation(candidate)}</div>
+                      <div className="candidate-meta">{formatLocationLabel(candidate)}</div>
                     </div>
                   );
                 })}

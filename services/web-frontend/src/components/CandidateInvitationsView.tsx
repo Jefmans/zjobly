@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { formatDateLabel, formatInvitationStatusLabel } from "../helpers";
 import { CandidateInvitation, InvitationStatus, UserRole, ViewMode } from "../types";
 
 type Props = {
@@ -23,12 +24,6 @@ export function CandidateInvitationsView({
   onUpdateInvitation,
 }: Props) {
   if (view !== "invitations" || role !== "candidate") return null;
-  const formatDate = (value?: string) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  };
 
   return (
     <>
@@ -51,14 +46,10 @@ export function CandidateInvitationsView({
                   <div className="candidate-card-header">
                     <div>
                       <div className="candidate-link">{companyName}</div>
-                      <div className="candidate-meta">Invited {formatDate(invitation.created_at)}</div>
+                      <div className="candidate-meta">Invited {formatDateLabel(invitation.created_at)}</div>
                     </div>
                     <span className={`invitation-status ${invitation.status}`}>
-                      {invitation.status === "pending"
-                        ? "Pending"
-                        : invitation.status === "accepted"
-                        ? "Accepted"
-                        : "Rejected"}
+                      {formatInvitationStatusLabel(invitation.status)}
                     </span>
                   </div>
                   {invitation.status === "pending" ? (
@@ -82,7 +73,7 @@ export function CandidateInvitationsView({
                     </div>
                   ) : (
                     <p className="hint">
-                      Status: {invitation.status === "accepted" ? "Accepted" : "Rejected"}
+                      Status: {formatInvitationStatusLabel(invitation.status)}
                     </p>
                   )}
                 </div>
