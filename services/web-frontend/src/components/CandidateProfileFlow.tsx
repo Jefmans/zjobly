@@ -290,7 +290,7 @@ export function CandidateProfileFlow({
             <div className="flow-intro">
               <div className="flow-intro-row">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-record.svg" alt="Record your intro video" loading="lazy" />
+                  <img src="/images/flow-record.png" alt="Record your intro video" loading="lazy" />
                 </div>
                 <div className="flow-intro-copy">
                   <h2>1. Record your intro video</h2>
