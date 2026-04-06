@@ -140,7 +140,7 @@ export function CandidateProfileFlow({
       : "Record before you browse";
   const flowLede =
     candidateStep === "intro"
-      ? "Before recording, here is what happens next."
+      ? ""
       : candidateStep === "select"
       ? "Pick your best take."
       : candidateStep === "record"
@@ -302,7 +302,7 @@ export function CandidateProfileFlow({
 
               <div className="flow-intro-row reverse">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-profile.svg" alt="Auto build your profile from video" loading="lazy" />
+                  <img src="/images/flow-profile.png" alt="Auto build your profile from video" loading="lazy" />
                 </div>
                 <div className="flow-intro-copy">
                   <h2>2. We auto build your profile</h2>
