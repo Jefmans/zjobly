@@ -125,7 +125,7 @@ export const getStoredView = (): ViewMode => {
     if (stored === 'create' && storedRole === 'employer') return 'create';
     if (stored === 'profile' && storedRole === 'candidate') return 'profile';
     if (stored === 'find' && storedRole === 'candidate') return 'find';
-    if (stored === 'adminConfig' && SHOW_DEVELOPMENT_NAVIGATION) return 'adminConfig';
+    if (stored === 'adminConfig') return 'adminConfig';
   } catch {
     // ignore storage failures
   }
@@ -142,14 +142,14 @@ const normalizePath = (pathname: string): string => {
 
 export const getViewFromPath = (pathname: string): ViewMode | null => {
   const normalized = normalizePath(pathname);
-  if (normalized === ADMIN_CONFIG_PATH && SHOW_DEVELOPMENT_NAVIGATION) {
+  if (normalized === ADMIN_CONFIG_PATH) {
     return 'adminConfig';
   }
   return null;
 };
 
 export const getPathForView = (view: ViewMode): string => {
-  if (view === 'adminConfig' && SHOW_DEVELOPMENT_NAVIGATION) {
+  if (view === 'adminConfig') {
     return ADMIN_CONFIG_PATH;
   }
   return '/';
