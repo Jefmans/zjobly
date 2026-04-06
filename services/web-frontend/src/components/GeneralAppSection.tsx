@@ -1,5 +1,3 @@
-import { ComponentProps } from 'react';
-import { ConfigAdminView } from './ConfigAdminView';
 import { ViewMode } from '../types';
 
 type Props = {
@@ -10,7 +8,6 @@ type Props = {
   onStartCandidateFlow: () => void;
   onStartCreateFlow: () => void;
   onOpenVoluntaryAuth: (mode: 'login' | 'register') => void;
-  configAdminViewProps: ComponentProps<typeof ConfigAdminView>;
 };
 
 export function GeneralAppSection({
@@ -21,7 +18,6 @@ export function GeneralAppSection({
   onStartCandidateFlow,
   onStartCreateFlow,
   onOpenVoluntaryAuth,
-  configAdminViewProps,
 }: Props) {
   return (
     <>
@@ -66,8 +62,6 @@ export function GeneralAppSection({
           </div>
         </>
       )}
-
-      <ConfigAdminView {...configAdminViewProps} />
     </>
   );
 }

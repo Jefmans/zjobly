@@ -93,6 +93,9 @@ const CandidateAppSection = lazy(() =>
 const EmployerAppSection = lazy(() =>
   import('./components/EmployerAppSection').then((module) => ({ default: module.EmployerAppSection })),
 );
+const ConfigAdminView = lazy(() =>
+  import('./components/ConfigAdminView').then((module) => ({ default: module.ConfigAdminView })),
+);
 const GeneralAppSection = lazy(() =>
   import('./components/GeneralAppSection').then((module) => ({ default: module.GeneralAppSection })),
 );
@@ -2625,7 +2628,8 @@ function App() {
       onOpenRegister={() => openVoluntaryAuth('register')}
     />
   );
-  const shouldRenderGeneralSection = view === 'welcome' || view === 'adminConfig';
+  const shouldRenderGeneralSection = view === 'welcome';
+  const shouldRenderConfigAdminSection = view === 'adminConfig';
   const shouldRenderEmployerSection =
     view === 'create' ||
     view === 'candidates' ||
@@ -2665,12 +2669,10 @@ function App() {
             onStartCandidateFlow={startCandidateFlow}
             onStartCreateFlow={startCreateFlow}
             onOpenVoluntaryAuth={openVoluntaryAuth}
-            configAdminViewProps={{
-              view,
-              nav,
-            }}
           />
         )}
+
+        {shouldRenderConfigAdminSection && <ConfigAdminView view={view} nav={nav} />}
 
         {shouldRenderEmployerSection && (
           <EmployerAppSection
