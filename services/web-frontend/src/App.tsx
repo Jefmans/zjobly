@@ -197,8 +197,6 @@ function App() {
   const [devCandidates, setDevCandidates] = useState<CandidateDev[]>([]);
 
   const authOverlayCardInlineStyle: CSSProperties = {
-    width: 'min(640px, 100%)',
-    maxWidth: '100%',
     minWidth: 0,
     boxSizing: 'border-box',
     marginInline: 'auto',
