@@ -333,7 +333,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .hero-select-loggedout .upload-form,
@@ -353,6 +353,11 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.hero-select-loggedout * {
+  max-width: 100%;
 }
 
 .hero-select-loggedout .panel-header,
