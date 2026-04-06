@@ -1,11 +1,6 @@
-import { CSSProperties, ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { CSSProperties, ChangeEvent, FormEvent, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { AppNavigation } from './components/AppNavigation';
-import { AuthOverlays } from './components/AuthOverlays';
-import { CandidateAppSection } from './components/CandidateAppSection';
-import { EmployerAppSection } from './components/EmployerAppSection';
-import { GeneralAppSection } from './components/GeneralAppSection';
-import { JobSeekerFlow } from './components/JobSeekerFlow';
 import { ScreenLabel } from './components/ScreenLabel';
 import {
   confirmUpload,
@@ -88,6 +83,22 @@ import {
   UserRole,
   ViewMode,
 } from './types';
+
+const AuthOverlays = lazy(() =>
+  import('./components/AuthOverlays').then((module) => ({ default: module.AuthOverlays })),
+);
+const CandidateAppSection = lazy(() =>
+  import('./components/CandidateAppSection').then((module) => ({ default: module.CandidateAppSection })),
+);
+const EmployerAppSection = lazy(() =>
+  import('./components/EmployerAppSection').then((module) => ({ default: module.EmployerAppSection })),
+);
+const GeneralAppSection = lazy(() =>
+  import('./components/GeneralAppSection').then((module) => ({ default: module.GeneralAppSection })),
+);
+const JobSeekerFlow = lazy(() =>
+  import('./components/JobSeekerFlow').then((module) => ({ default: module.JobSeekerFlow })),
+);
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
@@ -2616,6 +2627,19 @@ function App() {
       onOpenRegister={() => openVoluntaryAuth('register')}
     />
   );
+  const shouldRenderGeneralSection = view === 'welcome' || view === 'adminConfig';
+  const shouldRenderEmployerSection =
+    view === 'create' ||
+    view === 'candidates' ||
+    view === 'candidateDetail' ||
+    view === 'candidateFavorites' ||
+    view === 'jobMatches' ||
+    (view === 'invitations' && role === 'employer');
+  const shouldRenderCandidateSection =
+    view === 'find' || view === 'profile' || (view === 'invitations' && role === 'candidate');
+  const shouldRenderJobSeekerFlow =
+    view === 'jobs' || view === 'jobDetail' || view === 'apply' || view === 'applications';
+  const shouldRenderAuthOverlays = Boolean(candidatePostAuthOverlay || authPrompt);
 
   if (authLoading) {
     return (
@@ -2633,249 +2657,262 @@ function App() {
   return (
     <main className={shellClassName}>
       <ScreenLabel label={screenLabel} />
-      <GeneralAppSection
-        view={view}
-        nav={nav}
-        previewAuthenticated={previewAuthenticated}
-        authError={authError}
-        onStartCandidateFlow={startCandidateFlow}
-        onStartCreateFlow={startCreateFlow}
-        onOpenVoluntaryAuth={openVoluntaryAuth}
-        configAdminViewProps={{
-          view,
-          nav,
-        }}
-      />
+      <Suspense fallback={null}>
+        {shouldRenderGeneralSection && (
+          <GeneralAppSection
+            view={view}
+            nav={nav}
+            previewAuthenticated={previewAuthenticated}
+            authError={authError}
+            onStartCandidateFlow={startCandidateFlow}
+            onStartCreateFlow={startCreateFlow}
+            onOpenVoluntaryAuth={openVoluntaryAuth}
+            configAdminViewProps={{
+              view,
+              nav,
+            }}
+          />
+        )}
 
-      <EmployerAppSection
-        jobCreationFlowProps={{
-          view,
-          nav,
-          createStep,
-          form,
-          transcriptText,
-          onInputChange: handleInputChange,
-          onTranscriptChange: handleTranscriptChange,
-          onGenerateFromTranscript: generateFromTranscript,
-          draftingFromTranscript,
-          draftingError,
-          draftKeywords: filteredDraftKeywords,
-          goToStep,
-          onSaveVideo: saveVideo,
-          onSaveJob: saveJob,
-          recorderOpen,
-          recordingState,
-          videoUrl,
-          videoObjectKey,
-          liveVideoRef,
-          playbackVideoRef,
-          recordLabel,
-          durationLabel,
-          selectedTake,
-          startRecording,
-          pauseRecording,
-          resumeRecording,
-          stopRecording,
-          error,
-          recordedTakes,
-          selectedTakeId,
-          selectTake,
-          handleVideoChange,
-          status,
-          uploadProgress,
-          processingMessage,
-          companyId,
-          jobSaving,
-          showDetailValidation,
-        }}
-        candidateDetailViewProps={{
-          view,
-          nav,
-          role,
-          candidate: selectedCandidateProfile,
-          onBack: handleCandidateDetailBack,
-          backLabel: candidateDetailBackLabel,
-          canFavorite: canManageFavorites,
-          isFavorite: selectedCandidateProfile ? favoriteCandidateIds.has(selectedCandidateProfile.id) : false,
-          favoriteUpdating: selectedCandidateProfile ? favoriteUpdatingIds.has(selectedCandidateProfile.id) : false,
-          favoritesError: candidateFavoritesError,
-          onToggleFavorite: handleToggleCandidateFavorite,
-          invitationStatus: selectedCandidateProfile
-            ? invitationStatusByCandidateId[selectedCandidateProfile.id] ?? null
-            : null,
-          invitationUpdating: selectedCandidateProfile ? inviteUpdatingIds.has(selectedCandidateProfile.id) : false,
-          invitationsError: employerInvitationsError,
-          canInvite: canManageInvitations,
-          onInvite: () => {
-            if (!selectedCandidateProfile) return;
-            handleInviteCandidate(selectedCandidateProfile.id);
-          },
-        }}
-        candidateFavoritesViewProps={{
-          view,
-          nav,
-          role,
-          favorites: candidateFavorites,
-          loading: candidateFavoritesLoading,
-          error: candidateFavoritesError,
-          canFavorite: canManageFavorites,
-          favoriteUpdatingIds,
-          onViewCandidate: openCandidateProfileFromFavorites,
-          onRemoveFavorite: handleRemoveCandidateFavorite,
-        }}
-        employerInvitationsViewProps={{
-          view,
-          nav,
-          role,
-          invitations: employerInvitations,
-          loading: employerInvitationsLoading,
-          error: employerInvitationsError,
-          canInvite: canManageInvitations,
-          onViewCandidate: openCandidateProfileFromInvitations,
-        }}
-        candidateSearchFlowProps={{
-          view,
-          nav,
-          role,
-          isAuthenticated: previewAuthenticated,
-          favoriteCandidateIds,
-          favoriteUpdatingIds,
-          favoritesError: candidateFavoritesError,
-          canFavorite: canManageFavorites,
-          onAddFavorite: handleAddCandidateFavorite,
-          onRemoveFavorite: handleRemoveCandidateFavorite,
-          invitationStatusByCandidateId,
-          inviteUpdatingIds,
-          invitationsError: employerInvitationsError,
-          canInvite: canManageInvitations,
-          onInviteCandidate: handleInviteCandidate,
-          onViewCandidate: openCandidateProfileFromSearch,
-        }}
-        candidateMatchesViewProps={{
-          view,
-          nav,
-          role,
-          job: selectedJobForMatches,
-          favoriteCandidateIds,
-          favoriteUpdatingIds,
-          favoritesError: candidateFavoritesError,
-          canFavorite: canManageFavorites,
-          onAddFavorite: handleAddCandidateFavorite,
-          onRemoveFavorite: handleRemoveCandidateFavorite,
-          invitationStatusByCandidateId,
-          inviteUpdatingIds,
-          invitationsError: employerInvitationsError,
-          canInvite: canManageInvitations,
-          onInviteCandidate: handleInviteCandidate,
-          onViewCandidate: openCandidateProfileFromMatches,
-          onBackToJob: backToJobDetail,
-        }}
-      />
+        {shouldRenderEmployerSection && (
+          <EmployerAppSection
+            jobCreationFlowProps={{
+              view,
+              nav,
+              createStep,
+              form,
+              transcriptText,
+              onInputChange: handleInputChange,
+              onTranscriptChange: handleTranscriptChange,
+              onGenerateFromTranscript: generateFromTranscript,
+              draftingFromTranscript,
+              draftingError,
+              draftKeywords: filteredDraftKeywords,
+              goToStep,
+              onSaveVideo: saveVideo,
+              onSaveJob: saveJob,
+              recorderOpen,
+              recordingState,
+              videoUrl,
+              videoObjectKey,
+              liveVideoRef,
+              playbackVideoRef,
+              recordLabel,
+              durationLabel,
+              selectedTake,
+              startRecording,
+              pauseRecording,
+              resumeRecording,
+              stopRecording,
+              error,
+              recordedTakes,
+              selectedTakeId,
+              selectTake,
+              handleVideoChange,
+              status,
+              uploadProgress,
+              processingMessage,
+              companyId,
+              jobSaving,
+              showDetailValidation,
+            }}
+            candidateDetailViewProps={{
+              view,
+              nav,
+              role,
+              candidate: selectedCandidateProfile,
+              onBack: handleCandidateDetailBack,
+              backLabel: candidateDetailBackLabel,
+              canFavorite: canManageFavorites,
+              isFavorite: selectedCandidateProfile ? favoriteCandidateIds.has(selectedCandidateProfile.id) : false,
+              favoriteUpdating: selectedCandidateProfile ? favoriteUpdatingIds.has(selectedCandidateProfile.id) : false,
+              favoritesError: candidateFavoritesError,
+              onToggleFavorite: handleToggleCandidateFavorite,
+              invitationStatus: selectedCandidateProfile
+                ? invitationStatusByCandidateId[selectedCandidateProfile.id] ?? null
+                : null,
+              invitationUpdating: selectedCandidateProfile ? inviteUpdatingIds.has(selectedCandidateProfile.id) : false,
+              invitationsError: employerInvitationsError,
+              canInvite: canManageInvitations,
+              onInvite: () => {
+                if (!selectedCandidateProfile) return;
+                handleInviteCandidate(selectedCandidateProfile.id);
+              },
+            }}
+            candidateFavoritesViewProps={{
+              view,
+              nav,
+              role,
+              favorites: candidateFavorites,
+              loading: candidateFavoritesLoading,
+              error: candidateFavoritesError,
+              canFavorite: canManageFavorites,
+              favoriteUpdatingIds,
+              onViewCandidate: openCandidateProfileFromFavorites,
+              onRemoveFavorite: handleRemoveCandidateFavorite,
+            }}
+            employerInvitationsViewProps={{
+              view,
+              nav,
+              role,
+              invitations: employerInvitations,
+              loading: employerInvitationsLoading,
+              error: employerInvitationsError,
+              canInvite: canManageInvitations,
+              onViewCandidate: openCandidateProfileFromInvitations,
+            }}
+            candidateSearchFlowProps={{
+              view,
+              nav,
+              role,
+              isAuthenticated: previewAuthenticated,
+              favoriteCandidateIds,
+              favoriteUpdatingIds,
+              favoritesError: candidateFavoritesError,
+              canFavorite: canManageFavorites,
+              onAddFavorite: handleAddCandidateFavorite,
+              onRemoveFavorite: handleRemoveCandidateFavorite,
+              invitationStatusByCandidateId,
+              inviteUpdatingIds,
+              invitationsError: employerInvitationsError,
+              canInvite: canManageInvitations,
+              onInviteCandidate: handleInviteCandidate,
+              onViewCandidate: openCandidateProfileFromSearch,
+            }}
+            candidateMatchesViewProps={{
+              view,
+              nav,
+              role,
+              job: selectedJobForMatches,
+              favoriteCandidateIds,
+              favoriteUpdatingIds,
+              favoritesError: candidateFavoritesError,
+              canFavorite: canManageFavorites,
+              onAddFavorite: handleAddCandidateFavorite,
+              onRemoveFavorite: handleRemoveCandidateFavorite,
+              invitationStatusByCandidateId,
+              inviteUpdatingIds,
+              invitationsError: employerInvitationsError,
+              canInvite: canManageInvitations,
+              onInviteCandidate: handleInviteCandidate,
+              onViewCandidate: openCandidateProfileFromMatches,
+              onBackToJob: backToJobDetail,
+            }}
+          />
+        )}
 
-      <CandidateAppSection
-        candidateProfileFlowProps={{
-          view,
-          nav,
-          isAuthenticated: previewAuthenticated,
-          candidateStep,
-          goToStep: goToCandidateStep,
-          recorderOpen,
-          recordingState,
-          videoUrl,
-          candidateVideoObjectKey,
-          liveVideoRef,
-          playbackVideoRef,
-          recordLabel,
-          durationLabel,
-          startRecording,
-          pauseRecording,
-          resumeRecording,
-          stopRecording,
-          error,
-          recordedTakes,
-          selectedTakeId,
-          selectTake,
-          status,
-          uploadProgress,
-          processingMessage,
-          audioSessionTranscripts,
-          audioSessionStatuses,
-          fallbackTranscript: candidateTranscript,
-          fallbackTranscriptStatus: candidateTranscriptStatus,
-          isEditingProfile: candidateProfileExists,
-          keywords: filteredCandidateKeywords,
-          onSaveVideo: saveCandidateVideo,
-          profile: candidateProfile,
-          onProfileChange: handleCandidateProfileChange,
-          onSaveProfile: saveCandidateProfile,
-          profileSaving: candidateProfileSaving,
-          profileSaved: candidateProfileSaved,
-          canSaveProfile: canSaveCandidateProfile,
-          showValidation: candidateValidation,
-          onViewJobs: goToJobsOverview,
-        }}
-        candidateProfileViewProps={{
-          view,
-          nav,
-          profile: candidateProfileDetails,
-          keywords: filteredCandidateKeywords,
-          videoUrl,
-          loading: candidateProfileLoading,
-          error: candidateProfileError,
-          onCreateProfile: startCandidateFlow,
-          onEditProfile: goToCandidateProfileEdit,
-          onBrowseJobs: goToJobsOverview,
-        }}
-        candidateInvitationsViewProps={{
-          view,
-          nav,
-          role,
-          invitations: candidateInvitations,
-          loading: candidateInvitationsLoading,
-          error: candidateInvitationsError,
-          updatingIds: candidateInviteUpdatingIds,
-          onUpdateInvitation: handleCandidateInvitationUpdate,
-        }}
-      />
+        {shouldRenderCandidateSection && (
+          <CandidateAppSection
+            candidateProfileFlowProps={{
+              view,
+              nav,
+              isAuthenticated: previewAuthenticated,
+              candidateStep,
+              goToStep: goToCandidateStep,
+              recorderOpen,
+              recordingState,
+              videoUrl,
+              candidateVideoObjectKey,
+              liveVideoRef,
+              playbackVideoRef,
+              recordLabel,
+              durationLabel,
+              startRecording,
+              pauseRecording,
+              resumeRecording,
+              stopRecording,
+              error,
+              recordedTakes,
+              selectedTakeId,
+              selectTake,
+              status,
+              uploadProgress,
+              processingMessage,
+              audioSessionTranscripts,
+              audioSessionStatuses,
+              fallbackTranscript: candidateTranscript,
+              fallbackTranscriptStatus: candidateTranscriptStatus,
+              isEditingProfile: candidateProfileExists,
+              keywords: filteredCandidateKeywords,
+              onSaveVideo: saveCandidateVideo,
+              profile: candidateProfile,
+              onProfileChange: handleCandidateProfileChange,
+              onSaveProfile: saveCandidateProfile,
+              profileSaving: candidateProfileSaving,
+              profileSaved: candidateProfileSaved,
+              canSaveProfile: canSaveCandidateProfile,
+              showValidation: candidateValidation,
+              onViewJobs: goToJobsOverview,
+            }}
+            candidateProfileViewProps={{
+              view,
+              nav,
+              profile: candidateProfileDetails,
+              keywords: filteredCandidateKeywords,
+              videoUrl,
+              loading: candidateProfileLoading,
+              error: candidateProfileError,
+              onCreateProfile: startCandidateFlow,
+              onEditProfile: goToCandidateProfileEdit,
+              onBrowseJobs: goToJobsOverview,
+            }}
+            candidateInvitationsViewProps={{
+              view,
+              nav,
+              role,
+              invitations: candidateInvitations,
+              loading: candidateInvitationsLoading,
+              error: candidateInvitationsError,
+              updatingIds: candidateInviteUpdatingIds,
+              onUpdateInvitation: handleCandidateInvitationUpdate,
+            }}
+          />
+        )}
 
-      <JobSeekerFlow
-        view={view}
-        nav={nav}
-        role={role}
-        isAuthenticated={previewAuthenticated}
-        jobs={jobs}
-        jobsLoading={jobsLoading}
-        jobsError={jobsError}
-        companyId={companyId}
-        selectedJobId={selectedJobId}
-        onSelectJob={setSelectedJobId}
-        setView={setView}
-        ensureAuthenticated={ensureAuthenticated}
-        onPublishJob={handlePublishJob}
-        onUnpublishJob={handleUnpublishJob}
-        onRefreshJobs={refreshJobs}
-        publishingJobId={publishingJobId}
-        unpublishingJobId={unpublishingJobId}
-        onViewCandidateProfile={openCandidateProfileFromApplications}
-        onViewMatches={openJobMatches}
-      />
-      <AuthOverlays
-        overlayHost={overlayHost}
-        candidatePostAuthOverlay={candidatePostAuthOverlay}
-        candidatePostAuthOverlayMessage={candidatePostAuthOverlayMessage}
-        authPrompt={authPrompt}
-        authOverlayCardInlineStyle={authOverlayCardInlineStyle}
-        authSubmitting={authSubmitting}
-        authMode={authMode}
-        authName={authName}
-        authPassword={authPassword}
-        authError={authError}
-        onCloseAuthPrompt={closeAuthPrompt}
-        onAuthSubmit={handleAuthSubmit}
-        onToggleAuthMode={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
-        onAuthNameChange={setAuthName}
-        onAuthPasswordChange={setAuthPassword}
-      />
+        {shouldRenderJobSeekerFlow && (
+          <JobSeekerFlow
+            view={view}
+            nav={nav}
+            role={role}
+            isAuthenticated={previewAuthenticated}
+            jobs={jobs}
+            jobsLoading={jobsLoading}
+            jobsError={jobsError}
+            companyId={companyId}
+            selectedJobId={selectedJobId}
+            onSelectJob={setSelectedJobId}
+            setView={setView}
+            ensureAuthenticated={ensureAuthenticated}
+            onPublishJob={handlePublishJob}
+            onUnpublishJob={handleUnpublishJob}
+            onRefreshJobs={refreshJobs}
+            publishingJobId={publishingJobId}
+            unpublishingJobId={unpublishingJobId}
+            onViewCandidateProfile={openCandidateProfileFromApplications}
+            onViewMatches={openJobMatches}
+          />
+        )}
+
+        {shouldRenderAuthOverlays && (
+          <AuthOverlays
+            overlayHost={overlayHost}
+            candidatePostAuthOverlay={candidatePostAuthOverlay}
+            candidatePostAuthOverlayMessage={candidatePostAuthOverlayMessage}
+            authPrompt={authPrompt}
+            authOverlayCardInlineStyle={authOverlayCardInlineStyle}
+            authSubmitting={authSubmitting}
+            authMode={authMode}
+            authName={authName}
+            authPassword={authPassword}
+            authError={authError}
+            onCloseAuthPrompt={closeAuthPrompt}
+            onAuthSubmit={handleAuthSubmit}
+            onToggleAuthMode={() => setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+            onAuthNameChange={setAuthName}
+            onAuthPasswordChange={setAuthPassword}
+          />
+        )}
+      </Suspense>
     </main>
   );
 }
