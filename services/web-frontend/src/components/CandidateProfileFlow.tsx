@@ -156,7 +156,8 @@ export function CandidateProfileFlow({
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
   const [introStartPending, setIntroStartPending] = useState(false);
-  const hasCandidateQuestions = isAuthenticated && candidateQuestions.length > 0;
+  const useGuidedQuestions = false;
+  const hasCandidateQuestions = useGuidedQuestions && isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
@@ -166,8 +167,8 @@ export function CandidateProfileFlow({
   const canStartCountdown = questionCountdown === null;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
   const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
-  const isLoggedOutIntroFlow = !isAuthenticated && !hasCandidateQuestions;
-  const showPlaybackPreviewInRecord = !isLoggedOutIntroFlow && !isActiveRecording && Boolean(videoUrl);
+  const isSimpleRecordingFlow = !hasCandidateQuestions;
+  const showPlaybackPreviewInRecord = !isSimpleRecordingFlow && !isActiveRecording && Boolean(videoUrl);
   const hasProfileAutofillData =
     Boolean(`${profile.headline ?? ""}`.trim()) ||
     Boolean(`${profile.location ?? ""}`.trim()) ||
@@ -181,12 +182,8 @@ export function CandidateProfileFlow({
     !hasProfileAutofillData &&
     (status === "processing" || transcriptStatus === "pending");
   const canViewJobs = isEditingProfile || profileSaved;
-  const showLoggedOutPostTakeActions = isLoggedOutIntroFlow && recordingState === "idle" && hasTakes;
-  const showLoggedOutIntroOverlay =
-    !isAuthenticated &&
-    hasCandidateQuestions === false &&
-    recordingState === "idle" &&
-    !introStartPending;
+  const showPostTakeActions = isSimpleRecordingFlow && recordingState === "idle" && hasTakes;
+  const showSimpleIntroOverlay = isSimpleRecordingFlow && recordingState === "idle" && !introStartPending;
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
@@ -210,13 +207,13 @@ export function CandidateProfileFlow({
     setQuestionCountdown(questionCountdownSeconds);
   };
   const handleRecordAction = () => {
-      if (!hasCandidateQuestions) {
-        if (!isAuthenticated && recordingState === "idle") {
-          if (introCountdown !== null) return;
-          setIntroStartPending(false);
-          setIntroCountdown(introCountdownSeconds);
-          return;
-        }
+    if (!hasCandidateQuestions) {
+      if (recordingState === "idle") {
+        if (introCountdown !== null) return;
+        setIntroStartPending(false);
+        setIntroCountdown(introCountdownSeconds);
+        return;
+      }
       recordAction();
       return;
     }
@@ -529,7 +526,7 @@ export function CandidateProfileFlow({
                             </div>
                           </div>
                         )}
-                        {showLoggedOutIntroOverlay && (
+                        {showSimpleIntroOverlay && (
                           <div className="overlay-center">
                             <div className="question-overlay">
                               {introCountdown !== null ? (
@@ -540,7 +537,7 @@ export function CandidateProfileFlow({
                                     <span className="question-countdown-value">{introCountdown}</span>
                                   </div>
                                 </>
-                              ) : showLoggedOutPostTakeActions ? (
+                              ) : showPostTakeActions ? (
                                 <div className="question-actions">
                                   <button
                                     type="button"
@@ -568,7 +565,7 @@ export function CandidateProfileFlow({
                           </div>
                         )}
                         <div
-                          className={`overlay-bottom ${isLoggedOutIntroFlow ? "overlay-bottom-centered" : ""}`}
+                          className={`overlay-bottom ${isSimpleRecordingFlow ? "overlay-bottom-centered" : ""}`}
                         >
                           <div className="overlay-actions-left">
                             {canShowQuestionActions && (
@@ -593,12 +590,12 @@ export function CandidateProfileFlow({
                           </div>
                           <div
                             className={`overlay-actions-right ${
-                              isLoggedOutIntroFlow ? "overlay-actions-right-centered" : ""
+                              isSimpleRecordingFlow ? "overlay-actions-right-centered" : ""
                             }`}
                           >
                             <div
                               className={`record-controls ${
-                                isLoggedOutIntroFlow ? "record-controls-solid" : ""
+                                isSimpleRecordingFlow ? "record-controls-solid" : ""
                               }`}
                             >
                               <button
@@ -608,7 +605,7 @@ export function CandidateProfileFlow({
                                 disabled={
                                   !canRecord ||
                                   (hasCandidateQuestions && !canStartCountdown) ||
-                                  (!isAuthenticated && recordingState === "idle" && introCountdown !== null)
+                                  (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
                                 }
                                 aria-label={recordActionLabel}
                               >
@@ -646,29 +643,7 @@ export function CandidateProfileFlow({
                     </div>
                   )}
                 </div>
-                {!isAuthenticated && error && <div className="error">{error}</div>}
-
-                {isAuthenticated && (
-                  <div className="panel record-panel">
-                    <div className="panel-header">
-                      <div>
-                        <h2>Video recording</h2>
-                        <p className="hint">Record one or more takes. You&apos;ll pick the best one next.</p>
-                      </div>
-                      {hasTakes && <span className="pill soft">{recordedTakes.length} takes</span>}
-                    </div>
-
-                    {error && <div className="error">{error}</div>}
-
-                    {hasTakes && (
-                      <div className="panel-actions record-panel-actions">
-                        <button type="button" className="cta primary" onClick={() => goToStep("select")}>
-                          Continue
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {error && <div className="error">{error}</div>}
               </div>
             </div>
           )}
