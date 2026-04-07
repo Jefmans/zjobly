@@ -129,7 +129,8 @@ export function CandidateProfileFlow({
   const showLocationError = showValidation && !`${profile.location ?? ""}`.trim();
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
   const showTranscript = !isEditingProfile;
-  const backToVideoLabel = showTranscript ? "Back to select video" : "Create new profile video";
+  const backToVideoLabel = isEditingProfile ? "New Video" : "Back to select video";
+  const backToVideoStep: CandidateStep = isEditingProfile ? "record" : "select";
   const flowTitle =
     candidateStep === "intro"
       ? "How it works"
@@ -339,7 +340,7 @@ export function CandidateProfileFlow({
           {candidateStep === "profile" && (
             <div className="panel">
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                <button type="button" className="ghost" onClick={() => goToStep(backToVideoStep)}>
                   {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
@@ -457,7 +458,7 @@ export function CandidateProfileFlow({
               {profileSaved && <div className="success">Profile saved. You can head back or refine your video.</div>}
 
               <div className="panel-actions split">
-                <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                <button type="button" className="ghost" onClick={() => goToStep(backToVideoStep)}>
                   {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
