@@ -3233,7 +3233,7 @@ function App() {
               reviewChoices: candidateReviewChoices,
               reviewVideoChoice: candidateReviewVideoChoice,
               reviewCurrentVideoUrl: candidateReviewCurrentVideoUrl,
-              reviewCurrentVideoObjectKey,
+              reviewCurrentVideoObjectKey: candidateReviewCurrentVideoObjectKey,
               reviewNewVideoUrl: videoUrl,
               onReviewTextChange: handleCandidateReviewTextChange,
               onReviewChoiceChange: handleCandidateReviewChoiceChange,
