@@ -20,6 +20,7 @@ type Props = {
   view: ViewMode;
   nav: ReactNode;
   isAuthenticated: boolean;
+  useGuidedQuestions: boolean;
   candidateStep: CandidateStep;
   goToStep: (step: CandidateStep) => void;
   recorderOpen: boolean;
@@ -77,6 +78,7 @@ export function CandidateProfileFlow({
   view,
   nav,
   isAuthenticated,
+  useGuidedQuestions,
   candidateStep,
   goToStep,
   recorderOpen,
@@ -200,7 +202,6 @@ export function CandidateProfileFlow({
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
   const [introStartPending, setIntroStartPending] = useState(false);
-  const useGuidedQuestions = false;
   const hasCandidateQuestions = useGuidedQuestions && isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length

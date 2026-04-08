@@ -170,6 +170,7 @@ function App() {
   const [candidatePostAuthOverlay, setCandidatePostAuthOverlay] = useState(false);
   const [createStep, setCreateStep] = useState<CreateStep>('record');
   const [candidateStep, setCandidateStep] = useState<CandidateStep>('record');
+  const [candidateDetailedMode, setCandidateDetailedMode] = useState(false);
   const [form, setForm] = useState({ ...INITIAL_FORM_STATE });
   const [transcriptText, setTranscriptText] = useState('');
   const [draftKeywords, setDraftKeywords] = useState<string[]>([]);
@@ -579,6 +580,7 @@ function App() {
     clearRecordedTakes();
     resetRecordTimer();
     setRecordingState('idle');
+    setCandidateDetailedMode(false);
     setCandidateStep(initialStep);
     setCandidateProfile({ ...INITIAL_CANDIDATE_PROFILE });
     setCandidateProfileDetails(null);
@@ -1318,6 +1320,7 @@ function App() {
   };
 
   const startCandidateFlow = () => {
+    setCandidateDetailedMode(false);
     if (previewAuthenticated) {
       setRoleAndView('candidate', 'jobs');
       return;
@@ -1866,6 +1869,7 @@ function App() {
             setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
           }
           setCandidateProfileSaved(true);
+          setCandidateDetailedMode(false);
           setCandidateStep('profile');
           if (role !== 'candidate') {
             persistRole('candidate');
@@ -1878,9 +1882,11 @@ function App() {
               ? err.message
               : 'Could not auto-save your profile. You can complete and save it manually.',
           );
+          setCandidateDetailedMode(false);
           setCandidateStep('profile');
         }
       } else {
+        setCandidateDetailedMode(false);
         setCandidateStep('profile');
       }
     } catch (err) {
@@ -1948,6 +1954,7 @@ function App() {
       }
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
+      setCandidateDetailedMode(false);
       setCandidateStep('profile');
       if (role !== 'candidate') {
         persistRole('candidate');
@@ -2069,6 +2076,7 @@ function App() {
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
       resetCandidateReview();
+      setCandidateDetailedMode(false);
       setCandidateStep('profile');
       if (role !== 'candidate') {
         persistRole('candidate');
@@ -2561,6 +2569,7 @@ function App() {
       title: 'Create an account to view your profile',
       message: 'Create an account before opening your saved candidate profile.',
     }, () => {
+      setCandidateDetailedMode(false);
       if (role === 'candidate') {
         setView('profile');
       } else {
@@ -2574,6 +2583,7 @@ function App() {
       title: 'Create an account to edit your profile',
       message: 'Create an account before editing your saved candidate profile.',
     }, () => {
+      setCandidateDetailedMode(false);
       if (role === 'candidate') {
         setView('find');
       } else {
@@ -2581,6 +2591,25 @@ function App() {
       }
       setCandidateStep('profile');
     });
+  };
+
+  const goToCandidateDetailedProfileRecord = () => {
+    runAuthenticated(
+      {
+        title: 'Create an account to build a detailed profile',
+        message: 'Sign in before recording a detailed profile with guided questions.',
+        mode: 'login',
+      },
+      () => {
+        if (role === 'candidate') {
+          resetCandidateFlow('record');
+          setView('find');
+        } else {
+          setRoleAndView('candidate', 'find', { candidateStep: 'record' });
+        }
+        setCandidateDetailedMode(true);
+      },
+    );
   };
 
   const goToJobsOverview = () => {
@@ -3193,6 +3222,7 @@ function App() {
               view,
               nav,
               isAuthenticated: previewAuthenticated,
+              useGuidedQuestions: candidateDetailedMode,
               candidateStep,
               goToStep: goToCandidateStep,
               recorderOpen,
@@ -3250,6 +3280,7 @@ function App() {
               loading: candidateProfileLoading,
               error: candidateProfileError,
               onCreateProfile: startCandidateFlow,
+              onCreateDetailedProfile: goToCandidateDetailedProfileRecord,
               onEditProfile: goToCandidateProfileEdit,
               onBrowseJobs: goToJobsOverview,
             }}

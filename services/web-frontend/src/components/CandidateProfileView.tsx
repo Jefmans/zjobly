@@ -11,6 +11,7 @@ type Props = {
   loading: boolean;
   error: string | null;
   onCreateProfile: () => void;
+  onCreateDetailedProfile: () => void;
   onEditProfile: () => void;
   onBrowseJobs: () => void;
 };
@@ -24,6 +25,7 @@ export function CandidateProfileView({
   loading,
   error,
   onCreateProfile,
+  onCreateDetailedProfile,
   onEditProfile,
   onBrowseJobs,
 }: Props) {
@@ -104,9 +106,14 @@ export function CandidateProfileView({
                 <button type="button" className="cta secondary" onClick={onBrowseJobs}>
                   Browse jobs
                 </button>
-                <button type="button" className="cta primary" onClick={onEditProfile}>
-                  Edit profile
-                </button>
+                <div className="panel-action-right">
+                  <button type="button" className="cta secondary" onClick={onCreateDetailedProfile}>
+                    Create detailed profile
+                  </button>
+                  <button type="button" className="cta primary" onClick={onEditProfile}>
+                    Edit profile
+                  </button>
+                </div>
               </div>
             </div>
 
