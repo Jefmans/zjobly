@@ -15,14 +15,20 @@
   .candidate-select-panel .video-preview,
   .candidate-select-panel .take-list,
   .candidate-select-panel .panel-actions,
-  .candidate-select-panel .panel-action-right {
+  .candidate-select-panel .panel-action-right,
+  .profile-review-panel,
+  .profile-review-panel .review-grid,
+  .profile-review-panel .panel-actions,
+  .profile-review-panel .panel-action-right {
     width: 100%;
     max-width: 100%;
     min-width: 0;
   }
 
   .candidate-select-panel .panel-header,
-  .candidate-select-panel .panel-actions.split {
+  .candidate-select-panel .panel-actions.split,
+  .profile-review-panel .panel-actions.split,
+  .profile-review-panel .review-block-header {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
@@ -32,7 +38,10 @@
   .candidate-select-panel .panel-header > .ghost,
   .candidate-select-panel .panel-actions.split > .ghost,
   .candidate-select-panel .panel-action-right,
-  .candidate-select-panel .panel-action-right > * {
+  .candidate-select-panel .panel-action-right > *,
+  .profile-review-panel .panel-actions.split > .ghost,
+  .profile-review-panel .panel-action-right,
+  .profile-review-panel .panel-action-right > * {
     width: 100%;
     margin-left: 0;
     justify-content: stretch;
@@ -46,13 +55,22 @@
   .candidate-select-panel .take-card-top,
   .candidate-select-panel .take-label,
   .candidate-select-panel .checkbox-field .toggle,
-  .candidate-select-panel .toggle-copy {
+  .candidate-select-panel .toggle-copy,
+  .profile-review-panel .review-grid,
+  .profile-review-panel .review-choice,
+  .profile-review-panel .review-video-choice {
     min-width: 0;
   }
 
   .candidate-select-panel .take-card-top,
-  .candidate-select-panel .take-label {
+  .candidate-select-panel .take-label,
+  .profile-review-panel .review-choice,
+  .profile-review-panel .review-video-choice {
     flex-wrap: wrap;
+  }
+
+  .profile-review-panel .review-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -264,14 +282,20 @@
   .candidate-select-panel .video-preview,
   .candidate-select-panel .take-list,
   .candidate-select-panel .panel-actions,
-  .candidate-select-panel .panel-action-right {
+  .candidate-select-panel .panel-action-right,
+  .profile-review-panel,
+  .profile-review-panel .review-grid,
+  .profile-review-panel .panel-actions,
+  .profile-review-panel .panel-action-right {
     width: 100%;
     max-width: 100%;
     min-width: 0;
   }
 
   .candidate-select-panel .panel-header,
-  .candidate-select-panel .panel-actions.split {
+  .candidate-select-panel .panel-actions.split,
+  .profile-review-panel .panel-actions.split,
+  .profile-review-panel .review-block-header {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
@@ -281,7 +305,10 @@
   .candidate-select-panel .panel-header > .ghost,
   .candidate-select-panel .panel-actions.split > .ghost,
   .candidate-select-panel .panel-action-right,
-  .candidate-select-panel .panel-action-right > * {
+  .candidate-select-panel .panel-action-right > *,
+  .profile-review-panel .panel-actions.split > .ghost,
+  .profile-review-panel .panel-action-right,
+  .profile-review-panel .panel-action-right > * {
     width: 100%;
     margin-left: 0;
     justify-content: stretch;
@@ -291,12 +318,21 @@
   .take-card-top,
   .take-label,
   .checkbox-field .toggle,
-  .toggle-copy {
+  .toggle-copy,
+  .profile-review-panel .review-grid,
+  .profile-review-panel .review-choice,
+  .profile-review-panel .review-video-choice {
     min-width: 0;
   }
 
-  .take-card-top {
+  .take-card-top,
+  .profile-review-panel .review-choice,
+  .profile-review-panel .review-video-choice {
     flex-wrap: wrap;
+  }
+
+  .profile-review-panel .review-grid {
+    grid-template-columns: 1fr;
   }
 
   .checkbox-field .toggle {

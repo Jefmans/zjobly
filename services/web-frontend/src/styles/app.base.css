@@ -2058,6 +2058,86 @@ button[type='submit']:disabled {
   word-break: break-word;
 }
 
+.profile-review-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.review-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.review-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.review-block-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.review-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.review-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.review-keyword-chips {
+  min-height: 2.4rem;
+}
+
+.keyword-chip.keyword-chip-move {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+}
+
+.keyword-chip.keyword-chip-move:hover {
+  border-color: #94a3b8;
+}
+
+.review-video-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.review-video-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
 .auth-overlay-card .auth-form {
   min-width: 0;
 }

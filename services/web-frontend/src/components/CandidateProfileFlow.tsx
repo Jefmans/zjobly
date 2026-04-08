@@ -2,7 +2,19 @@ import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from 
 import { formatDuration } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
-import { CandidateProfileInput, CandidateStep, RecordedTake, RecordingState, Status, ViewMode } from "../types";
+import {
+  CandidateProfileInput,
+  CandidateReviewChoice,
+  CandidateReviewEditable,
+  CandidateReviewField,
+  CandidateReviewSide,
+  CandidateReviewVideoChoice,
+  CandidateStep,
+  RecordedTake,
+  RecordingState,
+  Status,
+  ViewMode,
+} from "../types";
 
 type Props = {
   view: ViewMode;
@@ -43,6 +55,22 @@ type Props = {
   canSaveProfile: boolean;
   showValidation: boolean;
   onViewJobs: () => void;
+  reviewCurrent: CandidateReviewEditable | null;
+  reviewNew: CandidateReviewEditable | null;
+  reviewChoices: Record<CandidateReviewField, CandidateReviewChoice>;
+  reviewVideoChoice: CandidateReviewVideoChoice;
+  reviewCurrentVideoUrl: string | null;
+  reviewCurrentVideoObjectKey: string | null;
+  reviewNewVideoUrl: string | null;
+  onReviewTextChange: (
+    side: CandidateReviewSide,
+    field: "headline" | "location" | "summary",
+    value: string,
+  ) => void;
+  onReviewChoiceChange: (field: CandidateReviewField, choice: CandidateReviewChoice) => void;
+  onReviewVideoChoiceChange: (choice: CandidateReviewVideoChoice) => void;
+  onReviewMoveKeyword: (from: CandidateReviewSide, keyword: string) => void;
+  onApplyReview: () => void;
 };
 
 export function CandidateProfileFlow({
@@ -84,6 +112,18 @@ export function CandidateProfileFlow({
   canSaveProfile,
   showValidation,
   onViewJobs,
+  reviewCurrent,
+  reviewNew,
+  reviewChoices,
+  reviewVideoChoice,
+  reviewCurrentVideoUrl,
+  reviewCurrentVideoObjectKey,
+  reviewNewVideoUrl,
+  onReviewTextChange,
+  onReviewChoiceChange,
+  onReviewVideoChoiceChange,
+  onReviewMoveKeyword,
+  onApplyReview,
 }: Props) {
   if (view !== "find") return null;
 
@@ -136,6 +176,8 @@ export function CandidateProfileFlow({
       ? "How it works"
       : candidateStep === "select"
       ? "Select video"
+      : candidateStep === "review"
+      ? "Review profile update"
       : candidateStep === "profile"
       ? "Profile detail"
       : "Record before you browse";
@@ -144,6 +186,8 @@ export function CandidateProfileFlow({
       ? ""
       : candidateStep === "select"
       ? "Pick your best take."
+      : candidateStep === "review"
+      ? "Compare current and new details, then keep what you want."
       : candidateStep === "record"
       ? "Record a short intro video."
       : "";
@@ -275,6 +319,73 @@ export function CandidateProfileFlow({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [questionCountdown, recordingState, resumeRecording, startRecording]);
+
+  const renderReviewTextField = (
+    field: "headline" | "location" | "summary",
+    label: string,
+    multiline: boolean,
+  ) => {
+    if (!reviewCurrent || !reviewNew) return null;
+    const choiceName = `review-choice-${field}`;
+    const currentValue = reviewCurrent[field];
+    const newValue = reviewNew[field];
+    return (
+      <div className="review-block">
+        <div className="review-block-header">
+          <h2>{label}</h2>
+          <div className="review-choice">
+            <label>
+              <input
+                type="radio"
+                name={choiceName}
+                checked={reviewChoices[field] === "current"}
+                onChange={() => onReviewChoiceChange(field, "current")}
+              />
+              Keep current
+            </label>
+            <label>
+              <input
+                type="radio"
+                name={choiceName}
+                checked={reviewChoices[field] === "new"}
+                onChange={() => onReviewChoiceChange(field, "new")}
+              />
+              Keep new
+            </label>
+          </div>
+        </div>
+        <div className="review-grid">
+          <div className="field">
+            <label>Current</label>
+            {multiline ? (
+              <textarea
+                rows={5}
+                value={currentValue}
+                onChange={(event) => onReviewTextChange("current", field, event.target.value)}
+              />
+            ) : (
+              <input
+                value={currentValue}
+                onChange={(event) => onReviewTextChange("current", field, event.target.value)}
+              />
+            )}
+          </div>
+          <div className="field">
+            <label>New</label>
+            {multiline ? (
+              <textarea
+                rows={5}
+                value={newValue}
+                onChange={(event) => onReviewTextChange("new", field, event.target.value)}
+              />
+            ) : (
+              <input value={newValue} onChange={(event) => onReviewTextChange("new", field, event.target.value)} />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -753,6 +864,184 @@ export function CandidateProfileFlow({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {candidateStep === "review" && (
+            <div className="panel profile-review-panel">
+              {reviewCurrent && reviewNew ? (
+                <>
+                  <div className="panel-header">
+                    <div>
+                      <h2>Current vs New</h2>
+                      <p className="hint">Edit either side, then choose what to keep for each field.</p>
+                    </div>
+                  </div>
+
+                  {renderReviewTextField("headline", "Headline", false)}
+                  {renderReviewTextField("location", "Location", false)}
+                  {renderReviewTextField("summary", "Summary", true)}
+
+                  <div className="review-block">
+                    <div className="review-block-header">
+                      <h2>Keywords</h2>
+                      <div className="review-choice">
+                        <label>
+                          <input
+                            type="radio"
+                            name="review-choice-keywords"
+                            checked={reviewChoices.keywords === "current"}
+                            onChange={() => onReviewChoiceChange("keywords", "current")}
+                          />
+                          Keep current
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="review-choice-keywords"
+                            checked={reviewChoices.keywords === "new"}
+                            onChange={() => onReviewChoiceChange("keywords", "new")}
+                          />
+                          Keep new
+                        </label>
+                      </div>
+                    </div>
+                    <div className="review-grid">
+                      <div className="field">
+                        <label>Current</label>
+                        <div className="keyword-chips review-keyword-chips">
+                          {reviewCurrent.keywords.length > 0 ? (
+                            reviewCurrent.keywords.map((keyword) => (
+                              <button
+                                key={`review-current-keyword-${keyword}`}
+                                type="button"
+                                className="keyword-chip keyword-chip-move"
+                                onClick={() => onReviewMoveKeyword("current", keyword)}
+                                title="Move to New"
+                              >
+                                {keyword} &rarr;
+                              </button>
+                            ))
+                          ) : (
+                            <p className="hint">No current keywords.</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label>New</label>
+                        <div className="keyword-chips review-keyword-chips">
+                          {reviewNew.keywords.length > 0 ? (
+                            reviewNew.keywords.map((keyword) => (
+                              <button
+                                key={`review-new-keyword-${keyword}`}
+                                type="button"
+                                className="keyword-chip keyword-chip-move"
+                                onClick={() => onReviewMoveKeyword("new", keyword)}
+                                title="Move to Current"
+                              >
+                                &larr; {keyword}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="hint">No new keywords.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="review-block">
+                    <div className="review-block-header">
+                      <h2>Video</h2>
+                    </div>
+                    <div className="review-grid">
+                      <div className="video-preview">
+                        <p className="preview-label">Current video</p>
+                        {reviewCurrentVideoUrl ? (
+                          <video src={reviewCurrentVideoUrl} className="playback-video" controls playsInline />
+                        ) : (
+                          <div className="video-preview-placeholder">
+                            <p className="hint">No current video.</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="video-preview">
+                        <p className="preview-label">New video</p>
+                        {reviewNewVideoUrl ? (
+                          <video
+                            key={reviewNewVideoUrl}
+                            src={reviewNewVideoUrl}
+                            className="playback-video"
+                            controls
+                            playsInline
+                          />
+                        ) : (
+                          <div className="video-preview-placeholder">
+                            <p className="hint">No new video available.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="review-video-choice">
+                      <label>
+                        <input
+                          type="radio"
+                          name="review-video-choice"
+                          checked={reviewVideoChoice === "current"}
+                          onChange={() => onReviewVideoChoiceChange("current")}
+                          disabled={!reviewCurrentVideoObjectKey}
+                        />
+                        Keep current video
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="review-video-choice"
+                          checked={reviewVideoChoice === "new"}
+                          onChange={() => onReviewVideoChoiceChange("new")}
+                        />
+                        Keep new video
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="review-video-choice"
+                          checked={reviewVideoChoice === "both"}
+                          onChange={() => onReviewVideoChoiceChange("both")}
+                        />
+                        Keep both (new active)
+                      </label>
+                    </div>
+                  </div>
+
+                  {error && <div className="error">{error}</div>}
+
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                      Back to select video
+                    </button>
+                    <div className="panel-action-right">
+                      <button
+                        type="button"
+                        className="cta primary"
+                        onClick={onApplyReview}
+                        disabled={profileSaving}
+                      >
+                        {profileSaving ? "Saving..." : "Save profile update"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="hint">No review data available. Go back to select video and continue again.</p>
+                  <div className="panel-actions split">
+                    <button type="button" className="ghost" onClick={() => goToStep("select")}>
+                      Back to select video
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </form>

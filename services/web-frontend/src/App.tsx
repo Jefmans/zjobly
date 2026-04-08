@@ -70,9 +70,14 @@ import {
 import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
 import {
   AuthUser,
-  CandidateStep,
+  CandidateReviewChoice,
+  CandidateReviewEditable,
+  CandidateReviewField,
+  CandidateReviewSide,
+  CandidateReviewVideoChoice,
   CandidateProfile,
   CandidateProfileInput,
+  CandidateStep,
   CandidateDev,
   CandidateInvitation,
   CompanyDev,
@@ -130,7 +135,7 @@ const VIEW_MODES: ViewMode[] = [
   'adminConfig',
 ];
 const CREATE_STEPS: CreateStep[] = ['record', 'select', 'details'];
-const CANDIDATE_STEPS: CandidateStep[] = ['intro', 'record', 'select', 'profile'];
+const CANDIDATE_STEPS: CandidateStep[] = ['intro', 'record', 'select', 'review', 'profile'];
 
 const isViewMode = (value: unknown): value is ViewMode =>
   typeof value === 'string' && VIEW_MODES.includes(value as ViewMode);
@@ -140,6 +145,15 @@ const isCreateStep = (value: unknown): value is CreateStep =>
 
 const isCandidateStep = (value: unknown): value is CandidateStep =>
   typeof value === 'string' && CANDIDATE_STEPS.includes(value as CandidateStep);
+
+type CandidateReviewFieldChoices = Record<CandidateReviewField, CandidateReviewChoice>;
+
+const DEFAULT_CANDIDATE_REVIEW_CHOICES: CandidateReviewFieldChoices = {
+  headline: 'new',
+  location: 'new',
+  summary: 'new',
+  keywords: 'new',
+};
 
 function App() {
   const [view, setView] = useState<ViewMode>('welcome');
@@ -226,6 +240,17 @@ function App() {
   const [autoTranscriptSessionId, setAutoTranscriptSessionId] = useState<string | null>(null);
   const [candidateTranscript, setCandidateTranscript] = useState<string>('');
   const [candidateTranscriptStatus, setCandidateTranscriptStatus] = useState<'pending' | 'final' | undefined>(undefined);
+  const [candidateReviewCurrent, setCandidateReviewCurrent] = useState<CandidateReviewEditable | null>(null);
+  const [candidateReviewNew, setCandidateReviewNew] = useState<CandidateReviewEditable | null>(null);
+  const [candidateReviewChoices, setCandidateReviewChoices] = useState<CandidateReviewFieldChoices>(
+    DEFAULT_CANDIDATE_REVIEW_CHOICES,
+  );
+  const [candidateReviewVideoChoice, setCandidateReviewVideoChoice] =
+    useState<CandidateReviewVideoChoice>('new');
+  const [candidateReviewCurrentVideoUrl, setCandidateReviewCurrentVideoUrl] = useState<string | null>(null);
+  const [candidateReviewCurrentVideoObjectKey, setCandidateReviewCurrentVideoObjectKey] = useState<string | null>(
+    null,
+  );
   const [devUserId, setDevUserId] = useState<string>(() => getStoredUserId());
   const [devCompanies, setDevCompanies] = useState<CompanyDev[]>([]);
   const [devCompaniesLoading, setDevCompaniesLoading] = useState(false);
@@ -540,6 +565,15 @@ function App() {
     setView('welcome');
   }, [authLoading, canSeeAdminConfigButton, view]);
 
+  const resetCandidateReview = () => {
+    setCandidateReviewCurrent(null);
+    setCandidateReviewNew(null);
+    setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
+    setCandidateReviewVideoChoice('new');
+    setCandidateReviewCurrentVideoUrl(null);
+    setCandidateReviewCurrentVideoObjectKey(null);
+  };
+
   const resetCandidateFlow = (initialStep: CandidateStep = 'record') => {
     clearVideoSelection();
     clearRecordedTakes();
@@ -561,6 +595,7 @@ function App() {
     setProcessingMessage(null);
     setError(null);
     setCandidatePostAuthOverlay(false);
+    resetCandidateReview();
     candidateProfileDraftHandledTranscriptRef.current = null;
     candidateLocationHandledTranscriptRef.current = null;
     candidateProfileEditedRef.current = { headline: false, location: false, summary: false };
@@ -1290,7 +1325,7 @@ function App() {
     setRoleAndView('candidate', 'find', { candidateStep: 'intro' });
   };
 
-  const primeCandidateProfileFromTranscript = useCallback(async (transcript: string) => {
+  const buildCandidateDraftFromTranscript = useCallback(async (transcript: string) => {
     const text = transcript.trim().slice(0, 8000);
     if (!text) return null;
     const prefill: {
@@ -1308,18 +1343,6 @@ function App() {
     if (profileDraftResult.status === 'fulfilled') {
       const profileDraft = profileDraftResult.value;
       const normalizedKeywords = normalizeKeywords(profileDraft.keywords);
-      setCandidateProfile((prev) => {
-        const next = { ...prev };
-        if (!candidateProfileEditedRef.current.headline && !(prev.headline || '').trim()) {
-          next.headline = profileDraft.headline || prev.headline;
-        }
-        if (!candidateProfileEditedRef.current.summary && !(prev.summary || '').trim()) {
-          next.summary = profileDraft.summary || prev.summary;
-        }
-        return next;
-      });
-      setCandidateKeywords(normalizedKeywords);
-      candidateProfileDraftHandledTranscriptRef.current = text;
       prefill.headline = profileDraft.headline || '';
       prefill.summary = profileDraft.summary || '';
       prefill.keywords = normalizedKeywords;
@@ -1329,14 +1352,6 @@ function App() {
 
     if (locationResult.status === 'fulfilled') {
       const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
-      if (suggestion) {
-        setCandidateProfile((prev) => {
-          if (candidateProfileEditedRef.current.location) return prev;
-          if ((prev.location || '').trim()) return prev;
-          return { ...prev, location: suggestion };
-        });
-      }
-      candidateLocationHandledTranscriptRef.current = text;
       prefill.location = suggestion || '';
     } else {
       console.error('Candidate location prefill failed', locationResult.reason);
@@ -1748,9 +1763,7 @@ function App() {
         const draft = await generateJobDraftFromVideo(objectKey);
         const transcript = (draft?.transcript || '').trim();
         if (transcript) {
-          if (requiresAuth) {
-            transcriptPrefill = await primeCandidateProfileFromTranscript(transcript);
-          }
+          transcriptPrefill = await buildCandidateDraftFromTranscript(transcript);
           setCandidateTranscript(transcript);
           setCandidateTranscriptStatus('final');
         } else {
@@ -1761,6 +1774,65 @@ function App() {
         setCandidateTranscriptStatus(undefined);
       }
       setCandidateValidation(false);
+      let existingProfile: CandidateProfile | null = candidateProfileDetails;
+      let hasExistingProfile = candidateProfileExists;
+      if (!requiresAuth && !hasExistingProfile && canUseAuthenticatedApi) {
+        try {
+          const fetchedProfile = await getCandidateProfile();
+          if (fetchedProfile) {
+            existingProfile = fetchedProfile;
+            hasExistingProfile = true;
+            setCandidateProfileDetails(fetchedProfile);
+            setCandidateProfileExists(true);
+          }
+        } catch (err) {
+          console.error('Could not load current profile before review', err);
+        }
+      }
+      const shouldOpenReviewUpdate = !requiresAuth && hasExistingProfile;
+      if (shouldOpenReviewUpdate) {
+        const currentHeadline = (existingProfile?.headline ?? candidateProfile.headline ?? '')
+          .toString()
+          .trim();
+        const currentLocation = (existingProfile?.location ?? candidateProfile.location ?? '')
+          .toString()
+          .trim();
+        const currentSummary = (existingProfile?.summary ?? candidateProfile.summary ?? '')
+          .toString()
+          .trim();
+        const currentKeywords = normalizeKeywords(
+          existingProfile?.keywords?.length ? existingProfile.keywords : candidateKeywords,
+        );
+        const draftHeadline = (transcriptPrefill?.headline ?? currentHeadline).toString().trim();
+        const draftLocation = (transcriptPrefill?.location ?? currentLocation).toString().trim();
+        const draftSummary = (transcriptPrefill?.summary ?? currentSummary).toString().trim();
+        const draftKeywords = normalizeKeywords(
+          transcriptPrefill?.keywords?.length ? transcriptPrefill.keywords : currentKeywords,
+        );
+
+        setCandidateReviewCurrent({
+          headline: currentHeadline,
+          location: currentLocation,
+          summary: currentSummary,
+          keywords: currentKeywords,
+        });
+        setCandidateReviewNew({
+          headline: draftHeadline,
+          location: draftLocation,
+          summary: draftSummary,
+          keywords: draftKeywords,
+        });
+        setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
+        setCandidateReviewVideoChoice('new');
+        setCandidateReviewCurrentVideoUrl(existingProfile?.playback_url || null);
+        setCandidateReviewCurrentVideoObjectKey(existingProfile?.video_object_key ?? null);
+        setCandidateStep('review');
+        if (role !== 'candidate') {
+          persistRole('candidate');
+        }
+        setView('find');
+        return;
+      }
       if (requiresAuth) {
         const resolvedHeadline = (transcriptPrefill?.headline ?? candidateProfile.headline ?? '').toString().trim();
         const resolvedLocation = (transcriptPrefill?.location ?? candidateProfile.location ?? '').toString().trim();
@@ -1884,6 +1956,127 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Could not save your profile.');
+    } finally {
+      setCandidateProfileSaving(false);
+    }
+  };
+
+  const handleCandidateReviewTextChange = (
+    side: CandidateReviewSide,
+    field: 'headline' | 'location' | 'summary',
+    value: string,
+  ) => {
+    if (side === 'current') {
+      setCandidateReviewCurrent((prev) => (prev ? { ...prev, [field]: value } : prev));
+      return;
+    }
+    setCandidateReviewNew((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const handleCandidateReviewChoiceChange = (field: CandidateReviewField, choice: CandidateReviewChoice) => {
+    setCandidateReviewChoices((prev) => ({ ...prev, [field]: choice }));
+  };
+
+  const moveCandidateReviewKeyword = (from: CandidateReviewSide, keyword: string) => {
+    const value = (keyword || '').trim();
+    if (!value) return;
+    if (from === 'current') {
+      setCandidateReviewCurrent((prev) => {
+        if (!prev) return prev;
+        return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
+      });
+      setCandidateReviewNew((prev) => {
+        if (!prev) return prev;
+        return { ...prev, keywords: normalizeKeywords([...prev.keywords, value]) };
+      });
+      return;
+    }
+    setCandidateReviewNew((prev) => {
+      if (!prev) return prev;
+      return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
+    });
+    setCandidateReviewCurrent((prev) => {
+      if (!prev) return prev;
+      return { ...prev, keywords: normalizeKeywords([...prev.keywords, value]) };
+    });
+  };
+
+  const applyCandidateReviewUpdate = async () => {
+    setError(null);
+    if (!candidateReviewCurrent || !candidateReviewNew) {
+      setError('Review data is missing. Please go back to Select video and continue again.');
+      setCandidateStep('select');
+      return;
+    }
+
+    const pickText = (field: 'headline' | 'location' | 'summary') =>
+      (candidateReviewChoices[field] === 'current'
+        ? candidateReviewCurrent[field]
+        : candidateReviewNew[field]
+      )
+        .toString()
+        .trim();
+    const selectedKeywords = normalizeKeywords(
+      candidateReviewChoices.keywords === 'current'
+        ? candidateReviewCurrent.keywords
+        : candidateReviewNew.keywords,
+    );
+
+    const currentVideoKey =
+      candidateReviewCurrentVideoObjectKey || candidateProfileDetails?.video_object_key || null;
+    const newVideoKey = candidateVideoObjectKey || null;
+    const resolvedVideoObjectKey =
+      candidateReviewVideoChoice === 'current'
+        ? currentVideoKey || newVideoKey
+        : newVideoKey || currentVideoKey;
+
+    if (!resolvedVideoObjectKey) {
+      setError('Choose a video before saving your profile update.');
+      return;
+    }
+
+    const canContinue = await ensureAuthenticated({
+      title: 'Sign in to apply profile update',
+      message: 'Sign in before applying your reviewed profile update.',
+      mode: 'login',
+    });
+    if (!canContinue) return;
+
+    setCandidateProfileSaving(true);
+    try {
+      const savedProfile = await upsertCandidateProfile({
+        headline: pickText('headline') || null,
+        location: pickText('location') || null,
+        location_id: candidateProfile.location_id ?? null,
+        summary: pickText('summary') || null,
+        keywords: selectedKeywords.length ? selectedKeywords : null,
+        video_object_key: resolvedVideoObjectKey,
+        discoverable: Boolean(candidateProfile.discoverable),
+      });
+      setCandidateProfileDetails(savedProfile ?? null);
+      setCandidateProfileExists(Boolean(savedProfile));
+      if (savedProfile) {
+        setCandidateProfile({
+          headline: savedProfile.headline ?? '',
+          location: savedProfile.location ?? '',
+          location_id: savedProfile.location_id ?? null,
+          summary: savedProfile.summary ?? '',
+          discoverable: Boolean(savedProfile.discoverable),
+        });
+        setCandidateVideoObjectKey(savedProfile.video_object_key ?? resolvedVideoObjectKey);
+        setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+      }
+      setCandidateProfileSaved(true);
+      setCandidateValidation(false);
+      resetCandidateReview();
+      setCandidateStep('profile');
+      if (role !== 'candidate') {
+        persistRole('candidate');
+      }
+      setView('profile');
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Could not save your reviewed profile update.');
     } finally {
       setCandidateProfileSaving(false);
     }
@@ -2070,7 +2263,12 @@ function App() {
   };
 
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
-  const selectedAudioSessionId = selectedTake?.audioSessionId || null;
+
+  useEffect(() => {
+    if (view !== 'find' || candidateStep !== 'review') return;
+    if (candidateReviewCurrent && candidateReviewNew) return;
+    setCandidateStep('select');
+  }, [view, candidateStep, candidateReviewCurrent, candidateReviewNew]);
 
   useEffect(() => {
     if (selectedTake?.audioSessionId) {
@@ -2135,6 +2333,7 @@ function App() {
 
   // Autofill candidate profile fields from transcript when available
   useEffect(() => {
+    if (candidateStep === 'review') return;
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
     const transcriptKey = text.slice(0, 8000);
@@ -2170,10 +2369,11 @@ function App() {
     return () => {
       draftController.abort();
     };
-  }, [candidateTranscript, candidateTranscriptStatus]);
+  }, [candidateTranscript, candidateTranscriptStatus, candidateStep]);
 
   // Geocode candidate location when transcript is ready and location is empty
   useEffect(() => {
+    if (candidateStep === 'review') return;
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
     const transcriptKey = text.slice(0, 8000);
@@ -2204,7 +2404,7 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [candidateTranscript, candidateTranscriptStatus]);
+  }, [candidateTranscript, candidateTranscriptStatus, candidateStep]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
@@ -3028,6 +3228,18 @@ function App() {
               canSaveProfile: canSaveCandidateProfile,
               showValidation: candidateValidation,
               onViewJobs: goToJobsOverview,
+              reviewCurrent: candidateReviewCurrent,
+              reviewNew: candidateReviewNew,
+              reviewChoices: candidateReviewChoices,
+              reviewVideoChoice: candidateReviewVideoChoice,
+              reviewCurrentVideoUrl: candidateReviewCurrentVideoUrl,
+              reviewCurrentVideoObjectKey,
+              reviewNewVideoUrl: videoUrl,
+              onReviewTextChange: handleCandidateReviewTextChange,
+              onReviewChoiceChange: handleCandidateReviewChoiceChange,
+              onReviewVideoChoiceChange: setCandidateReviewVideoChoice,
+              onReviewMoveKeyword: moveCandidateReviewKeyword,
+              onApplyReview: applyCandidateReviewUpdate,
             }}
             candidateProfileViewProps={{
               view,

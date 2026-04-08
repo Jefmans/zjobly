@@ -16,8 +16,20 @@ export type ViewMode =
   | 'jobMatches'
   | 'adminConfig';
 export type CreateStep = 'record' | 'select' | 'details';
-export type CandidateStep = 'intro' | 'record' | 'select' | 'profile';
+export type CandidateStep = 'intro' | 'record' | 'select' | 'review' | 'profile';
 export type UserRole = 'candidate' | 'employer';
+
+export type CandidateReviewChoice = 'current' | 'new';
+export type CandidateReviewField = 'headline' | 'location' | 'summary' | 'keywords';
+export type CandidateReviewVideoChoice = 'current' | 'new' | 'both';
+export type CandidateReviewSide = 'current' | 'new';
+
+export type CandidateReviewEditable = {
+  headline: string;
+  location: string;
+  summary: string;
+  keywords: string[];
+};
 
 export type AuthUser = {
   id: string;
