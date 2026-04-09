@@ -60,7 +60,6 @@ type Props = {
   detailedSignals: CandidateDetailedSignal[];
   onDetailedSignalValueChange: (index: number, value: string) => void;
   onProfileMoveKeyword: (from: "keep" | "remove", keyword: string) => void;
-  onEditDetailedProfile: () => void;
   onViewJobs: () => void;
   reviewCurrent: CandidateReviewEditable | null;
   reviewNew: CandidateReviewEditable | null;
@@ -126,7 +125,6 @@ export function CandidateProfileFlow({
   detailedSignals,
   onDetailedSignalValueChange,
   onProfileMoveKeyword,
-  onEditDetailedProfile,
   onViewJobs,
   reviewCurrent,
   reviewNew,
@@ -707,11 +705,6 @@ export function CandidateProfileFlow({
                   {backToVideoLabel}
                 </button>
                 <div className="panel-action-right">
-                  {isAuthenticated && isEditingProfile && (
-                    <button type="button" className="cta secondary" onClick={onEditDetailedProfile}>
-                      Edit detailed profile
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="cta primary"
@@ -908,11 +901,6 @@ export function CandidateProfileFlow({
                   {canViewJobs && !isEditingProfile && (
                     <button type="button" className="cta secondary" onClick={onViewJobs}>
                       View jobs
-                    </button>
-                  )}
-                  {isAuthenticated && isEditingProfile && (
-                    <button type="button" className="cta secondary" onClick={onEditDetailedProfile}>
-                      Edit detailed profile
                     </button>
                   )}
                   <button

@@ -3646,7 +3646,6 @@ function App() {
               detailedSignals: candidateDetailedSignalsDraft,
               onDetailedSignalValueChange: handleCandidateDetailedSignalValueChange,
               onProfileMoveKeyword: moveCandidateProfileKeyword,
-              onEditDetailedProfile: goToCandidateDetailedProfileRecord,
               onViewJobs: goToJobsOverview,
               reviewCurrent: candidateReviewCurrent,
               reviewNew: candidateReviewNew,
