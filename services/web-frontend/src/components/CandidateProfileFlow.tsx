@@ -56,6 +56,8 @@ type Props = {
   profileSaved: boolean;
   canSaveProfile: boolean;
   showValidation: boolean;
+  detailedSignals: CandidateDetailedSignal[];
+  onDetailedSignalValueChange: (index: number, value: string) => void;
   onEditDetailedProfile: () => void;
   onViewJobs: () => void;
   reviewCurrent: CandidateReviewEditable | null;
@@ -118,6 +120,8 @@ export function CandidateProfileFlow({
   profileSaved,
   canSaveProfile,
   showValidation,
+  detailedSignals,
+  onDetailedSignalValueChange,
   onEditDetailedProfile,
   onViewJobs,
   reviewCurrent,
@@ -258,6 +262,14 @@ export function CandidateProfileFlow({
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
+  const editableDetailedSignals = useMemo(
+    () =>
+      (Array.isArray(detailedSignals) ? detailedSignals : []).filter(
+        (signal): signal is CandidateDetailedSignal =>
+          Boolean(signal?.question_id && signal?.goal && signal?.value),
+      ),
+    [detailedSignals],
+  );
   const detailedSignalKey = (signal: { question_id: string; goal: string }) =>
     `${(signal.question_id || "").toString().trim().toLowerCase()}::${(signal.goal || "")
       .toString()
@@ -805,6 +817,38 @@ export function CandidateProfileFlow({
                   <p className="hint">Keywords will appear once the transcript is processed.</p>
                 )}
               </div>
+              {isAuthenticated && isEditingProfile && (
+                <div className="field">
+                  <label>Detailed profile data</label>
+                  {editableDetailedSignals.length > 0 ? (
+                    <div className="review-detail-signals">
+                      {editableDetailedSignals.map((signal, index) => (
+                        <div
+                          key={`editable-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
+                          className="review-signal-card"
+                        >
+                          <div className="review-signal-header">
+                            <span className="pill soft">{signal.goal}</span>
+                            <span className="hint">{signal.question_id}</span>
+                          </div>
+                          {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
+                          <div className="field">
+                            <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
+                            <textarea
+                              id={`detailed-signal-value-${index}`}
+                              rows={3}
+                              value={signal.value}
+                              onChange={(event) => onDetailedSignalValueChange(index, event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="hint">No detailed profile data yet. Use Build detailed profile to add it.</p>
+                  )}
+                </div>
+              )}
 
               {error && <div className="error">{error}</div>}
               {profileSaved && <div className="success">Profile saved. You can head back or refine your video.</div>}

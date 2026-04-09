@@ -1343,6 +1343,21 @@ function App() {
     setError(null);
   };
 
+  const handleCandidateDetailedSignalValueChange = (index: number, value: string) => {
+    setCandidateDetailedSignalsDraft((prev) =>
+      prev.map((signal, signalIndex) =>
+        signalIndex === index
+          ? {
+              ...signal,
+              value,
+            }
+          : signal,
+      ),
+    );
+    setCandidateProfileSaved(false);
+    setError(null);
+  };
+
   const normalizeKeywords = (keywords?: string[]): string[] => {
     const seen = new Set<string>();
     return (keywords ?? [])
@@ -3589,6 +3604,8 @@ function App() {
               profileSaved: candidateProfileSaved,
               canSaveProfile: canSaveCandidateProfile,
               showValidation: candidateValidation,
+              detailedSignals: candidateDetailedSignalsDraft,
+              onDetailedSignalValueChange: handleCandidateDetailedSignalValueChange,
               onEditDetailedProfile: goToCandidateDetailedProfileRecord,
               onViewJobs: goToJobsOverview,
               reviewCurrent: candidateReviewCurrent,
