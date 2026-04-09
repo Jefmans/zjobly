@@ -1949,9 +1949,10 @@ function App() {
         )
           .toString()
           .trim();
+        const extractedDetailedKeywords = normalizeKeywords(transcriptPrefill?.keywords);
         const draftKeywords = normalizeKeywords(
           isDetailedUpdateFlow
-            ? currentKeywords
+            ? [...currentKeywords, ...extractedDetailedKeywords]
             : transcriptPrefill?.keywords?.length
             ? transcriptPrefill.keywords
             : currentKeywords,
@@ -2013,8 +2014,9 @@ function App() {
         )
           .toString()
           .trim();
+        const extractedDetailedKeywords = normalizeKeywords(transcriptPrefill?.keywords);
         const resolvedKeywords = isDetailedUpdateFlow
-          ? currentKeywords
+          ? normalizeKeywords([...currentKeywords, ...extractedDetailedKeywords])
           : transcriptPrefill?.keywords?.length
           ? transcriptPrefill.keywords
           : candidateKeywords.length
@@ -2255,6 +2257,8 @@ function App() {
         ? candidateReviewCurrent.keywords
         : candidateProfileDetails?.keywords ?? candidateKeywords,
     );
+    const reviewedNewKeywords = normalizeKeywords(candidateReviewNew.keywords);
+    const mergedDetailedKeywords = normalizeKeywords([...preservedKeywords, ...reviewedNewKeywords]);
     const preservedLocationId = candidateProfileDetails?.location_id ?? candidateProfile.location_id ?? null;
 
     setCandidateProfileSaving(true);
@@ -2264,8 +2268,8 @@ function App() {
         location: (isDetailedUpdateFlow ? candidateReviewCurrent.location : pickText('location')) || null,
         location_id: preservedLocationId,
         summary: (isDetailedUpdateFlow ? candidateReviewCurrent.summary : pickText('summary')) || null,
-        keywords: (isDetailedUpdateFlow ? preservedKeywords : selectedKeywords).length
-          ? (isDetailedUpdateFlow ? preservedKeywords : selectedKeywords)
+        keywords: (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords).length
+          ? (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords)
           : null,
         detailed_signals: selectedDetailedSignals,
         video_object_key: resolvedVideoObjectKey,
