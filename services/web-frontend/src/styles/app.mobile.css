@@ -16,6 +16,7 @@
   .candidate-select-panel .take-list,
   .candidate-select-panel .panel-actions,
   .candidate-select-panel .panel-action-right,
+  .profile-keyword-grid,
   .profile-review-panel,
   .profile-review-panel .review-grid,
   .profile-review-panel .panel-actions,
@@ -56,6 +57,7 @@
   .candidate-select-panel .take-label,
   .candidate-select-panel .checkbox-field .toggle,
   .candidate-select-panel .toggle-copy,
+  .profile-keyword-grid,
   .profile-review-panel .review-grid,
   .profile-review-panel .review-choice,
   .profile-review-panel .review-video-choice {
@@ -69,6 +71,7 @@
     flex-wrap: wrap;
   }
 
+  .profile-keyword-grid,
   .profile-review-panel .review-grid {
     grid-template-columns: 1fr;
   }
@@ -283,6 +286,7 @@
   .candidate-select-panel .take-list,
   .candidate-select-panel .panel-actions,
   .candidate-select-panel .panel-action-right,
+  .profile-keyword-grid,
   .profile-review-panel,
   .profile-review-panel .review-grid,
   .profile-review-panel .panel-actions,
@@ -319,6 +323,7 @@
   .take-label,
   .checkbox-field .toggle,
   .toggle-copy,
+  .profile-keyword-grid,
   .profile-review-panel .review-grid,
   .profile-review-panel .review-choice,
   .profile-review-panel .review-video-choice {
@@ -331,6 +336,7 @@
     flex-wrap: wrap;
   }
 
+  .profile-keyword-grid,
   .profile-review-panel .review-grid {
     grid-template-columns: 1fr;
   }

@@ -48,6 +48,7 @@ type Props = {
   fallbackTranscriptStatus?: "pending" | "final";
   isEditingProfile: boolean;
   keywords: string[];
+  removedKeywords: string[];
   onSaveVideo: (options?: { showBlockingOverlay?: boolean }) => void | Promise<void>;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -58,6 +59,7 @@ type Props = {
   showValidation: boolean;
   detailedSignals: CandidateDetailedSignal[];
   onDetailedSignalValueChange: (index: number, value: string) => void;
+  onProfileMoveKeyword: (from: "keep" | "remove", keyword: string) => void;
   onEditDetailedProfile: () => void;
   onViewJobs: () => void;
   reviewCurrent: CandidateReviewEditable | null;
@@ -112,6 +114,7 @@ export function CandidateProfileFlow({
   fallbackTranscriptStatus,
   isEditingProfile,
   keywords,
+  removedKeywords,
   onSaveVideo,
   profile,
   onProfileChange,
@@ -122,6 +125,7 @@ export function CandidateProfileFlow({
   showValidation,
   detailedSignals,
   onDetailedSignalValueChange,
+  onProfileMoveKeyword,
   onEditDetailedProfile,
   onViewJobs,
   reviewCurrent,
@@ -805,7 +809,50 @@ export function CandidateProfileFlow({
 
               <div className="field">
                 <label>Keywords</label>
-                {keywords.length > 0 ? (
+                {isAuthenticated && isEditingProfile ? (
+                  <div className="profile-keyword-grid">
+                    <div className="field">
+                      <label>Keep</label>
+                      <div className="keyword-chips review-keyword-chips">
+                        {keywords.length > 0 ? (
+                          keywords.map((keyword) => (
+                            <button
+                              key={`profile-keep-keyword-${keyword}`}
+                              type="button"
+                              className="keyword-chip keyword-chip-move"
+                              onClick={() => onProfileMoveKeyword("keep", keyword)}
+                              title="Move to Remove"
+                            >
+                              {keyword} &rarr;
+                            </button>
+                          ))
+                        ) : (
+                          <p className="hint">No keywords to keep.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label>Remove</label>
+                      <div className="keyword-chips review-keyword-chips">
+                        {removedKeywords.length > 0 ? (
+                          removedKeywords.map((keyword) => (
+                            <button
+                              key={`profile-remove-keyword-${keyword}`}
+                              type="button"
+                              className="keyword-chip keyword-chip-move"
+                              onClick={() => onProfileMoveKeyword("remove", keyword)}
+                              title="Move back to Keep"
+                            >
+                              &larr; {keyword}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="hint">No removed keywords.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : keywords.length > 0 ? (
                   <div className="keyword-chips">
                     {keywords.map((keyword, index) => (
                       <span key={`candidate-keyword-${index}`} className="keyword-chip">

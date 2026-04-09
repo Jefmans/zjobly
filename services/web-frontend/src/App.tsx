@@ -347,6 +347,8 @@ function App() {
   const [candidateProfileError, setCandidateProfileError] = useState<string | null>(null);
   const [candidateProfileExists, setCandidateProfileExists] = useState(false);
   const [candidateKeywords, setCandidateKeywords] = useState<string[]>([]);
+  const [candidateRemovedKeywords, setCandidateRemovedKeywords] = useState<string[]>([]);
+  const [candidateKeywordsTouched, setCandidateKeywordsTouched] = useState(false);
   const [candidateVideoObjectKey, setCandidateVideoObjectKey] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -736,6 +738,8 @@ function App() {
     setCandidateProfileError(null);
     setCandidateProfileExists(false);
     setCandidateKeywords([]);
+    setCandidateRemovedKeywords([]);
+    setCandidateKeywordsTouched(false);
     setCandidateDetailedSignalsDraft([]);
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaving(false);
@@ -1224,6 +1228,8 @@ function App() {
           setCandidateProfileExists(true);
           setCandidateVideoObjectKey(profile.video_object_key ?? null);
           setCandidateKeywords(normalizeKeywords(profile.keywords));
+          setCandidateRemovedKeywords([]);
+          setCandidateKeywordsTouched(false);
           setCandidateDetailedSignalsDraft(normalizeDetailedSignals(profile.detailed_signals));
           setCandidateProfile({
             headline: profile.headline ?? '',
@@ -1237,6 +1243,8 @@ function App() {
           setCandidateProfileExists(false);
           setCandidateVideoObjectKey(null);
           setCandidateKeywords([]);
+          setCandidateRemovedKeywords([]);
+          setCandidateKeywordsTouched(false);
           setCandidateDetailedSignalsDraft([]);
         }
       } catch (err) {
@@ -1247,6 +1255,8 @@ function App() {
         setCandidateProfileExists(false);
         setCandidateVideoObjectKey(null);
         setCandidateKeywords([]);
+        setCandidateRemovedKeywords([]);
+        setCandidateKeywordsTouched(false);
         setCandidateDetailedSignalsDraft([]);
       } finally {
         if (isActive) {
@@ -1370,6 +1380,22 @@ function App() {
         return true;
       })
       .slice(0, 20);
+  };
+
+  const moveCandidateProfileKeyword = (from: 'keep' | 'remove', keyword: string) => {
+    const value = (keyword || '').toString().trim();
+    if (!value) return;
+    const normalized = value.toLowerCase();
+    if (from === 'keep') {
+      setCandidateKeywords((prev) => prev.filter((item) => item.toLowerCase() !== normalized));
+      setCandidateRemovedKeywords((prev) => normalizeKeywords([...prev, value]));
+    } else {
+      setCandidateRemovedKeywords((prev) => prev.filter((item) => item.toLowerCase() !== normalized));
+      setCandidateKeywords((prev) => normalizeKeywords([...prev, value]));
+    }
+    setCandidateKeywordsTouched(true);
+    setCandidateProfileSaved(false);
+    setError(null);
   };
 
   const applyDraft = (draft: {
@@ -1894,6 +1920,8 @@ function App() {
     if (!isDetailedUpdateFlow) {
       setCandidateVideoObjectKey(null);
       setCandidateKeywords([]);
+      setCandidateRemovedKeywords([]);
+      setCandidateKeywordsTouched(false);
     }
     setCandidateDetailedSignalsDraft([]);
     candidateProfileDraftHandledTranscriptRef.current = null;
@@ -2106,6 +2134,8 @@ function App() {
               setCandidateVideoObjectKey(savedProfile.video_object_key ?? preservedVideoObjectKey ?? null);
             }
             setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+            setCandidateRemovedKeywords([]);
+            setCandidateKeywordsTouched(false);
             setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
           }
           setCandidateProfileSaved(true);
@@ -2153,7 +2183,9 @@ function App() {
     const location = (candidateProfile.location ?? '').toString().trim();
     const summary = (candidateProfile.summary ?? '').toString().trim();
     const hasVideo = Boolean(candidateVideoObjectKey);
-    const keywords = candidateKeywords.length
+    const keywords = candidateKeywordsTouched
+      ? candidateKeywords
+      : candidateKeywords.length
       ? candidateKeywords
       : normalizeKeywords(candidateProfileDetails?.keywords);
     const videoObjectKey = candidateVideoObjectKey || candidateProfileDetails?.video_object_key || null;
@@ -2196,6 +2228,8 @@ function App() {
         });
         setCandidateVideoObjectKey(savedProfile.video_object_key ?? null);
         setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+        setCandidateRemovedKeywords([]);
+        setCandidateKeywordsTouched(false);
         setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
       }
       setCandidateProfileSaved(true);
@@ -2405,6 +2439,8 @@ function App() {
         });
         setCandidateVideoObjectKey(savedProfile.video_object_key ?? currentVideoKey ?? null);
         setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+        setCandidateRemovedKeywords([]);
+        setCandidateKeywordsTouched(false);
         setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
       }
       setCandidateProfileSaved(true);
@@ -2707,6 +2743,8 @@ function App() {
           return next;
         });
         setCandidateKeywords(normalizeKeywords(draft.keywords));
+        setCandidateRemovedKeywords([]);
+        setCandidateKeywordsTouched(false);
         candidateProfileDraftHandledTranscriptRef.current = transcriptKey;
       } catch (err) {
         if ((err as any)?.name === 'AbortError') return;
@@ -3595,7 +3633,8 @@ function App() {
               fallbackTranscript: candidateTranscript,
               fallbackTranscriptStatus: candidateTranscriptStatus,
               isEditingProfile: candidateProfileExists,
-              keywords: filteredCandidateKeywords,
+              keywords: candidateKeywords,
+              removedKeywords: candidateRemovedKeywords,
               onSaveVideo: saveCandidateVideo,
               profile: candidateProfile,
               onProfileChange: handleCandidateProfileChange,
@@ -3606,6 +3645,7 @@ function App() {
               showValidation: candidateValidation,
               detailedSignals: candidateDetailedSignalsDraft,
               onDetailedSignalValueChange: handleCandidateDetailedSignalValueChange,
+              onProfileMoveKeyword: moveCandidateProfileKeyword,
               onEditDetailedProfile: goToCandidateDetailedProfileRecord,
               onViewJobs: goToJobsOverview,
               reviewCurrent: candidateReviewCurrent,
