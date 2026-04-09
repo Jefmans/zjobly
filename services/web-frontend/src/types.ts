@@ -23,7 +23,6 @@ export type CandidateReviewChoice = 'current' | 'new';
 export type CandidateReviewField = 'headline' | 'location' | 'summary' | 'keywords';
 export type CandidateReviewVideoChoice = 'current' | 'new' | 'both';
 export type CandidateReviewSide = 'current' | 'new';
-export type CandidateReviewDetailedChoice = 'current' | 'new' | 'merge';
 
 export type CandidateDetailedSignal = {
   question_id: string;

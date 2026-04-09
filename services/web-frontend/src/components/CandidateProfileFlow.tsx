@@ -6,7 +6,6 @@ import {
   CandidateProfileInput,
   CandidateDetailedSignal,
   CandidateReviewChoice,
-  CandidateReviewDetailedChoice,
   CandidateReviewEditable,
   CandidateReviewField,
   CandidateReviewSide,
@@ -61,7 +60,6 @@ type Props = {
   reviewCurrent: CandidateReviewEditable | null;
   reviewNew: CandidateReviewEditable | null;
   reviewChoices: Record<CandidateReviewField, CandidateReviewChoice>;
-  reviewDetailedChoice: CandidateReviewDetailedChoice;
   reviewVideoChoice: CandidateReviewVideoChoice;
   reviewCurrentVideoUrl: string | null;
   reviewCurrentVideoObjectKey: string | null;
@@ -72,7 +70,6 @@ type Props = {
     value: string,
   ) => void;
   onReviewChoiceChange: (field: CandidateReviewField, choice: CandidateReviewChoice) => void;
-  onReviewDetailedChoiceChange: (choice: CandidateReviewDetailedChoice) => void;
   onReviewVideoChoiceChange: (choice: CandidateReviewVideoChoice) => void;
   onReviewMoveKeyword: (from: CandidateReviewSide, keyword: string) => void;
   onApplyReview: () => void;
@@ -121,14 +118,12 @@ export function CandidateProfileFlow({
   reviewCurrent,
   reviewNew,
   reviewChoices,
-  reviewDetailedChoice,
   reviewVideoChoice,
   reviewCurrentVideoUrl,
   reviewCurrentVideoObjectKey,
   reviewNewVideoUrl,
   onReviewTextChange,
   onReviewChoiceChange,
-  onReviewDetailedChoiceChange,
   onReviewVideoChoiceChange,
   onReviewMoveKeyword,
   onApplyReview,
@@ -251,6 +246,7 @@ export function CandidateProfileFlow({
   const showDetailedReviewSection = useGuidedQuestions;
   const reviewBackStep: CandidateStep = showDetailedReviewSection ? "record" : "select";
   const reviewBackLabel = showDetailedReviewSection ? "Back to recording" : "Back to select video";
+  const showDetailedBottomAction = canShowDetailedQuestionActions && !showDetailedAutoProcessingOverlay;
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
@@ -858,62 +854,64 @@ export function CandidateProfileFlow({
                           </div>
                         )}
                         <div
-                          className={`overlay-bottom ${isSimpleRecordingFlow ? "overlay-bottom-centered" : ""}`}
+                          className={`overlay-bottom ${
+                            isSimpleRecordingFlow || showDetailedBottomAction ? "overlay-bottom-centered" : ""
+                          }`}
                         >
-                          <div className="overlay-actions-left">
-                            {canShowDetailedQuestionActions && !showDetailedAutoProcessingOverlay && (
-                              <button
-                                type="button"
-                                className="cta primary question-cta"
-                                onClick={handleNextQuestion}
-                              >
+                          {showDetailedBottomAction ? (
+                            <div className="overlay-actions-centered">
+                              <button type="button" className="cta primary question-cta" onClick={handleNextQuestion}>
                                 {questionActionLabel}
                               </button>
-                            )}
-                          </div>
-                          <div
-                            className={`overlay-actions-right ${
-                              isSimpleRecordingFlow ? "overlay-actions-right-centered" : ""
-                            }`}
-                          >
-                            {isSimpleRecordingFlow && (
-                              <div className="record-controls record-controls-solid">
-                                <button
-                                  type="button"
-                                  className="record-control record"
-                                  onClick={handleRecordAction}
-                                  disabled={
-                                    !canRecord ||
-                                    (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
-                                  }
-                                  aria-label={recordActionLabel}
-                                >
-                                  <span className="record-icon record-icon--record" aria-hidden="true" />
-                                  <span className="record-label">{recordActionLabel}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="record-control pause"
-                                  onClick={pauseRecording}
-                                  disabled={!canPause}
-                                  aria-label="Pause"
-                                >
-                                  <span className="record-icon record-icon--pause" aria-hidden="true" />
-                                  <span className="record-label">Pause</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="record-control stop"
-                                  onClick={stopRecording}
-                                  disabled={!canStop}
-                                  aria-label="Stop"
-                                >
-                                  <span className="record-icon record-icon--stop" aria-hidden="true" />
-                                  <span className="record-label">Stop</span>
-                                </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="overlay-actions-left" />
+                              <div
+                                className={`overlay-actions-right ${
+                                  isSimpleRecordingFlow ? "overlay-actions-right-centered" : ""
+                                }`}
+                              >
+                                {isSimpleRecordingFlow && (
+                                  <div className="record-controls record-controls-solid">
+                                    <button
+                                      type="button"
+                                      className="record-control record"
+                                      onClick={handleRecordAction}
+                                      disabled={
+                                        !canRecord ||
+                                        (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
+                                      }
+                                      aria-label={recordActionLabel}
+                                    >
+                                      <span className="record-icon record-icon--record" aria-hidden="true" />
+                                      <span className="record-label">{recordActionLabel}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="record-control pause"
+                                      onClick={pauseRecording}
+                                      disabled={!canPause}
+                                      aria-label="Pause"
+                                    >
+                                      <span className="record-icon record-icon--pause" aria-hidden="true" />
+                                      <span className="record-label">Pause</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="record-control stop"
+                                      onClick={stopRecording}
+                                      disabled={!canStop}
+                                      aria-label="Stop"
+                                    >
+                                      <span className="record-icon record-icon--stop" aria-hidden="true" />
+                                      <span className="record-label">Stop</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1042,197 +1040,166 @@ export function CandidateProfileFlow({
                 <>
                   <div className="panel-header">
                     <div>
-                      <h2>{showDetailedReviewSection ? "Basic profile update" : "Current vs New"}</h2>
+                      <h2>{showDetailedReviewSection ? "Review detailed profile update" : "Current vs New"}</h2>
                       <p className="hint">
                         {showDetailedReviewSection
-                          ? "Basic fields can be updated separately from detailed goal signals."
+                          ? "Review the new detailed information. Your basic profile video and basic fields stay unchanged."
                           : "Edit either side, then choose what to keep for each field."}
                       </p>
                     </div>
                   </div>
 
-                  {renderReviewTextField("headline", "Headline", false)}
-                  {renderReviewTextField("location", "Location", false)}
-                  {renderReviewTextField("summary", "Summary", true)}
+                  {!showDetailedReviewSection && (
+                    <>
+                      {renderReviewTextField("headline", "Headline", false)}
+                      {renderReviewTextField("location", "Location", false)}
+                      {renderReviewTextField("summary", "Summary", true)}
 
-                  <div className="review-block">
-                    <div className="review-block-header">
-                      <h2>Keywords</h2>
-                      <div className="review-choice">
-                        <label>
-                          <input
-                            type="radio"
-                            name="review-choice-keywords"
-                            checked={reviewChoices.keywords === "current"}
-                            onChange={() => onReviewChoiceChange("keywords", "current")}
-                          />
-                          Keep current
-                        </label>
-                        <label>
-                          <input
-                            type="radio"
-                            name="review-choice-keywords"
-                            checked={reviewChoices.keywords === "new"}
-                            onChange={() => onReviewChoiceChange("keywords", "new")}
-                          />
-                          Keep new
-                        </label>
-                      </div>
-                    </div>
-                    <div className="review-grid">
-                      <div className="field">
-                        <label>Current</label>
-                        <div className="keyword-chips review-keyword-chips">
-                          {reviewCurrent.keywords.length > 0 ? (
-                            reviewCurrent.keywords.map((keyword) => (
-                              <button
-                                key={`review-current-keyword-${keyword}`}
-                                type="button"
-                                className="keyword-chip keyword-chip-move"
-                                onClick={() => onReviewMoveKeyword("current", keyword)}
-                                title="Move to New"
-                              >
-                                {keyword} &rarr;
-                              </button>
-                            ))
-                          ) : (
-                            <p className="hint">No current keywords.</p>
-                          )}
+                      <div className="review-block">
+                        <div className="review-block-header">
+                          <h2>Keywords</h2>
+                          <div className="review-choice">
+                            <label>
+                              <input
+                                type="radio"
+                                name="review-choice-keywords"
+                                checked={reviewChoices.keywords === "current"}
+                                onChange={() => onReviewChoiceChange("keywords", "current")}
+                              />
+                              Keep current
+                            </label>
+                            <label>
+                              <input
+                                type="radio"
+                                name="review-choice-keywords"
+                                checked={reviewChoices.keywords === "new"}
+                                onChange={() => onReviewChoiceChange("keywords", "new")}
+                              />
+                              Keep new
+                            </label>
+                          </div>
+                        </div>
+                        <div className="review-grid">
+                          <div className="field">
+                            <label>Current</label>
+                            <div className="keyword-chips review-keyword-chips">
+                              {reviewCurrent.keywords.length > 0 ? (
+                                reviewCurrent.keywords.map((keyword) => (
+                                  <button
+                                    key={`review-current-keyword-${keyword}`}
+                                    type="button"
+                                    className="keyword-chip keyword-chip-move"
+                                    onClick={() => onReviewMoveKeyword("current", keyword)}
+                                    title="Move to New"
+                                  >
+                                    {keyword} &rarr;
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="hint">No current keywords.</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="field">
+                            <label>New</label>
+                            <div className="keyword-chips review-keyword-chips">
+                              {reviewNew.keywords.length > 0 ? (
+                                reviewNew.keywords.map((keyword) => (
+                                  <button
+                                    key={`review-new-keyword-${keyword}`}
+                                    type="button"
+                                    className="keyword-chip keyword-chip-move"
+                                    onClick={() => onReviewMoveKeyword("new", keyword)}
+                                    title="Move to Current"
+                                  >
+                                    &larr; {keyword}
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="hint">No new keywords.</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="field">
-                        <label>New</label>
-                        <div className="keyword-chips review-keyword-chips">
-                          {reviewNew.keywords.length > 0 ? (
-                            reviewNew.keywords.map((keyword) => (
-                              <button
-                                key={`review-new-keyword-${keyword}`}
-                                type="button"
-                                className="keyword-chip keyword-chip-move"
-                                onClick={() => onReviewMoveKeyword("new", keyword)}
-                                title="Move to Current"
-                              >
-                                &larr; {keyword}
-                              </button>
-                            ))
-                          ) : (
-                            <p className="hint">No new keywords.</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
 
-                  {showDetailedReviewSection && (
+                  {showDetailedReviewSection ? (
                     <div className="review-block">
                       <div className="review-block-header">
-                        <h2>Detailed goal signals</h2>
-                        <div className="review-choice">
-                          <label>
-                            <input
-                              type="radio"
-                              name="review-choice-detailed-signals"
-                              checked={reviewDetailedChoice === "current"}
-                              onChange={() => onReviewDetailedChoiceChange("current")}
-                            />
-                            Keep current
-                          </label>
-                          <label>
-                            <input
-                              type="radio"
-                              name="review-choice-detailed-signals"
-                              checked={reviewDetailedChoice === "new"}
-                              onChange={() => onReviewDetailedChoiceChange("new")}
-                            />
-                            Keep new
-                          </label>
-                          <label>
-                            <input
-                              type="radio"
-                              name="review-choice-detailed-signals"
-                              checked={reviewDetailedChoice === "merge"}
-                              onChange={() => onReviewDetailedChoiceChange("merge")}
-                            />
-                            Merge both
-                          </label>
-                        </div>
+                        <h2>New detailed info</h2>
+                      </div>
+                      <div className="field">
+                        <label>Extracted from this detailed recording</label>
+                        {renderDetailedSignals("new", reviewNew.detailedSignals)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="review-block">
+                      <div className="review-block-header">
+                        <h2>Video</h2>
                       </div>
                       <div className="review-grid">
-                        <div className="field">
-                          <label>Current detailed data</label>
-                          {renderDetailedSignals("current", reviewCurrent.detailedSignals)}
+                        <div className="video-preview">
+                          <p className="preview-label">Current video</p>
+                          {reviewCurrentVideoUrl ? (
+                            <video src={reviewCurrentVideoUrl} className="playback-video" controls playsInline />
+                          ) : (
+                            <div className="video-preview-placeholder">
+                              <p className="hint">No current video.</p>
+                            </div>
+                          )}
                         </div>
-                        <div className="field">
-                          <label>New detailed data</label>
-                          {renderDetailedSignals("new", reviewNew.detailedSignals)}
+                        <div className="video-preview">
+                          <p className="preview-label">New video</p>
+                          {reviewNewVideoUrl ? (
+                            <video
+                              key={reviewNewVideoUrl}
+                              src={reviewNewVideoUrl}
+                              className="playback-video"
+                              controls
+                              playsInline
+                            />
+                          ) : (
+                            <div className="video-preview-placeholder">
+                              <p className="hint">No new video available.</p>
+                            </div>
+                          )}
                         </div>
+                      </div>
+                      <div className="review-video-choice">
+                        <label>
+                          <input
+                            type="radio"
+                            name="review-video-choice"
+                            checked={reviewVideoChoice === "current"}
+                            onChange={() => onReviewVideoChoiceChange("current")}
+                            disabled={!reviewCurrentVideoObjectKey}
+                          />
+                          Keep current video
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="review-video-choice"
+                            checked={reviewVideoChoice === "new"}
+                            onChange={() => onReviewVideoChoiceChange("new")}
+                          />
+                          Keep new video
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="review-video-choice"
+                            checked={reviewVideoChoice === "both"}
+                            onChange={() => onReviewVideoChoiceChange("both")}
+                          />
+                          Keep both (new active)
+                        </label>
                       </div>
                     </div>
                   )}
-
-                  <div className="review-block">
-                    <div className="review-block-header">
-                      <h2>Video</h2>
-                    </div>
-                    <div className="review-grid">
-                      <div className="video-preview">
-                        <p className="preview-label">Current video</p>
-                        {reviewCurrentVideoUrl ? (
-                          <video src={reviewCurrentVideoUrl} className="playback-video" controls playsInline />
-                        ) : (
-                          <div className="video-preview-placeholder">
-                            <p className="hint">No current video.</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="video-preview">
-                        <p className="preview-label">New video</p>
-                        {reviewNewVideoUrl ? (
-                          <video
-                            key={reviewNewVideoUrl}
-                            src={reviewNewVideoUrl}
-                            className="playback-video"
-                            controls
-                            playsInline
-                          />
-                        ) : (
-                          <div className="video-preview-placeholder">
-                            <p className="hint">No new video available.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="review-video-choice">
-                      <label>
-                        <input
-                          type="radio"
-                          name="review-video-choice"
-                          checked={reviewVideoChoice === "current"}
-                          onChange={() => onReviewVideoChoiceChange("current")}
-                          disabled={!reviewCurrentVideoObjectKey}
-                        />
-                        Keep current video
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="review-video-choice"
-                          checked={reviewVideoChoice === "new"}
-                          onChange={() => onReviewVideoChoiceChange("new")}
-                        />
-                        Keep new video
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="review-video-choice"
-                          checked={reviewVideoChoice === "both"}
-                          onChange={() => onReviewVideoChoiceChange("both")}
-                        />
-                        Keep both (new active)
-                      </label>
-                    </div>
-                  </div>
 
                   {error && <div className="error">{error}</div>}
 
@@ -1247,7 +1214,7 @@ export function CandidateProfileFlow({
                         onClick={onApplyReview}
                         disabled={profileSaving}
                       >
-                        {profileSaving ? "Saving..." : "Save profile update"}
+                        {profileSaving ? "Saving..." : showDetailedReviewSection ? "Apply detailed update" : "Save profile update"}
                       </button>
                     </div>
                   </div>

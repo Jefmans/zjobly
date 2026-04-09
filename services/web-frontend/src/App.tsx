@@ -73,7 +73,6 @@ import {
   AuthUser,
   CandidateDetailedSignal,
   CandidateReviewChoice,
-  CandidateReviewDetailedChoice,
   CandidateReviewEditable,
   CandidateReviewField,
   CandidateReviewSide,
@@ -157,7 +156,6 @@ const DEFAULT_CANDIDATE_REVIEW_CHOICES: CandidateReviewFieldChoices = {
   summary: 'new',
   keywords: 'new',
 };
-const DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE: CandidateReviewDetailedChoice = 'merge';
 
 type CandidateDraftFields = {
   headline?: string;
@@ -356,9 +354,6 @@ function App() {
   const [candidateDetailedSignalsDraft, setCandidateDetailedSignalsDraft] = useState<CandidateDetailedSignal[]>([]);
   const [candidateReviewChoices, setCandidateReviewChoices] = useState<CandidateReviewFieldChoices>(
     DEFAULT_CANDIDATE_REVIEW_CHOICES,
-  );
-  const [candidateReviewDetailedChoice, setCandidateReviewDetailedChoice] = useState<CandidateReviewDetailedChoice>(
-    DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE,
   );
   const [candidateReviewVideoChoice, setCandidateReviewVideoChoice] =
     useState<CandidateReviewVideoChoice>('new');
@@ -684,7 +679,6 @@ function App() {
     setCandidateReviewCurrent(null);
     setCandidateReviewNew(null);
     setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
-    setCandidateReviewDetailedChoice(DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE);
     setCandidateReviewVideoChoice('new');
     setCandidateReviewCurrentVideoUrl(null);
     setCandidateReviewCurrentVideoObjectKey(null);
@@ -1837,13 +1831,16 @@ function App() {
     if (status === 'presigning' || status === 'uploading' || status === 'confirming' || status === 'processing') {
       return;
     }
+    const isDetailedUpdateFlow = candidateDetailedMode;
     setError(null);
     setUploadProgress(null);
     clearProcessingTimer();
     setProcessingMessage(null);
-    setCandidateVideoObjectKey(null);
     setCandidateProfileSaved(false);
-    setCandidateKeywords([]);
+    if (!isDetailedUpdateFlow) {
+      setCandidateVideoObjectKey(null);
+      setCandidateKeywords([]);
+    }
     setCandidateDetailedSignalsDraft([]);
     candidateProfileDraftHandledTranscriptRef.current = null;
     candidateLocationHandledTranscriptRef.current = null;
@@ -1873,7 +1870,9 @@ function App() {
 
     try {
       const { objectKey } = await uploadTake(selectedTake, videoDuration);
-      setCandidateVideoObjectKey(objectKey);
+      if (!isDetailedUpdateFlow) {
+        setCandidateVideoObjectKey(objectKey);
+      }
       startProcessingPoll(objectKey);
       setCandidateTranscript('');
       setCandidateTranscriptStatus('pending');
@@ -1894,10 +1893,10 @@ function App() {
         console.error('Could not fetch transcript for candidate video', err);
         setCandidateTranscriptStatus(undefined);
       }
-      const detailedQuestionSet = candidateDetailedMode
+      const detailedQuestionSet = isDetailedUpdateFlow
         ? getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile)
         : null;
-      const generatedDetailedSignals = candidateDetailedMode
+      const generatedDetailedSignals = isDetailedUpdateFlow
         ? buildDetailedSignalsFromQuestions(
             detailedQuestionSet?.questions ?? [],
             transcriptPrefill,
@@ -1935,11 +1934,27 @@ function App() {
         const currentKeywords = normalizeKeywords(
           existingProfile?.keywords?.length ? existingProfile.keywords : candidateKeywords,
         );
-        const draftHeadline = (transcriptPrefill?.headline ?? currentHeadline).toString().trim();
-        const draftLocation = (transcriptPrefill?.location ?? currentLocation).toString().trim();
-        const draftSummary = (transcriptPrefill?.summary ?? currentSummary).toString().trim();
+        const draftHeadline = (
+          isDetailedUpdateFlow ? currentHeadline : transcriptPrefill?.headline ?? currentHeadline
+        )
+          .toString()
+          .trim();
+        const draftLocation = (
+          isDetailedUpdateFlow ? currentLocation : transcriptPrefill?.location ?? currentLocation
+        )
+          .toString()
+          .trim();
+        const draftSummary = (
+          isDetailedUpdateFlow ? currentSummary : transcriptPrefill?.summary ?? currentSummary
+        )
+          .toString()
+          .trim();
         const draftKeywords = normalizeKeywords(
-          transcriptPrefill?.keywords?.length ? transcriptPrefill.keywords : currentKeywords,
+          isDetailedUpdateFlow
+            ? currentKeywords
+            : transcriptPrefill?.keywords?.length
+            ? transcriptPrefill.keywords
+            : currentKeywords,
         );
         const currentDetailedSignals = normalizeDetailedSignals(existingProfile?.detailed_signals);
         const newDetailedSignals =
@@ -1961,12 +1976,12 @@ function App() {
         });
         setCandidateReviewChoices({
           ...DEFAULT_CANDIDATE_REVIEW_CHOICES,
-          location: candidateDetailedMode ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.location,
+          headline: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.headline,
+          location: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.location,
+          summary: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.summary,
+          keywords: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.keywords,
         });
-        setCandidateReviewDetailedChoice(
-          currentDetailedSignals.length > 0 ? DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE : 'new',
-        );
-        setCandidateReviewVideoChoice('new');
+        setCandidateReviewVideoChoice(isDetailedUpdateFlow ? 'current' : 'new');
         setCandidateReviewCurrentVideoUrl(existingProfile?.playback_url || null);
         setCandidateReviewCurrentVideoObjectKey(existingProfile?.video_object_key ?? null);
         setCandidateStep('review');
@@ -1977,14 +1992,35 @@ function App() {
         return;
       }
       if (requiresAuth) {
-        const resolvedHeadline = (transcriptPrefill?.headline ?? candidateProfile.headline ?? '').toString().trim();
-        const resolvedLocation = (transcriptPrefill?.location ?? candidateProfile.location ?? '').toString().trim();
-        const resolvedSummary = (transcriptPrefill?.summary ?? candidateProfile.summary ?? '').toString().trim();
-        const resolvedKeywords = transcriptPrefill?.keywords?.length
+        const currentHeadline = (existingProfile?.headline ?? candidateProfile.headline ?? '').toString().trim();
+        const currentLocation = (existingProfile?.location ?? candidateProfile.location ?? '').toString().trim();
+        const currentSummary = (existingProfile?.summary ?? candidateProfile.summary ?? '').toString().trim();
+        const currentKeywords = normalizeKeywords(
+          existingProfile?.keywords?.length ? existingProfile.keywords : candidateKeywords,
+        );
+        const resolvedHeadline = (
+          isDetailedUpdateFlow ? currentHeadline : transcriptPrefill?.headline ?? currentHeadline
+        )
+          .toString()
+          .trim();
+        const resolvedLocation = (
+          isDetailedUpdateFlow ? currentLocation : transcriptPrefill?.location ?? currentLocation
+        )
+          .toString()
+          .trim();
+        const resolvedSummary = (
+          isDetailedUpdateFlow ? currentSummary : transcriptPrefill?.summary ?? currentSummary
+        )
+          .toString()
+          .trim();
+        const resolvedKeywords = isDetailedUpdateFlow
+          ? currentKeywords
+          : transcriptPrefill?.keywords?.length
           ? transcriptPrefill.keywords
           : candidateKeywords.length
           ? candidateKeywords
           : null;
+        const preservedVideoObjectKey = existingProfile?.video_object_key ?? candidateVideoObjectKey ?? null;
         const detailedSignalsPayload = normalizeDetailedSignals(generatedDetailedSignals);
         try {
           const savedProfile = await upsertCandidateProfile({
@@ -1994,7 +2030,7 @@ function App() {
             summary: resolvedSummary || null,
             keywords: resolvedKeywords && resolvedKeywords.length ? resolvedKeywords : null,
             ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
-            video_object_key: objectKey,
+            video_object_key: isDetailedUpdateFlow ? preservedVideoObjectKey : objectKey,
             discoverable: Boolean(candidateProfile.discoverable),
           });
           setCandidateProfileDetails(savedProfile ?? null);
@@ -2007,7 +2043,11 @@ function App() {
               summary: savedProfile.summary ?? '',
               discoverable: Boolean(savedProfile.discoverable),
             });
-            setCandidateVideoObjectKey(savedProfile.video_object_key ?? objectKey);
+            if (!isDetailedUpdateFlow) {
+              setCandidateVideoObjectKey(savedProfile.video_object_key ?? objectKey);
+            } else {
+              setCandidateVideoObjectKey(savedProfile.video_object_key ?? preservedVideoObjectKey ?? null);
+            }
             setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
             setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
           }
@@ -2159,9 +2199,14 @@ function App() {
 
   const applyCandidateReviewUpdate = async () => {
     setError(null);
+    const isDetailedUpdateFlow = candidateDetailedMode;
     if (!candidateReviewCurrent || !candidateReviewNew) {
-      setError('Review data is missing. Please go back to Select video and continue again.');
-      setCandidateStep('select');
+      setError(
+        isDetailedUpdateFlow
+          ? 'Review data is missing. Please go back to recording and continue again.'
+          : 'Review data is missing. Please go back to Select video and continue again.',
+      );
+      setCandidateStep(isDetailedUpdateFlow ? 'record' : 'select');
       return;
     }
 
@@ -2177,25 +2222,23 @@ function App() {
         ? candidateReviewCurrent.keywords
         : candidateReviewNew.keywords,
     );
-    const selectedDetailedSignals =
-      candidateReviewDetailedChoice === 'current'
-        ? normalizeDetailedSignals(candidateReviewCurrent.detailedSignals)
-        : candidateReviewDetailedChoice === 'new'
-        ? normalizeDetailedSignals(candidateReviewNew.detailedSignals)
-        : mergeDetailedSignals(
-            normalizeDetailedSignals(candidateReviewCurrent.detailedSignals),
-            normalizeDetailedSignals(candidateReviewNew.detailedSignals),
-          );
+    const currentDetailedSignals = normalizeDetailedSignals(candidateReviewCurrent.detailedSignals);
+    const newDetailedSignals = normalizeDetailedSignals(candidateReviewNew.detailedSignals);
+    const selectedDetailedSignals = isDetailedUpdateFlow
+      ? mergeDetailedSignals(currentDetailedSignals, newDetailedSignals)
+      : mergeDetailedSignals(currentDetailedSignals, newDetailedSignals);
 
     const currentVideoKey =
       candidateReviewCurrentVideoObjectKey || candidateProfileDetails?.video_object_key || null;
-    const newVideoKey = candidateVideoObjectKey || null;
+    const newVideoKey = isDetailedUpdateFlow ? null : candidateVideoObjectKey || null;
     const resolvedVideoObjectKey =
-      candidateReviewVideoChoice === 'current'
+      isDetailedUpdateFlow
+        ? currentVideoKey
+        : candidateReviewVideoChoice === 'current'
         ? currentVideoKey || newVideoKey
         : newVideoKey || currentVideoKey;
 
-    if (!resolvedVideoObjectKey) {
+    if (!resolvedVideoObjectKey && !isDetailedUpdateFlow) {
       setError('Choose a video before saving your profile update.');
       return;
     }
@@ -2207,14 +2250,23 @@ function App() {
     });
     if (!canContinue) return;
 
+    const preservedKeywords = normalizeKeywords(
+      candidateReviewCurrent.keywords.length > 0
+        ? candidateReviewCurrent.keywords
+        : candidateProfileDetails?.keywords ?? candidateKeywords,
+    );
+    const preservedLocationId = candidateProfileDetails?.location_id ?? candidateProfile.location_id ?? null;
+
     setCandidateProfileSaving(true);
     try {
       const savedProfile = await upsertCandidateProfile({
-        headline: pickText('headline') || null,
-        location: pickText('location') || null,
-        location_id: candidateProfile.location_id ?? null,
-        summary: pickText('summary') || null,
-        keywords: selectedKeywords.length ? selectedKeywords : null,
+        headline: (isDetailedUpdateFlow ? candidateReviewCurrent.headline : pickText('headline')) || null,
+        location: (isDetailedUpdateFlow ? candidateReviewCurrent.location : pickText('location')) || null,
+        location_id: preservedLocationId,
+        summary: (isDetailedUpdateFlow ? candidateReviewCurrent.summary : pickText('summary')) || null,
+        keywords: (isDetailedUpdateFlow ? preservedKeywords : selectedKeywords).length
+          ? (isDetailedUpdateFlow ? preservedKeywords : selectedKeywords)
+          : null,
         detailed_signals: selectedDetailedSignals,
         video_object_key: resolvedVideoObjectKey,
         discoverable: Boolean(candidateProfile.discoverable),
@@ -2229,7 +2281,7 @@ function App() {
           summary: savedProfile.summary ?? '',
           discoverable: Boolean(savedProfile.discoverable),
         });
-        setCandidateVideoObjectKey(savedProfile.video_object_key ?? resolvedVideoObjectKey);
+        setCandidateVideoObjectKey(savedProfile.video_object_key ?? currentVideoKey ?? null);
         setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
         setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
       }
@@ -2244,7 +2296,13 @@ function App() {
       setView('profile');
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Could not save your reviewed profile update.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : isDetailedUpdateFlow
+          ? 'Could not save your detailed profile update.'
+          : 'Could not save your reviewed profile update.',
+      );
     } finally {
       setCandidateProfileSaving(false);
     }
@@ -3428,14 +3486,12 @@ function App() {
               reviewCurrent: candidateReviewCurrent,
               reviewNew: candidateReviewNew,
               reviewChoices: candidateReviewChoices,
-              reviewDetailedChoice: candidateReviewDetailedChoice,
               reviewVideoChoice: candidateReviewVideoChoice,
               reviewCurrentVideoUrl: candidateReviewCurrentVideoUrl,
               reviewCurrentVideoObjectKey: candidateReviewCurrentVideoObjectKey,
               reviewNewVideoUrl: videoUrl,
               onReviewTextChange: handleCandidateReviewTextChange,
               onReviewChoiceChange: handleCandidateReviewChoiceChange,
-              onReviewDetailedChoiceChange: setCandidateReviewDetailedChoice,
               onReviewVideoChoiceChange: setCandidateReviewVideoChoice,
               onReviewMoveKeyword: moveCandidateReviewKeyword,
               onApplyReview: applyCandidateReviewUpdate,

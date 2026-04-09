@@ -1824,6 +1824,12 @@ button[type='submit']:disabled {
   flex-wrap: wrap;
 }
 
+.overlay-actions-centered {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .pill.soft {
   background: #f1f5f9;
   border-color: #e2e8f0;
