@@ -75,7 +75,6 @@ type Props = {
   onReviewDetailedSignalValueChange: (side: CandidateReviewSide, key: string, value: string) => void;
   onReviewVideoChoiceChange: (choice: CandidateReviewVideoChoice) => void;
   onReviewMoveKeyword: (from: CandidateReviewSide, keyword: string) => void;
-  onReviewRemoveKeyword: (side: CandidateReviewSide, keyword: string) => void;
   onApplyReview: () => void;
 };
 
@@ -133,7 +132,6 @@ export function CandidateProfileFlow({
   onReviewDetailedSignalValueChange,
   onReviewVideoChoiceChange,
   onReviewMoveKeyword,
-  onReviewRemoveKeyword,
   onApplyReview,
 }: Props) {
   if (view !== "find") return null;
@@ -1259,9 +1257,15 @@ export function CandidateProfileFlow({
                             <div className="keyword-chips review-keyword-chips">
                               {reviewCurrent.keywords.length > 0 ? (
                                 reviewCurrent.keywords.map((keyword) => (
-                                  <span key={`review-detailed-current-keyword-${keyword}`} className="keyword-chip">
-                                    {keyword}
-                                  </span>
+                                  <button
+                                    key={`review-detailed-current-keyword-${keyword}`}
+                                    type="button"
+                                    className="keyword-chip keyword-chip-move"
+                                    onClick={() => onReviewMoveKeyword("current", keyword)}
+                                    title="Move to Keywords to add"
+                                  >
+                                    {keyword} &rarr;
+                                  </button>
                                 ))
                               ) : (
                                 <p className="hint">No existing keywords.</p>
@@ -1276,11 +1280,11 @@ export function CandidateProfileFlow({
                                   <button
                                     key={`review-detailed-new-keyword-${keyword}`}
                                     type="button"
-                                    className="keyword-chip keyword-chip-remove"
-                                    onClick={() => onReviewRemoveKeyword("new", keyword)}
-                                    title="Remove from add list"
+                                    className="keyword-chip keyword-chip-move"
+                                    onClick={() => onReviewMoveKeyword("new", keyword)}
+                                    title="Move to Existing keywords"
                                   >
-                                    {keyword} ×
+                                    &larr; {keyword}
                                   </button>
                                 ))
                               ) : (

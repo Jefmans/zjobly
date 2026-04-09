@@ -2282,22 +2282,6 @@ function App() {
     });
   };
 
-  const removeCandidateReviewKeyword = (side: CandidateReviewSide, keyword: string) => {
-    const value = (keyword || '').trim();
-    if (!value) return;
-    if (side === 'current') {
-      setCandidateReviewCurrent((prev) => {
-        if (!prev) return prev;
-        return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
-      });
-      return;
-    }
-    setCandidateReviewNew((prev) => {
-      if (!prev) return prev;
-      return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
-    });
-  };
-
   const applyCandidateReviewUpdate = async () => {
     setError(null);
     const isDetailedUpdateFlow = candidateDetailedMode;
@@ -3620,7 +3604,6 @@ function App() {
               onReviewDetailedSignalValueChange: handleCandidateReviewDetailedSignalValueChange,
               onReviewVideoChoiceChange: setCandidateReviewVideoChoice,
               onReviewMoveKeyword: moveCandidateReviewKeyword,
-              onReviewRemoveKeyword: removeCandidateReviewKeyword,
               onApplyReview: applyCandidateReviewUpdate,
             }}
             candidateProfileViewProps={{
