@@ -3589,6 +3589,7 @@ function App() {
               profileSaved: candidateProfileSaved,
               canSaveProfile: canSaveCandidateProfile,
               showValidation: candidateValidation,
+              onEditDetailedProfile: goToCandidateDetailedProfileRecord,
               onViewJobs: goToJobsOverview,
               reviewCurrent: candidateReviewCurrent,
               reviewNew: candidateReviewNew,
