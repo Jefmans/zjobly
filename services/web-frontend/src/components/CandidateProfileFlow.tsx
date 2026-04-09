@@ -139,10 +139,6 @@ export function CandidateProfileFlow({
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
   const introCountdownSeconds = Math.max(1, Number(runtimeConfig.video?.introCountdownSeconds) || 3);
-  const questionCountdownSeconds = Math.max(
-    1,
-    Number(runtimeConfig.video?.questionCountdownSeconds) || 3,
-  );
   const maxVideoLabel =
     formatDuration(runtimeConfig.video?.maxDurationSeconds ?? 180) ?? "3:00";
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
@@ -199,19 +195,29 @@ export function CandidateProfileFlow({
   );
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
-  const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
   const [introStartPending, setIntroStartPending] = useState(false);
+  const [detailedFlowStarted, setDetailedFlowStarted] = useState(false);
+  const [detailedAwaitingContinue, setDetailedAwaitingContinue] = useState(false);
   const hasCandidateQuestions = useGuidedQuestions && isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
       : null;
-  const canPrevCandidateQuestion = candidateQuestionIndex > 0;
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
-  const canStartCountdown = questionCountdown === null;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
-  const canShowQuestionActions = hasCandidateQuestions && questionCountdown === null && recordingState !== "idle";
+  const showDetailedIntroOverlay =
+    hasCandidateQuestions && recordingState === "idle" && !detailedFlowStarted;
+  const showDetailedQuestionPrompt =
+    hasCandidateQuestions && detailedFlowStarted && detailedAwaitingContinue && recordingState !== "recording";
+  const canShowDetailedQuestionActions =
+    hasCandidateQuestions && detailedFlowStarted && !detailedAwaitingContinue && recordingState === "recording";
+  const showDetailedPostTakeActions =
+    hasCandidateQuestions &&
+    detailedFlowStarted &&
+    !detailedAwaitingContinue &&
+    recordingState === "idle" &&
+    hasTakes;
   const isSimpleRecordingFlow = !hasCandidateQuestions;
   const showPlaybackPreviewInRecord = !isSimpleRecordingFlow && !isActiveRecording && Boolean(videoUrl);
   const hasProfileAutofillData =
@@ -233,13 +239,22 @@ export function CandidateProfileFlow({
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
-  const handlePreviousQuestion = () => {
-    if (!canPrevCandidateQuestion) return;
-    if (recordingState === "recording") {
-      pauseRecording();
+  const handleStartDetailedFlow = () => {
+    if (!hasCandidateQuestions || recordingState !== "idle") return;
+    setCandidateQuestionIndex(0);
+    setDetailedFlowStarted(true);
+    setDetailedAwaitingContinue(true);
+  };
+  const handleContinueDetailedQuestion = () => {
+    if (!hasCandidateQuestions || !detailedAwaitingContinue) return;
+    setDetailedAwaitingContinue(false);
+    if (recordingState === "paused") {
+      resumeRecording();
+      return;
     }
-    setCandidateQuestionIndex((prev) => Math.max(0, prev - 1));
-    setQuestionCountdown(questionCountdownSeconds);
+    if (recordingState === "idle") {
+      startRecording();
+    }
   };
   const handleNextQuestion = () => {
     if (!canNextCandidateQuestion) {
@@ -250,34 +265,32 @@ export function CandidateProfileFlow({
       pauseRecording();
     }
     setCandidateQuestionIndex((prev) => Math.min(candidateQuestions.length - 1, prev + 1));
-    setQuestionCountdown(questionCountdownSeconds);
+    setDetailedAwaitingContinue(true);
   };
   const handleRecordAction = () => {
-    if (!hasCandidateQuestions) {
-      if (recordingState === "idle") {
-        if (introCountdown !== null) return;
-        setIntroStartPending(false);
-        setIntroCountdown(introCountdownSeconds);
-        return;
-      }
-      recordAction();
+    if (!isSimpleRecordingFlow) return;
+    if (recordingState === "idle") {
+      if (introCountdown !== null) return;
+      setIntroStartPending(false);
+      setIntroCountdown(introCountdownSeconds);
       return;
     }
-    if (!canStartCountdown) return;
-    setQuestionCountdown(questionCountdownSeconds);
+    recordAction();
   };
 
   useEffect(() => {
     if (candidateStep !== "record") {
-      setQuestionCountdown(null);
       setIntroCountdown(null);
       setIntroStartPending(false);
+      setDetailedFlowStarted(false);
+      setDetailedAwaitingContinue(false);
       return;
     }
     setCandidateQuestionIndex(0);
-    setQuestionCountdown(null);
     setIntroCountdown(null);
     setIntroStartPending(false);
+    setDetailedFlowStarted(false);
+    setDetailedAwaitingContinue(false);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
   useEffect(() => {
     if (introCountdown === null) return;
@@ -305,23 +318,6 @@ export function CandidateProfileFlow({
     }, 1200);
     return () => window.clearTimeout(timer);
   }, [introStartPending, recordingState]);
-  useEffect(() => {
-    if (questionCountdown === null) return;
-    if (questionCountdown <= 0) {
-      setQuestionCountdown(null);
-      if (recordingState === "paused") {
-        resumeRecording();
-      } else if (recordingState === "idle") {
-        startRecording();
-      }
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setQuestionCountdown((prev) => (prev === null ? null : prev - 1));
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [questionCountdown, recordingState, resumeRecording, startRecording]);
-
   const renderReviewTextField = (
     field: "headline" | "location" | "summary",
     label: string,
@@ -665,16 +661,62 @@ export function CandidateProfileFlow({
                             <span className="record-max">/ {maxVideoLabel}</span>
                           </div>
                         </div>
-                        {hasCandidateQuestions && questionCountdown !== null && (
+                        {showDetailedIntroOverlay && (
+                          <div className="overlay-center">
+                            <div className="question-overlay">
+                              <p className="question-text">
+                                After you click Start, we begin with the first question.
+                              </p>
+                              <p className="question-label">We pause between each question.</p>
+                              <div className="question-actions">
+                                <button
+                                  type="button"
+                                  className="cta primary question-cta"
+                                  onClick={handleStartDetailedFlow}
+                                >
+                                  Start
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {showDetailedQuestionPrompt && (
                           <div className="overlay-center">
                             <div className="question-overlay">
                               <p className="question-label">
                                 Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
                               </p>
                               <p className="question-text">{candidateQuestion?.text ?? ""}</p>
-                              <div className="question-countdown">
-                                <span className="question-countdown-label">Starting in</span>
-                                <span className="question-countdown-value">{questionCountdown}</span>
+                              <div className="question-actions">
+                                <button
+                                  type="button"
+                                  className="cta primary question-cta"
+                                  onClick={handleContinueDetailedQuestion}
+                                >
+                                  Continue
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {showDetailedPostTakeActions && (
+                          <div className="overlay-center">
+                            <div className="question-overlay">
+                              <div className="question-actions">
+                                <button
+                                  type="button"
+                                  className="cta primary question-cta"
+                                  onClick={() => goToStep("select")}
+                                >
+                                  Continue
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ghost dark question-cta"
+                                  onClick={handleStartDetailedFlow}
+                                >
+                                  New take
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -721,24 +763,14 @@ export function CandidateProfileFlow({
                           className={`overlay-bottom ${isSimpleRecordingFlow ? "overlay-bottom-centered" : ""}`}
                         >
                           <div className="overlay-actions-left">
-                            {canShowQuestionActions && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="ghost dark question-cta"
-                                  onClick={handlePreviousQuestion}
-                                  disabled={!canPrevCandidateQuestion}
-                                >
-                                  Previous
-                                </button>
-                                <button
-                                  type="button"
-                                  className="cta primary question-cta"
-                                  onClick={handleNextQuestion}
-                                >
-                                  {questionActionLabel}
-                                </button>
-                              </>
+                            {canShowDetailedQuestionActions && (
+                              <button
+                                type="button"
+                                className="cta primary question-cta"
+                                onClick={handleNextQuestion}
+                              >
+                                {questionActionLabel}
+                              </button>
                             )}
                           </div>
                           <div
@@ -746,46 +778,43 @@ export function CandidateProfileFlow({
                               isSimpleRecordingFlow ? "overlay-actions-right-centered" : ""
                             }`}
                           >
-                            <div
-                              className={`record-controls ${
-                                isSimpleRecordingFlow ? "record-controls-solid" : ""
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                className="record-control record"
-                                onClick={handleRecordAction}
-                                disabled={
-                                  !canRecord ||
-                                  (hasCandidateQuestions && !canStartCountdown) ||
-                                  (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
-                                }
-                                aria-label={recordActionLabel}
-                              >
-                                <span className="record-icon record-icon--record" aria-hidden="true" />
-                                <span className="record-label">{recordActionLabel}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="record-control pause"
-                                onClick={pauseRecording}
-                                disabled={!canPause}
-                                aria-label="Pause"
-                              >
-                                <span className="record-icon record-icon--pause" aria-hidden="true" />
-                                <span className="record-label">Pause</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="record-control stop"
-                                onClick={stopRecording}
-                                disabled={!canStop}
-                                aria-label="Stop"
-                              >
-                                <span className="record-icon record-icon--stop" aria-hidden="true" />
-                                <span className="record-label">Stop</span>
-                              </button>
-                            </div>
+                            {isSimpleRecordingFlow && (
+                              <div className="record-controls record-controls-solid">
+                                <button
+                                  type="button"
+                                  className="record-control record"
+                                  onClick={handleRecordAction}
+                                  disabled={
+                                    !canRecord ||
+                                    (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
+                                  }
+                                  aria-label={recordActionLabel}
+                                >
+                                  <span className="record-icon record-icon--record" aria-hidden="true" />
+                                  <span className="record-label">{recordActionLabel}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="record-control pause"
+                                  onClick={pauseRecording}
+                                  disabled={!canPause}
+                                  aria-label="Pause"
+                                >
+                                  <span className="record-icon record-icon--pause" aria-hidden="true" />
+                                  <span className="record-label">Pause</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="record-control stop"
+                                  onClick={stopRecording}
+                                  disabled={!canStop}
+                                  aria-label="Stop"
+                                >
+                                  <span className="record-icon record-icon--stop" aria-hidden="true" />
+                                  <span className="record-label">Stop</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
