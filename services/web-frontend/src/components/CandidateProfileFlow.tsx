@@ -47,7 +47,7 @@ type Props = {
   fallbackTranscriptStatus?: "pending" | "final";
   isEditingProfile: boolean;
   keywords: string[];
-  onSaveVideo: () => void;
+  onSaveVideo: (options?: { showBlockingOverlay?: boolean }) => void | Promise<void>;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onSaveProfile: () => void;
@@ -204,6 +204,8 @@ export function CandidateProfileFlow({
   const [introStartPending, setIntroStartPending] = useState(false);
   const [detailedFlowStarted, setDetailedFlowStarted] = useState(false);
   const [detailedAwaitingContinue, setDetailedAwaitingContinue] = useState(false);
+  const [detailedAutoSavePending, setDetailedAutoSavePending] = useState(false);
+  const [detailedAutoSaveTakeCount, setDetailedAutoSaveTakeCount] = useState(0);
   const hasCandidateQuestions = useGuidedQuestions && isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
@@ -218,12 +220,10 @@ export function CandidateProfileFlow({
     hasCandidateQuestions && detailedFlowStarted && detailedAwaitingContinue && recordingState !== "recording";
   const canShowDetailedQuestionActions =
     hasCandidateQuestions && detailedFlowStarted && !detailedAwaitingContinue && recordingState === "recording";
-  const showDetailedPostTakeActions =
-    hasCandidateQuestions &&
-    detailedFlowStarted &&
-    !detailedAwaitingContinue &&
-    recordingState === "idle" &&
-    hasTakes;
+  const isCandidateProcessing =
+    status === "presigning" || status === "uploading" || status === "confirming" || status === "processing";
+  const showDetailedAutoProcessingOverlay =
+    hasCandidateQuestions && (detailedAutoSavePending || isCandidateProcessing);
   const isSimpleRecordingFlow = !hasCandidateQuestions;
   const showPlaybackPreviewInRecord = !isSimpleRecordingFlow && !isActiveRecording && Boolean(videoUrl);
   const hasProfileAutofillData =
@@ -249,6 +249,7 @@ export function CandidateProfileFlow({
     if (!hasCandidateQuestions || recordingState !== "idle") return;
     setCandidateQuestionIndex(0);
     setQuestionCountdown(null);
+    setDetailedAutoSavePending(false);
     setDetailedFlowStarted(true);
     setDetailedAwaitingContinue(true);
   };
@@ -267,6 +268,10 @@ export function CandidateProfileFlow({
   };
   const handleNextQuestion = () => {
     if (!canNextCandidateQuestion) {
+      setQuestionCountdown(null);
+      setDetailedAwaitingContinue(false);
+      setDetailedAutoSaveTakeCount(recordedTakes.length);
+      setDetailedAutoSavePending(true);
       stopRecording();
       return;
     }
@@ -295,6 +300,8 @@ export function CandidateProfileFlow({
       setIntroStartPending(false);
       setDetailedFlowStarted(false);
       setDetailedAwaitingContinue(false);
+      setDetailedAutoSavePending(false);
+      setDetailedAutoSaveTakeCount(0);
       return;
     }
     setCandidateQuestionIndex(0);
@@ -303,6 +310,8 @@ export function CandidateProfileFlow({
     setIntroStartPending(false);
     setDetailedFlowStarted(false);
     setDetailedAwaitingContinue(false);
+    setDetailedAutoSavePending(false);
+    setDetailedAutoSaveTakeCount(0);
   }, [candidateStep, candidateQuestionSet?.variant.id]);
   useEffect(() => {
     if (introCountdown === null) return;
@@ -349,6 +358,21 @@ export function CandidateProfileFlow({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [questionCountdown, recordingState, resumeRecording, startRecording]);
+  useEffect(() => {
+    if (!detailedAutoSavePending) return;
+    if (recordingState !== "idle") return;
+    if (recordedTakes.length <= detailedAutoSaveTakeCount) return;
+    setDetailedAutoSavePending(false);
+    void onSaveVideo({ showBlockingOverlay: true });
+  }, [detailedAutoSavePending, recordingState, recordedTakes.length, detailedAutoSaveTakeCount, onSaveVideo]);
+  useEffect(() => {
+    if (!hasCandidateQuestions) return;
+    if (status !== "error" || recordingState !== "idle") return;
+    setQuestionCountdown(null);
+    setDetailedAwaitingContinue(false);
+    setDetailedFlowStarted(false);
+    setDetailedAutoSavePending(false);
+  }, [hasCandidateQuestions, status, recordingState]);
   const renderReviewTextField = (
     field: "headline" | "location" | "summary",
     label: string,
@@ -746,24 +770,23 @@ export function CandidateProfileFlow({
                             </div>
                           </div>
                         )}
-                        {showDetailedPostTakeActions && (
+                        {showDetailedAutoProcessingOverlay && (
                           <div className="overlay-center">
                             <div className="question-overlay">
-                              <div className="question-actions">
-                                <button
-                                  type="button"
-                                  className="cta primary question-cta"
-                                  onClick={() => goToStep("select")}
-                                >
-                                  Continue
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ghost dark question-cta"
-                                  onClick={handleStartDetailedFlow}
-                                >
-                                  New take
-                                </button>
+                              <p className="question-label">Processing your detailed profile</p>
+                              <p className="question-text">Please wait while we process your video and profile data.</p>
+                              <div className="notice notice-with-spinner question-processing-notice">
+                                <span className="inline-spinner" aria-hidden="true" />
+                                <span>
+                                  {processingMessage ||
+                                    (status === "uploading"
+                                      ? "Uploading your video..."
+                                      : status === "confirming"
+                                      ? "Confirming your upload..."
+                                      : status === "processing"
+                                      ? "Analyzing transcript and building profile update..."
+                                      : "Preparing...")}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -810,7 +833,7 @@ export function CandidateProfileFlow({
                           className={`overlay-bottom ${isSimpleRecordingFlow ? "overlay-bottom-centered" : ""}`}
                         >
                           <div className="overlay-actions-left">
-                            {canShowDetailedQuestionActions && (
+                            {canShowDetailedQuestionActions && !showDetailedAutoProcessingOverlay && (
                               <button
                                 type="button"
                                 className="cta primary question-cta"

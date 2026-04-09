@@ -1714,7 +1714,7 @@ function App() {
     }
   };
 
-  const saveCandidateVideo = async () => {
+  const saveCandidateVideo = async (options?: { showBlockingOverlay?: boolean }) => {
     if (status === 'presigning' || status === 'uploading' || status === 'confirming' || status === 'processing') {
       return;
     }
@@ -1746,7 +1746,8 @@ function App() {
       mode: 'register',
     });
     if (!canContinue) return;
-    if (requiresAuth) {
+    const shouldShowBlockingOverlay = Boolean(options?.showBlockingOverlay) || requiresAuth;
+    if (shouldShowBlockingOverlay) {
       setCandidatePostAuthOverlay(true);
     }
 
@@ -1896,7 +1897,7 @@ function App() {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
     } finally {
-      if (requiresAuth) {
+      if (shouldShowBlockingOverlay) {
         setCandidatePostAuthOverlay(false);
       }
     }
