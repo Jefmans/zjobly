@@ -2416,7 +2416,14 @@ function App() {
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
-  const screenLabel = getScreenLabel(view, createStep, candidateStep, role, previewAuthenticated);
+  const screenLabel = getScreenLabel(
+    view,
+    createStep,
+    candidateStep,
+    role,
+    previewAuthenticated,
+    candidateDetailedMode,
+  );
   const showDevNav = SHOW_DEVELOPMENT_NAVIGATION;
   const shellClassName = [
     'app-shell',

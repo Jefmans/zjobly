@@ -161,16 +161,39 @@ export const getScreenLabel = (
   candidateStep: CandidateStep,
   role: UserRole | null,
   authenticated: boolean,
+  candidateDetailedMode = false,
 ): string => {
   let base = 'Screen:Unknown';
   if (view === 'welcome') {
     base = 'Screen:Welcome';
   } else if (view === 'find') {
-    if (candidateStep === 'intro') base = 'Screen:FindZjob/FlowIntro';
-    else if (candidateStep === 'record') base = 'Screen:FindZjob/RecordVideo';
-    else if (candidateStep === 'select') base = 'Screen:FindZjob/SelectVideo';
-    else if (candidateStep === 'review') base = 'Screen:FindZjob/ReviewUpdate';
-    else base = authenticated ? 'Screen:MyProfile/Edit' : 'Screen:FindZjob/ProfileDetail';
+    if (candidateStep === 'intro') {
+      base = authenticated && candidateDetailedMode
+        ? 'Screen:FindZjob/FlowIntroDetailed'
+        : 'Screen:FindZjob/FlowIntro';
+    } else if (candidateStep === 'record') {
+      if (authenticated) {
+        base = candidateDetailedMode
+          ? 'Screen:FindZjob/RecordVideoDetailed'
+          : 'Screen:FindZjob/RecordVideoEdit';
+      } else {
+        base = 'Screen:FindZjob/RecordVideo';
+      }
+    } else if (candidateStep === 'select') {
+      if (authenticated) {
+        base = candidateDetailedMode
+          ? 'Screen:FindZjob/SelectVideoDetailed'
+          : 'Screen:FindZjob/SelectVideoEdit';
+      } else {
+        base = 'Screen:FindZjob/SelectVideo';
+      }
+    } else if (candidateStep === 'review') {
+      base = candidateDetailedMode
+        ? 'Screen:FindZjob/ReviewUpdateDetailed'
+        : 'Screen:FindZjob/ReviewUpdate';
+    } else {
+      base = authenticated ? 'Screen:MyProfile/Edit' : 'Screen:FindZjob/ProfileDetail';
+    }
   } else if (view === 'profile') {
     base = 'Screen:MyProfile/Detail';
   } else if (view === 'apply') {
