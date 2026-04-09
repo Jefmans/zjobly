@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { formatLocationLabel } from "../helpers";
-import { CandidateProfile, ViewMode } from "../types";
+import { CandidateDetailedSignal, CandidateProfile, ViewMode } from "../types";
 
 type Props = {
   view: ViewMode;
@@ -31,6 +31,10 @@ export function CandidateProfileView({
 }: Props) {
   if (view !== "profile") return null;
   const resolvedVideoUrl = profile?.playback_url || videoUrl;
+  const detailedSignals = (profile?.detailed_signals || []).filter(
+    (signal): signal is CandidateDetailedSignal =>
+      Boolean(signal?.question_id && signal?.goal && signal?.value),
+  );
 
   return (
     <>
@@ -144,6 +148,29 @@ export function CandidateProfileView({
                 </div>
               ) : (
                 <p className="hint">No keywords available yet.</p>
+              )}
+            </div>
+
+            <div className="panel">
+              <h2>Detailed profile data</h2>
+              {detailedSignals.length > 0 ? (
+                <div className="review-detail-signals">
+                  {detailedSignals.map((signal, index) => (
+                    <div
+                      key={`profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
+                      className="review-signal-card"
+                    >
+                      <div className="review-signal-header">
+                        <span className="pill soft">{signal.goal}</span>
+                        <span className="hint">{signal.question_id}</span>
+                      </div>
+                      {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
+                      <p className="review-signal-value">{signal.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="hint">No detailed signals available yet.</p>
               )}
             </div>
           </>

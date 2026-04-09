@@ -68,9 +68,12 @@ import {
   VIEW_STORAGE_KEY,
 } from './appStateConfig';
 import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
+import { getQuestionSet, VIDEO_QUESTION_CONFIG, VideoQuestion } from './config/videoQuestions';
 import {
   AuthUser,
+  CandidateDetailedSignal,
   CandidateReviewChoice,
+  CandidateReviewDetailedChoice,
   CandidateReviewEditable,
   CandidateReviewField,
   CandidateReviewSide,
@@ -153,6 +156,113 @@ const DEFAULT_CANDIDATE_REVIEW_CHOICES: CandidateReviewFieldChoices = {
   location: 'new',
   summary: 'new',
   keywords: 'new',
+};
+const DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE: CandidateReviewDetailedChoice = 'merge';
+
+type CandidateDraftFields = {
+  headline?: string;
+  summary?: string;
+  location?: string;
+  keywords?: string[];
+};
+
+const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | undefined): CandidateDetailedSignal[] => {
+  if (!Array.isArray(signals)) return [];
+  return signals
+    .map((signal) => {
+      const questionId = (signal.question_id || '').toString().trim();
+      const goal = (signal.goal || '').toString().trim();
+      const value = (signal.value || '').toString().trim();
+      if (!questionId || !goal || !value) return null;
+      return {
+        question_id: questionId,
+        goal,
+        value,
+        question_text: signal.question_text ? signal.question_text.toString().trim() : null,
+        source: signal.source ? signal.source.toString().trim() : null,
+        confidence:
+          typeof signal.confidence === 'number' && Number.isFinite(signal.confidence)
+            ? Math.max(0, Math.min(1, signal.confidence))
+            : null,
+        updated_at: signal.updated_at ? signal.updated_at.toString() : null,
+      } as CandidateDetailedSignal;
+    })
+    .filter((signal): signal is CandidateDetailedSignal => Boolean(signal));
+};
+
+const mergeDetailedSignals = (
+  currentSignals: CandidateDetailedSignal[],
+  newSignals: CandidateDetailedSignal[],
+): CandidateDetailedSignal[] => {
+  const mergedByKey = new Map<string, CandidateDetailedSignal>();
+  [...currentSignals, ...newSignals].forEach((signal) => {
+    const key = `${signal.question_id}::${signal.goal}::${signal.value}`.toLowerCase();
+    if (!mergedByKey.has(key)) {
+      mergedByKey.set(key, signal);
+    }
+  });
+  return Array.from(mergedByKey.values());
+};
+
+const resolveSignalValue = (
+  goal: string,
+  draft: CandidateDraftFields | null,
+  transcript: string,
+): string => {
+  const normalizedGoal = goal.toLowerCase();
+  const normalizedKeywords = Array.isArray(draft?.keywords)
+    ? draft.keywords
+        .map((item) => (item || '').toString().trim())
+        .filter((item, index, list) => item.length > 0 && list.indexOf(item) === index)
+    : [];
+  if (normalizedGoal.includes('location')) {
+    return (draft?.location || '').trim();
+  }
+  if (normalizedGoal.includes('role')) {
+    return (draft?.headline || draft?.summary || '').trim();
+  }
+  if (normalizedGoal.includes('skill')) {
+    return normalizedKeywords.join(', ').trim();
+  }
+  if (normalizedGoal.includes('education')) {
+    return (draft?.summary || '').trim();
+  }
+  if (normalizedGoal.includes('preference') || normalizedGoal.includes('value')) {
+    return (draft?.summary || '').trim();
+  }
+  const fallback = (draft?.summary || '').trim();
+  if (fallback) return fallback;
+  return transcript.slice(0, 220).trim();
+};
+
+const buildDetailedSignalsFromQuestions = (
+  questions: VideoQuestion[],
+  draft: CandidateDraftFields | null,
+  transcript: string,
+): CandidateDetailedSignal[] => {
+  const now = new Date().toISOString();
+  const signals: CandidateDetailedSignal[] = [];
+  questions.forEach((question) => {
+    const questionId = (question.id || '').trim();
+    const questionText = (question.text || '').trim();
+    if (!questionId || !questionText) return;
+    const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
+    goals.forEach((goal) => {
+      const normalizedGoal = (goal || '').trim();
+      if (!normalizedGoal) return;
+      const value = resolveSignalValue(normalizedGoal, draft, transcript);
+      if (!value) return;
+      signals.push({
+        question_id: questionId,
+        goal: normalizedGoal,
+        value,
+        question_text: questionText,
+        source: 'guided-video',
+        updated_at: now,
+      });
+    });
+  });
+  return normalizeDetailedSignals(signals);
 };
 
 function App() {
@@ -243,8 +353,12 @@ function App() {
   const [candidateTranscriptStatus, setCandidateTranscriptStatus] = useState<'pending' | 'final' | undefined>(undefined);
   const [candidateReviewCurrent, setCandidateReviewCurrent] = useState<CandidateReviewEditable | null>(null);
   const [candidateReviewNew, setCandidateReviewNew] = useState<CandidateReviewEditable | null>(null);
+  const [candidateDetailedSignalsDraft, setCandidateDetailedSignalsDraft] = useState<CandidateDetailedSignal[]>([]);
   const [candidateReviewChoices, setCandidateReviewChoices] = useState<CandidateReviewFieldChoices>(
     DEFAULT_CANDIDATE_REVIEW_CHOICES,
+  );
+  const [candidateReviewDetailedChoice, setCandidateReviewDetailedChoice] = useState<CandidateReviewDetailedChoice>(
+    DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE,
   );
   const [candidateReviewVideoChoice, setCandidateReviewVideoChoice] =
     useState<CandidateReviewVideoChoice>('new');
@@ -570,6 +684,7 @@ function App() {
     setCandidateReviewCurrent(null);
     setCandidateReviewNew(null);
     setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
+    setCandidateReviewDetailedChoice(DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE);
     setCandidateReviewVideoChoice('new');
     setCandidateReviewCurrentVideoUrl(null);
     setCandidateReviewCurrentVideoObjectKey(null);
@@ -588,6 +703,7 @@ function App() {
     setCandidateProfileError(null);
     setCandidateProfileExists(false);
     setCandidateKeywords([]);
+    setCandidateDetailedSignalsDraft([]);
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaving(false);
     setCandidateProfileSaved(false);
@@ -1075,6 +1191,7 @@ function App() {
           setCandidateProfileExists(true);
           setCandidateVideoObjectKey(profile.video_object_key ?? null);
           setCandidateKeywords(normalizeKeywords(profile.keywords));
+          setCandidateDetailedSignalsDraft(normalizeDetailedSignals(profile.detailed_signals));
           setCandidateProfile({
             headline: profile.headline ?? '',
             location: profile.location ?? '',
@@ -1087,6 +1204,7 @@ function App() {
           setCandidateProfileExists(false);
           setCandidateVideoObjectKey(null);
           setCandidateKeywords([]);
+          setCandidateDetailedSignalsDraft([]);
         }
       } catch (err) {
         if (!isActive) return;
@@ -1096,6 +1214,7 @@ function App() {
         setCandidateProfileExists(false);
         setCandidateVideoObjectKey(null);
         setCandidateKeywords([]);
+        setCandidateDetailedSignalsDraft([]);
       } finally {
         if (isActive) {
           setCandidateProfileLoading(false);
@@ -1725,6 +1844,7 @@ function App() {
     setCandidateVideoObjectKey(null);
     setCandidateProfileSaved(false);
     setCandidateKeywords([]);
+    setCandidateDetailedSignalsDraft([]);
     candidateProfileDraftHandledTranscriptRef.current = null;
     candidateLocationHandledTranscriptRef.current = null;
 
@@ -1757,15 +1877,12 @@ function App() {
       startProcessingPoll(objectKey);
       setCandidateTranscript('');
       setCandidateTranscriptStatus('pending');
-      let transcriptPrefill: {
-        headline?: string;
-        summary?: string;
-        location?: string;
-        keywords?: string[];
-      } | null = null;
+      let transcriptPrefill: CandidateDraftFields | null = null;
+      let transcriptFromVideo = '';
       try {
         const draft = await generateJobDraftFromVideo(objectKey);
         const transcript = (draft?.transcript || '').trim();
+        transcriptFromVideo = transcript;
         if (transcript) {
           transcriptPrefill = await buildCandidateDraftFromTranscript(transcript);
           setCandidateTranscript(transcript);
@@ -1777,6 +1894,17 @@ function App() {
         console.error('Could not fetch transcript for candidate video', err);
         setCandidateTranscriptStatus(undefined);
       }
+      const detailedQuestionSet = candidateDetailedMode
+        ? getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile)
+        : null;
+      const generatedDetailedSignals = candidateDetailedMode
+        ? buildDetailedSignalsFromQuestions(
+            detailedQuestionSet?.questions ?? [],
+            transcriptPrefill,
+            transcriptFromVideo,
+          )
+        : [];
+      setCandidateDetailedSignalsDraft(generatedDetailedSignals);
       setCandidateValidation(false);
       let existingProfile: CandidateProfile | null = candidateProfileDetails;
       let hasExistingProfile = candidateProfileExists;
@@ -1813,20 +1941,31 @@ function App() {
         const draftKeywords = normalizeKeywords(
           transcriptPrefill?.keywords?.length ? transcriptPrefill.keywords : currentKeywords,
         );
+        const currentDetailedSignals = normalizeDetailedSignals(existingProfile?.detailed_signals);
+        const newDetailedSignals =
+          generatedDetailedSignals.length > 0 ? generatedDetailedSignals : currentDetailedSignals;
 
         setCandidateReviewCurrent({
           headline: currentHeadline,
           location: currentLocation,
           summary: currentSummary,
           keywords: currentKeywords,
+          detailedSignals: currentDetailedSignals,
         });
         setCandidateReviewNew({
           headline: draftHeadline,
           location: draftLocation,
           summary: draftSummary,
           keywords: draftKeywords,
+          detailedSignals: newDetailedSignals,
         });
-        setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
+        setCandidateReviewChoices({
+          ...DEFAULT_CANDIDATE_REVIEW_CHOICES,
+          location: candidateDetailedMode ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.location,
+        });
+        setCandidateReviewDetailedChoice(
+          currentDetailedSignals.length > 0 ? DEFAULT_CANDIDATE_REVIEW_DETAILED_CHOICE : 'new',
+        );
         setCandidateReviewVideoChoice('new');
         setCandidateReviewCurrentVideoUrl(existingProfile?.playback_url || null);
         setCandidateReviewCurrentVideoObjectKey(existingProfile?.video_object_key ?? null);
@@ -1846,6 +1985,7 @@ function App() {
           : candidateKeywords.length
           ? candidateKeywords
           : null;
+        const detailedSignalsPayload = normalizeDetailedSignals(generatedDetailedSignals);
         try {
           const savedProfile = await upsertCandidateProfile({
             headline: resolvedHeadline || null,
@@ -1853,6 +1993,7 @@ function App() {
             location_id: candidateProfile.location_id ?? null,
             summary: resolvedSummary || null,
             keywords: resolvedKeywords && resolvedKeywords.length ? resolvedKeywords : null,
+            ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
             video_object_key: objectKey,
             discoverable: Boolean(candidateProfile.discoverable),
           });
@@ -1868,6 +2009,7 @@ function App() {
             });
             setCandidateVideoObjectKey(savedProfile.video_object_key ?? objectKey);
             setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+            setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
           }
           setCandidateProfileSaved(true);
           setCandidateDetailedMode(false);
@@ -1887,6 +2029,9 @@ function App() {
           setCandidateStep('profile');
         }
       } else {
+        if (generatedDetailedSignals.length > 0) {
+          setCandidateDetailedSignalsDraft(generatedDetailedSignals);
+        }
         setCandidateDetailedMode(false);
         setCandidateStep('profile');
       }
@@ -1915,6 +2060,7 @@ function App() {
       ? candidateKeywords
       : normalizeKeywords(candidateProfileDetails?.keywords);
     const videoObjectKey = candidateVideoObjectKey || candidateProfileDetails?.video_object_key || null;
+    const detailedSignalsPayload = normalizeDetailedSignals(candidateDetailedSignalsDraft);
 
     if (!headline || !location || !summary || (!hasVideo && !candidateProfileExists)) {
       setCandidateValidation(true);
@@ -1937,6 +2083,7 @@ function App() {
         location,
         summary,
         keywords: keywords.length ? keywords : null,
+        ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
         video_object_key: videoObjectKey,
         discoverable: Boolean(candidateProfile.discoverable),
       });
@@ -1952,6 +2099,7 @@ function App() {
         });
         setCandidateVideoObjectKey(savedProfile.video_object_key ?? null);
         setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+        setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
       }
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
@@ -2029,6 +2177,15 @@ function App() {
         ? candidateReviewCurrent.keywords
         : candidateReviewNew.keywords,
     );
+    const selectedDetailedSignals =
+      candidateReviewDetailedChoice === 'current'
+        ? normalizeDetailedSignals(candidateReviewCurrent.detailedSignals)
+        : candidateReviewDetailedChoice === 'new'
+        ? normalizeDetailedSignals(candidateReviewNew.detailedSignals)
+        : mergeDetailedSignals(
+            normalizeDetailedSignals(candidateReviewCurrent.detailedSignals),
+            normalizeDetailedSignals(candidateReviewNew.detailedSignals),
+          );
 
     const currentVideoKey =
       candidateReviewCurrentVideoObjectKey || candidateProfileDetails?.video_object_key || null;
@@ -2058,6 +2215,7 @@ function App() {
         location_id: candidateProfile.location_id ?? null,
         summary: pickText('summary') || null,
         keywords: selectedKeywords.length ? selectedKeywords : null,
+        detailed_signals: selectedDetailedSignals,
         video_object_key: resolvedVideoObjectKey,
         discoverable: Boolean(candidateProfile.discoverable),
       });
@@ -2073,6 +2231,7 @@ function App() {
         });
         setCandidateVideoObjectKey(savedProfile.video_object_key ?? resolvedVideoObjectKey);
         setCandidateKeywords(normalizeKeywords(savedProfile.keywords));
+        setCandidateDetailedSignalsDraft(normalizeDetailedSignals(savedProfile.detailed_signals));
       }
       setCandidateProfileSaved(true);
       setCandidateValidation(false);
@@ -3269,12 +3428,14 @@ function App() {
               reviewCurrent: candidateReviewCurrent,
               reviewNew: candidateReviewNew,
               reviewChoices: candidateReviewChoices,
+              reviewDetailedChoice: candidateReviewDetailedChoice,
               reviewVideoChoice: candidateReviewVideoChoice,
               reviewCurrentVideoUrl: candidateReviewCurrentVideoUrl,
               reviewCurrentVideoObjectKey: candidateReviewCurrentVideoObjectKey,
               reviewNewVideoUrl: videoUrl,
               onReviewTextChange: handleCandidateReviewTextChange,
               onReviewChoiceChange: handleCandidateReviewChoiceChange,
+              onReviewDetailedChoiceChange: setCandidateReviewDetailedChoice,
               onReviewVideoChoiceChange: setCandidateReviewVideoChoice,
               onReviewMoveKeyword: moveCandidateReviewKeyword,
               onApplyReview: applyCandidateReviewUpdate,

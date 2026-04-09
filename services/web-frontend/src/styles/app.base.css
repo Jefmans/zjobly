@@ -2149,6 +2149,35 @@ button[type='submit']:disabled {
   font-size: 0.9rem;
 }
 
+.review-detail-signals {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.review-signal-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+}
+
+.review-signal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.review-signal-question {
+  margin: 0.45rem 0 0.15rem;
+}
+
+.review-signal-value {
+  margin: 0;
+  color: #0f172a;
+  white-space: pre-wrap;
+}
+
 .auth-overlay-card .auth-form {
   min-width: 0;
 }

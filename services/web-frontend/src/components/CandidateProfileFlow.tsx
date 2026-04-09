@@ -4,7 +4,9 @@ import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions"
 import { runtimeConfig } from "../config/runtimeConfig";
 import {
   CandidateProfileInput,
+  CandidateDetailedSignal,
   CandidateReviewChoice,
+  CandidateReviewDetailedChoice,
   CandidateReviewEditable,
   CandidateReviewField,
   CandidateReviewSide,
@@ -59,6 +61,7 @@ type Props = {
   reviewCurrent: CandidateReviewEditable | null;
   reviewNew: CandidateReviewEditable | null;
   reviewChoices: Record<CandidateReviewField, CandidateReviewChoice>;
+  reviewDetailedChoice: CandidateReviewDetailedChoice;
   reviewVideoChoice: CandidateReviewVideoChoice;
   reviewCurrentVideoUrl: string | null;
   reviewCurrentVideoObjectKey: string | null;
@@ -69,6 +72,7 @@ type Props = {
     value: string,
   ) => void;
   onReviewChoiceChange: (field: CandidateReviewField, choice: CandidateReviewChoice) => void;
+  onReviewDetailedChoiceChange: (choice: CandidateReviewDetailedChoice) => void;
   onReviewVideoChoiceChange: (choice: CandidateReviewVideoChoice) => void;
   onReviewMoveKeyword: (from: CandidateReviewSide, keyword: string) => void;
   onApplyReview: () => void;
@@ -117,12 +121,14 @@ export function CandidateProfileFlow({
   reviewCurrent,
   reviewNew,
   reviewChoices,
+  reviewDetailedChoice,
   reviewVideoChoice,
   reviewCurrentVideoUrl,
   reviewCurrentVideoObjectKey,
   reviewNewVideoUrl,
   onReviewTextChange,
   onReviewChoiceChange,
+  onReviewDetailedChoiceChange,
   onReviewVideoChoiceChange,
   onReviewMoveKeyword,
   onApplyReview,
@@ -242,6 +248,9 @@ export function CandidateProfileFlow({
   const showPostTakeActions = isSimpleRecordingFlow && recordingState === "idle" && hasTakes;
   const showSimpleIntroOverlay = isSimpleRecordingFlow && recordingState === "idle" && !introStartPending;
   const isDetailedIntro = candidateStep === "intro" && isAuthenticated && useGuidedQuestions;
+  const showDetailedReviewSection = useGuidedQuestions;
+  const reviewBackStep: CandidateStep = showDetailedReviewSection ? "record" : "select";
+  const reviewBackLabel = showDetailedReviewSection ? "Back to recording" : "Back to select video";
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
@@ -436,6 +445,25 @@ export function CandidateProfileFlow({
             )}
           </div>
         </div>
+      </div>
+    );
+  };
+  const renderDetailedSignals = (side: CandidateReviewSide, signals: CandidateDetailedSignal[]) => {
+    if (!signals.length) {
+      return <p className="hint">No detailed signals.</p>;
+    }
+    return (
+      <div className="review-detail-signals">
+        {signals.map((signal, index) => (
+          <div key={`review-${side}-signal-${signal.question_id}-${signal.goal}-${index}`} className="review-signal-card">
+            <div className="review-signal-header">
+              <span className="pill soft">{signal.goal}</span>
+              <span className="hint">{signal.question_id}</span>
+            </div>
+            {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
+            <p className="review-signal-value">{signal.value}</p>
+          </div>
+        ))}
       </div>
     );
   };
@@ -1014,8 +1042,12 @@ export function CandidateProfileFlow({
                 <>
                   <div className="panel-header">
                     <div>
-                      <h2>Current vs New</h2>
-                      <p className="hint">Edit either side, then choose what to keep for each field.</p>
+                      <h2>{showDetailedReviewSection ? "Basic profile update" : "Current vs New"}</h2>
+                      <p className="hint">
+                        {showDetailedReviewSection
+                          ? "Basic fields can be updated separately from detailed goal signals."
+                          : "Edit either side, then choose what to keep for each field."}
+                      </p>
                     </div>
                   </div>
 
@@ -1091,6 +1123,53 @@ export function CandidateProfileFlow({
                     </div>
                   </div>
 
+                  {showDetailedReviewSection && (
+                    <div className="review-block">
+                      <div className="review-block-header">
+                        <h2>Detailed goal signals</h2>
+                        <div className="review-choice">
+                          <label>
+                            <input
+                              type="radio"
+                              name="review-choice-detailed-signals"
+                              checked={reviewDetailedChoice === "current"}
+                              onChange={() => onReviewDetailedChoiceChange("current")}
+                            />
+                            Keep current
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="review-choice-detailed-signals"
+                              checked={reviewDetailedChoice === "new"}
+                              onChange={() => onReviewDetailedChoiceChange("new")}
+                            />
+                            Keep new
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="review-choice-detailed-signals"
+                              checked={reviewDetailedChoice === "merge"}
+                              onChange={() => onReviewDetailedChoiceChange("merge")}
+                            />
+                            Merge both
+                          </label>
+                        </div>
+                      </div>
+                      <div className="review-grid">
+                        <div className="field">
+                          <label>Current detailed data</label>
+                          {renderDetailedSignals("current", reviewCurrent.detailedSignals)}
+                        </div>
+                        <div className="field">
+                          <label>New detailed data</label>
+                          {renderDetailedSignals("new", reviewNew.detailedSignals)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="review-block">
                     <div className="review-block-header">
                       <h2>Video</h2>
@@ -1158,8 +1237,8 @@ export function CandidateProfileFlow({
                   {error && <div className="error">{error}</div>}
 
                   <div className="panel-actions split">
-                    <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                      Back to select video
+                    <button type="button" className="ghost" onClick={() => goToStep(reviewBackStep)}>
+                      {reviewBackLabel}
                     </button>
                     <div className="panel-action-right">
                       <button
@@ -1175,10 +1254,12 @@ export function CandidateProfileFlow({
                 </>
               ) : (
                 <>
-                  <p className="hint">No review data available. Go back to select video and continue again.</p>
+                  <p className="hint">
+                    No review data available. Go back and continue again.
+                  </p>
                   <div className="panel-actions split">
-                    <button type="button" className="ghost" onClick={() => goToStep("select")}>
-                      Back to select video
+                    <button type="button" className="ghost" onClick={() => goToStep(reviewBackStep)}>
+                      {reviewBackLabel}
                     </button>
                   </div>
                 </>

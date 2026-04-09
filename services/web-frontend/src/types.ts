@@ -23,12 +23,24 @@ export type CandidateReviewChoice = 'current' | 'new';
 export type CandidateReviewField = 'headline' | 'location' | 'summary' | 'keywords';
 export type CandidateReviewVideoChoice = 'current' | 'new' | 'both';
 export type CandidateReviewSide = 'current' | 'new';
+export type CandidateReviewDetailedChoice = 'current' | 'new' | 'merge';
+
+export type CandidateDetailedSignal = {
+  question_id: string;
+  goal: string;
+  value: string;
+  question_text?: string | null;
+  source?: string | null;
+  confidence?: number | null;
+  updated_at?: string | null;
+};
 
 export type CandidateReviewEditable = {
   headline: string;
   location: string;
   summary: string;
   keywords: string[];
+  detailedSignals: CandidateDetailedSignal[];
 };
 
 export type AuthUser = {
@@ -88,6 +100,7 @@ export type CandidateProfileInput = {
   location_id?: string | null;
   summary?: string | null;
   keywords?: string[] | null;
+  detailed_signals?: CandidateDetailedSignal[] | null;
   video_object_key?: string | null;
   discoverable: boolean;
 };

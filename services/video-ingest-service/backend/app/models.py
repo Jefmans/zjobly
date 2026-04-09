@@ -99,6 +99,7 @@ class CandidateProfile(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     keywords: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    detailed_signals: Mapped[list[dict[str, object]] | None] = mapped_column(JSON, nullable=True)
     discoverable: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

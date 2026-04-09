@@ -366,6 +366,11 @@ def upsert_candidate_profile(
     location_id, resolved_location_str, _ = _resolve_location_payload(
         session, payload.location_id, payload.location
     )
+    detailed_signals_payload = (
+        [item.dict(exclude_none=True) for item in payload.detailed_signals]
+        if payload.detailed_signals is not None
+        else None
+    )
     profile = session.query(models.CandidateProfile).filter_by(user_id=current_user.id).first()
     if not profile:
         profile = models.CandidateProfile(
@@ -375,6 +380,7 @@ def upsert_candidate_profile(
             location_id=location_id,
             summary=payload.summary,
             keywords=payload.keywords,
+            detailed_signals=detailed_signals_payload,
             video_object_key=payload.video_object_key,
             discoverable=payload.discoverable,
         )
@@ -386,6 +392,8 @@ def upsert_candidate_profile(
         profile.summary = payload.summary
         if payload.keywords is not None:
             profile.keywords = payload.keywords
+        if detailed_signals_payload is not None:
+            profile.detailed_signals = detailed_signals_payload
         if payload.video_object_key is not None:
             profile.video_object_key = payload.video_object_key
         profile.discoverable = payload.discoverable
@@ -484,6 +492,7 @@ def _build_candidate_out(
         location_details=profile.location_ref,
         summary=profile.summary if include_private else None,
         keywords=profile.keywords if include_private else None,
+        detailed_signals=profile.detailed_signals if include_private else None,
         video_object_key=video_object_key,
         playback_url=playback_url,
         discoverable=profile.discoverable,
