@@ -60,6 +60,7 @@ type Props = {
   reviewCurrent: CandidateReviewEditable | null;
   reviewNew: CandidateReviewEditable | null;
   reviewChoices: Record<CandidateReviewField, CandidateReviewChoice>;
+  reviewDetailedSignalChoices: Record<string, CandidateReviewChoice>;
   reviewVideoChoice: CandidateReviewVideoChoice;
   reviewCurrentVideoUrl: string | null;
   reviewCurrentVideoObjectKey: string | null;
@@ -70,8 +71,11 @@ type Props = {
     value: string,
   ) => void;
   onReviewChoiceChange: (field: CandidateReviewField, choice: CandidateReviewChoice) => void;
+  onReviewDetailedSignalChoiceChange: (key: string, choice: CandidateReviewChoice) => void;
+  onReviewDetailedSignalValueChange: (side: CandidateReviewSide, key: string, value: string) => void;
   onReviewVideoChoiceChange: (choice: CandidateReviewVideoChoice) => void;
   onReviewMoveKeyword: (from: CandidateReviewSide, keyword: string) => void;
+  onReviewRemoveKeyword: (side: CandidateReviewSide, keyword: string) => void;
   onApplyReview: () => void;
 };
 
@@ -118,14 +122,18 @@ export function CandidateProfileFlow({
   reviewCurrent,
   reviewNew,
   reviewChoices,
+  reviewDetailedSignalChoices,
   reviewVideoChoice,
   reviewCurrentVideoUrl,
   reviewCurrentVideoObjectKey,
   reviewNewVideoUrl,
   onReviewTextChange,
   onReviewChoiceChange,
+  onReviewDetailedSignalChoiceChange,
+  onReviewDetailedSignalValueChange,
   onReviewVideoChoiceChange,
   onReviewMoveKeyword,
+  onReviewRemoveKeyword,
   onApplyReview,
 }: Props) {
   if (view !== "find") return null;
@@ -250,6 +258,63 @@ export function CandidateProfileFlow({
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
+  const detailedSignalKey = (signal: { question_id: string; goal: string }) =>
+    `${(signal.question_id || "").toString().trim().toLowerCase()}::${(signal.goal || "")
+      .toString()
+      .trim()
+      .toLowerCase()}`;
+  const detailedSignalPairs = useMemo(() => {
+    if (!showDetailedReviewSection || !reviewCurrent || !reviewNew) return [];
+    const currentSignals = Array.isArray(reviewCurrent.detailedSignals)
+      ? reviewCurrent.detailedSignals.filter(
+          (signal): signal is CandidateDetailedSignal =>
+            Boolean(signal?.question_id && signal?.goal && signal?.value),
+        )
+      : [];
+    const nextSignals = Array.isArray(reviewNew.detailedSignals)
+      ? reviewNew.detailedSignals.filter(
+          (signal): signal is CandidateDetailedSignal =>
+            Boolean(signal?.question_id && signal?.goal && signal?.value),
+        )
+      : [];
+    const byKey = new Map<
+      string,
+      {
+        key: string;
+        questionId: string;
+        goal: string;
+        questionText: string | null;
+        current: CandidateDetailedSignal | null;
+        next: CandidateDetailedSignal | null;
+      }
+    >();
+    currentSignals.forEach((signal) => {
+      const key = detailedSignalKey(signal);
+      if (!key) return;
+      byKey.set(key, {
+        key,
+        questionId: signal.question_id,
+        goal: signal.goal,
+        questionText: signal.question_text ?? null,
+        current: signal,
+        next: byKey.get(key)?.next ?? null,
+      });
+    });
+    nextSignals.forEach((signal) => {
+      const key = detailedSignalKey(signal);
+      if (!key) return;
+      const existing = byKey.get(key);
+      byKey.set(key, {
+        key,
+        questionId: signal.question_id,
+        goal: signal.goal,
+        questionText: signal.question_text ?? existing?.questionText ?? null,
+        current: existing?.current ?? null,
+        next: signal,
+      });
+    });
+    return Array.from(byKey.values());
+  }, [showDetailedReviewSection, reviewCurrent, reviewNew]);
   const handleStartDetailedFlow = () => {
     if (!hasCandidateQuestions || recordingState !== "idle") return;
     setCandidateQuestionIndex(0);
@@ -444,22 +509,79 @@ export function CandidateProfileFlow({
       </div>
     );
   };
-  const renderDetailedSignals = (side: CandidateReviewSide, signals: CandidateDetailedSignal[]) => {
-    if (!signals.length) {
+  const renderDetailedSignals = () => {
+    if (detailedSignalPairs.length === 0) {
       return <p className="hint">No detailed signals.</p>;
     }
     return (
       <div className="review-detail-signals">
-        {signals.map((signal, index) => (
-          <div key={`review-${side}-signal-${signal.question_id}-${signal.goal}-${index}`} className="review-signal-card">
-            <div className="review-signal-header">
-              <span className="pill soft">{signal.goal}</span>
-              <span className="hint">{signal.question_id}</span>
+        {detailedSignalPairs.map((pair) => {
+          const selectedChoice =
+            reviewDetailedSignalChoices[pair.key] ?? (pair.next ? "new" : "current");
+          const canChooseCurrent = Boolean(pair.current);
+          const canChooseNew = Boolean(pair.next);
+          return (
+            <div key={pair.key} className="review-signal-card">
+              <div className="review-signal-header">
+                <span className="pill soft">{pair.goal}</span>
+                <span className="hint">{pair.questionId}</span>
+              </div>
+              {pair.questionText && <p className="hint review-signal-question">{pair.questionText}</p>}
+              {canChooseCurrent && canChooseNew && (
+                <div className="review-choice review-choice-inline">
+                  <label>
+                    <input
+                      type="radio"
+                      name={`detailed-choice-${pair.key}`}
+                      checked={selectedChoice === "current"}
+                      onChange={() => onReviewDetailedSignalChoiceChange(pair.key, "current")}
+                    />
+                    Use current
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name={`detailed-choice-${pair.key}`}
+                      checked={selectedChoice === "new"}
+                      onChange={() => onReviewDetailedSignalChoiceChange(pair.key, "new")}
+                    />
+                    Use new
+                  </label>
+                </div>
+              )}
+              <div className="review-grid">
+                <div className="field">
+                  <label>Current value</label>
+                  {pair.current ? (
+                    <textarea
+                      rows={3}
+                      value={pair.current.value}
+                      onChange={(event) =>
+                        onReviewDetailedSignalValueChange("current", pair.key, event.target.value)
+                      }
+                    />
+                  ) : (
+                    <p className="hint">No current value.</p>
+                  )}
+                </div>
+                <div className="field">
+                  <label>New value</label>
+                  {pair.next ? (
+                    <textarea
+                      rows={3}
+                      value={pair.next.value}
+                      onChange={(event) =>
+                        onReviewDetailedSignalValueChange("new", pair.key, event.target.value)
+                      }
+                    />
+                  ) : (
+                    <p className="hint">No new value.</p>
+                  )}
+                </div>
+              </div>
             </div>
-            {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
-            <p className="review-signal-value">{signal.value}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1126,15 +1248,59 @@ export function CandidateProfileFlow({
                   )}
 
                   {showDetailedReviewSection ? (
-                    <div className="review-block">
-                      <div className="review-block-header">
-                        <h2>New detailed info</h2>
+                    <>
+                      <div className="review-block">
+                        <div className="review-block-header">
+                          <h2>Keyword picker</h2>
+                        </div>
+                        <div className="review-grid">
+                          <div className="field">
+                            <label>Existing keywords</label>
+                            <div className="keyword-chips review-keyword-chips">
+                              {reviewCurrent.keywords.length > 0 ? (
+                                reviewCurrent.keywords.map((keyword) => (
+                                  <span key={`review-detailed-current-keyword-${keyword}`} className="keyword-chip">
+                                    {keyword}
+                                  </span>
+                                ))
+                              ) : (
+                                <p className="hint">No existing keywords.</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="field">
+                            <label>Keywords to add</label>
+                            <div className="keyword-chips review-keyword-chips">
+                              {reviewNew.keywords.length > 0 ? (
+                                reviewNew.keywords.map((keyword) => (
+                                  <button
+                                    key={`review-detailed-new-keyword-${keyword}`}
+                                    type="button"
+                                    className="keyword-chip keyword-chip-remove"
+                                    onClick={() => onReviewRemoveKeyword("new", keyword)}
+                                    title="Remove from add list"
+                                  >
+                                    {keyword} ×
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="hint">No keywords to add.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="field">
-                        <label>Extracted from this detailed recording</label>
-                        {renderDetailedSignals("new", reviewNew.detailedSignals)}
+
+                      <div className="review-block">
+                        <div className="review-block-header">
+                          <h2>New detailed info</h2>
+                        </div>
+                        <div className="field">
+                          <label>Extracted from this detailed recording</label>
+                          {renderDetailedSignals()}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <div className="review-block">
                       <div className="review-block-header">

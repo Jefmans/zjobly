@@ -2139,6 +2139,21 @@ button[type='submit']:disabled {
   border-color: #94a3b8;
 }
 
+.keyword-chip.keyword-chip-remove {
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #991b1b;
+  cursor: pointer;
+}
+
+.keyword-chip.keyword-chip-remove:hover {
+  border-color: #fca5a5;
+}
+
+.review-choice.review-choice-inline {
+  margin: 0.35rem 0 0.5rem;
+}
+
 .review-video-choice {
   display: flex;
   align-items: center;

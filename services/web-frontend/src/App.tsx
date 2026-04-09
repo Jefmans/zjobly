@@ -202,6 +202,30 @@ const mergeDetailedSignals = (
   return Array.from(mergedByKey.values());
 };
 
+const getDetailedSignalKey = (signal: { question_id: string; goal: string }): string =>
+  `${(signal.question_id || '').toString().trim().toLowerCase()}::${(signal.goal || '')
+    .toString()
+    .trim()
+    .toLowerCase()}`;
+
+const buildDetailedSignalChoiceDefaults = (
+  currentSignals: CandidateDetailedSignal[],
+  newSignals: CandidateDetailedSignal[],
+): Record<string, CandidateReviewChoice> => {
+  const currentByKey = new Map(currentSignals.map((signal) => [getDetailedSignalKey(signal), signal]));
+  const newByKey = new Map(newSignals.map((signal) => [getDetailedSignalKey(signal), signal]));
+  const allKeys = new Set<string>([...currentByKey.keys(), ...newByKey.keys()]);
+  const defaults: Record<string, CandidateReviewChoice> = {};
+  allKeys.forEach((key) => {
+    if (currentByKey.has(key) && newByKey.has(key)) {
+      defaults[key] = 'new';
+      return;
+    }
+    defaults[key] = newByKey.has(key) ? 'new' : 'current';
+  });
+  return defaults;
+};
+
 const resolveSignalValue = (
   goal: string,
   draft: CandidateDraftFields | null,
@@ -355,6 +379,9 @@ function App() {
   const [candidateReviewChoices, setCandidateReviewChoices] = useState<CandidateReviewFieldChoices>(
     DEFAULT_CANDIDATE_REVIEW_CHOICES,
   );
+  const [candidateReviewDetailedSignalChoices, setCandidateReviewDetailedSignalChoices] = useState<
+    Record<string, CandidateReviewChoice>
+  >({});
   const [candidateReviewVideoChoice, setCandidateReviewVideoChoice] =
     useState<CandidateReviewVideoChoice>('new');
   const [candidateReviewCurrentVideoUrl, setCandidateReviewCurrentVideoUrl] = useState<string | null>(null);
@@ -679,6 +706,7 @@ function App() {
     setCandidateReviewCurrent(null);
     setCandidateReviewNew(null);
     setCandidateReviewChoices(DEFAULT_CANDIDATE_REVIEW_CHOICES);
+    setCandidateReviewDetailedSignalChoices({});
     setCandidateReviewVideoChoice('new');
     setCandidateReviewCurrentVideoUrl(null);
     setCandidateReviewCurrentVideoObjectKey(null);
@@ -1952,7 +1980,7 @@ function App() {
         const extractedDetailedKeywords = normalizeKeywords(transcriptPrefill?.keywords);
         const draftKeywords = normalizeKeywords(
           isDetailedUpdateFlow
-            ? [...currentKeywords, ...extractedDetailedKeywords]
+            ? extractedDetailedKeywords
             : transcriptPrefill?.keywords?.length
             ? transcriptPrefill.keywords
             : currentKeywords,
@@ -1980,8 +2008,9 @@ function App() {
           headline: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.headline,
           location: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.location,
           summary: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.summary,
-          keywords: isDetailedUpdateFlow ? 'current' : DEFAULT_CANDIDATE_REVIEW_CHOICES.keywords,
+          keywords: isDetailedUpdateFlow ? 'new' : DEFAULT_CANDIDATE_REVIEW_CHOICES.keywords,
         });
+        setCandidateReviewDetailedSignalChoices(buildDetailedSignalChoiceDefaults(currentDetailedSignals, newDetailedSignals));
         setCandidateReviewVideoChoice(isDetailedUpdateFlow ? 'current' : 'new');
         setCandidateReviewCurrentVideoUrl(existingProfile?.playback_url || null);
         setCandidateReviewCurrentVideoObjectKey(existingProfile?.video_object_key ?? null);
@@ -2175,6 +2204,49 @@ function App() {
     setCandidateReviewChoices((prev) => ({ ...prev, [field]: choice }));
   };
 
+  const handleCandidateReviewDetailedSignalChoiceChange = (key: string, choice: CandidateReviewChoice) => {
+    const normalizedKey = (key || '').toString().trim().toLowerCase();
+    if (!normalizedKey) return;
+    setCandidateReviewDetailedSignalChoices((prev) => ({ ...prev, [normalizedKey]: choice }));
+  };
+
+  const handleCandidateReviewDetailedSignalValueChange = (
+    side: CandidateReviewSide,
+    key: string,
+    value: string,
+  ) => {
+    const normalizedKey = (key || '').toString().trim().toLowerCase();
+    if (!normalizedKey) return;
+    const applyUpdate = (signals: CandidateDetailedSignal[]) =>
+      signals.map((signal) =>
+        getDetailedSignalKey(signal) === normalizedKey
+          ? {
+              ...signal,
+              value,
+            }
+          : signal,
+      );
+    if (side === 'current') {
+      setCandidateReviewCurrent((prev) =>
+        prev
+          ? {
+              ...prev,
+              detailedSignals: applyUpdate(normalizeDetailedSignals(prev.detailedSignals)),
+            }
+          : prev,
+      );
+      return;
+    }
+    setCandidateReviewNew((prev) =>
+      prev
+        ? {
+            ...prev,
+            detailedSignals: applyUpdate(normalizeDetailedSignals(prev.detailedSignals)),
+          }
+        : prev,
+    );
+  };
+
   const moveCandidateReviewKeyword = (from: CandidateReviewSide, keyword: string) => {
     const value = (keyword || '').trim();
     if (!value) return;
@@ -2196,6 +2268,22 @@ function App() {
     setCandidateReviewCurrent((prev) => {
       if (!prev) return prev;
       return { ...prev, keywords: normalizeKeywords([...prev.keywords, value]) };
+    });
+  };
+
+  const removeCandidateReviewKeyword = (side: CandidateReviewSide, keyword: string) => {
+    const value = (keyword || '').trim();
+    if (!value) return;
+    if (side === 'current') {
+      setCandidateReviewCurrent((prev) => {
+        if (!prev) return prev;
+        return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
+      });
+      return;
+    }
+    setCandidateReviewNew((prev) => {
+      if (!prev) return prev;
+      return { ...prev, keywords: prev.keywords.filter((item) => item !== value) };
     });
   };
 
@@ -2227,7 +2315,27 @@ function App() {
     const currentDetailedSignals = normalizeDetailedSignals(candidateReviewCurrent.detailedSignals);
     const newDetailedSignals = normalizeDetailedSignals(candidateReviewNew.detailedSignals);
     const selectedDetailedSignals = isDetailedUpdateFlow
-      ? mergeDetailedSignals(currentDetailedSignals, newDetailedSignals)
+      ? (() => {
+          const currentByKey = new Map<string, CandidateDetailedSignal>(
+            currentDetailedSignals.map((signal) => [getDetailedSignalKey(signal), signal]),
+          );
+          const newByKey = new Map<string, CandidateDetailedSignal>(
+            newDetailedSignals.map((signal) => [getDetailedSignalKey(signal), signal]),
+          );
+          const allKeys = new Set<string>([...currentByKey.keys(), ...newByKey.keys()]);
+          const chosen: CandidateDetailedSignal[] = [];
+          allKeys.forEach((key) => {
+            const preferred = candidateReviewDetailedSignalChoices[key] ?? (newByKey.has(key) ? 'new' : 'current');
+            const picked =
+              preferred === 'current'
+                ? currentByKey.get(key) ?? newByKey.get(key)
+                : newByKey.get(key) ?? currentByKey.get(key);
+            if (picked) {
+              chosen.push(picked);
+            }
+          });
+          return normalizeDetailedSignals(chosen);
+        })()
       : mergeDetailedSignals(currentDetailedSignals, newDetailedSignals);
 
     const currentVideoKey =
@@ -3490,14 +3598,18 @@ function App() {
               reviewCurrent: candidateReviewCurrent,
               reviewNew: candidateReviewNew,
               reviewChoices: candidateReviewChoices,
+              reviewDetailedSignalChoices: candidateReviewDetailedSignalChoices,
               reviewVideoChoice: candidateReviewVideoChoice,
               reviewCurrentVideoUrl: candidateReviewCurrentVideoUrl,
               reviewCurrentVideoObjectKey: candidateReviewCurrentVideoObjectKey,
               reviewNewVideoUrl: videoUrl,
               onReviewTextChange: handleCandidateReviewTextChange,
               onReviewChoiceChange: handleCandidateReviewChoiceChange,
+              onReviewDetailedSignalChoiceChange: handleCandidateReviewDetailedSignalChoiceChange,
+              onReviewDetailedSignalValueChange: handleCandidateReviewDetailedSignalValueChange,
               onReviewVideoChoiceChange: setCandidateReviewVideoChoice,
               onReviewMoveKeyword: moveCandidateReviewKeyword,
+              onReviewRemoveKeyword: removeCandidateReviewKeyword,
               onApplyReview: applyCandidateReviewUpdate,
             }}
             candidateProfileViewProps={{
