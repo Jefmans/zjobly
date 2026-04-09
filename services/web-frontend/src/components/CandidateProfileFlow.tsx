@@ -229,6 +229,7 @@ export function CandidateProfileFlow({
   const canViewJobs = isEditingProfile || profileSaved;
   const showPostTakeActions = isSimpleRecordingFlow && recordingState === "idle" && hasTakes;
   const showSimpleIntroOverlay = isSimpleRecordingFlow && recordingState === "idle" && !introStartPending;
+  const isDetailedIntro = candidateStep === "intro" && isAuthenticated && useGuidedQuestions;
   const showNav = !(!isAuthenticated && (candidateStep === "intro" || candidateStep === "record"));
   const heroClassName =
     candidateStep === "select" && !isAuthenticated ? "hero hero-select-loggedout" : "hero";
@@ -400,47 +401,87 @@ export function CandidateProfileFlow({
             <div className="flow-intro">
               <div className="flow-intro-row">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-record.png" alt="Record your intro video" loading="lazy" />
+                  <img
+                    src="/images/flow-record.png"
+                    alt={isDetailedIntro ? "Answer guided questions in your video" : "Record your intro video"}
+                    loading="lazy"
+                  />
                 </div>
                 <div className="flow-intro-copy">
-                  <h2>1. Record your intro video</h2>
-                  <p>
-                    Tell us what kind of job you want, where you want to work and what you&apos;re good at.
-                    <br />
-                    Videos are 3 min max.
-                  </p>
+                  <h2>{isDetailedIntro ? "1. Answer guided questions" : "1. Record your intro video"}</h2>
+                  {isDetailedIntro ? (
+                    <p>
+                      We will ask questions one by one while recording.
+                      <br />
+                      Keep each answer clear and specific.
+                    </p>
+                  ) : (
+                    <p>
+                      Tell us what kind of job you want, where you want to work and what you&apos;re good at.
+                      <br />
+                      Videos are 3 min max.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flow-intro-row reverse">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-profile.png" alt="Auto build your profile from video" loading="lazy" />
+                  <img
+                    src="/images/flow-profile.png"
+                    alt={isDetailedIntro ? "Process each answer into profile signals" : "Auto build your profile from video"}
+                    loading="lazy"
+                  />
                 </div>
                 <div className="flow-intro-copy">
-                  <h2>2. We auto build your profile</h2>
-                  <p>
-                    We use your recording to draft your profile details automatically, so you can start quickly and
-                    edit anything you want afterward.
-                  </p>
+                  <h2>{isDetailedIntro ? "2. We process each answer by goal" : "2. We auto build your profile"}</h2>
+                  {isDetailedIntro ? (
+                    <p>
+                      Each question maps to specific profile fields.
+                      <br />
+                      Example: strengths update skills and keywords.
+                    </p>
+                  ) : (
+                    <p>
+                      We use your recording to draft your profile details automatically, so you can start quickly and
+                      edit anything you want afterward.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flow-intro-row">
                 <div className="flow-intro-image">
-                  <img src="/images/flow-search.png" alt="Search jobs and get discovered by companies" loading="lazy" />
+                  <img
+                    src="/images/flow-search.png"
+                    alt={
+                      isDetailedIntro
+                        ? "Review current and new profile details before saving"
+                        : "Search jobs and get discovered by companies"
+                    }
+                    loading="lazy"
+                  />
                 </div>
                 <div className="flow-intro-copy">
-                  <h2>3. Search jobs and get discovered</h2>
-                  <p>
-                    You can search jobs immediately, and you can also make your profile searchable so companies can
-                    find and contact you.
-                  </p>
+                  <h2>{isDetailedIntro ? "3. Review before you save" : "3. Search jobs and get discovered"}</h2>
+                  {isDetailedIntro ? (
+                    <p>
+                      After recording, you compare current and new values.
+                      <br />
+                      You decide per field what to keep.
+                    </p>
+                  ) : (
+                    <p>
+                      You can search jobs immediately, and you can also make your profile searchable so companies can
+                      find and contact you.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flow-intro-actions">
                 <button type="button" className="cta primary" onClick={() => goToStep("record")}>
-                  Continue
+                  {isDetailedIntro ? "Start detailed recording" : "Continue"}
                 </button>
               </div>
             </div>

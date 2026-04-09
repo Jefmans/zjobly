@@ -2602,10 +2602,10 @@ function App() {
       },
       () => {
         if (role === 'candidate') {
-          resetCandidateFlow('record');
+          resetCandidateFlow('intro');
           setView('find');
         } else {
-          setRoleAndView('candidate', 'find', { candidateStep: 'record' });
+          setRoleAndView('candidate', 'find', { candidateStep: 'intro' });
         }
         setCandidateDetailedMode(true);
       },

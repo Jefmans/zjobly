@@ -108,7 +108,7 @@ export function CandidateProfileView({
                 </button>
                 <div className="panel-action-right">
                   <button type="button" className="cta secondary" onClick={onCreateDetailedProfile}>
-                    Create detailed profile
+                    Build detailed profile
                   </button>
                   <button type="button" className="cta primary" onClick={onEditProfile}>
                     Edit profile
