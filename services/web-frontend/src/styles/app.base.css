@@ -1932,6 +1932,17 @@ button[type='submit']:disabled {
   justify-content: center;
 }
 
+.question-actions-vertical {
+  flex-direction: column;
+  align-items: center;
+}
+
+.question-cta-subtle {
+  min-width: 170px;
+  font-size: 0.92rem;
+  opacity: 0.82;
+}
+
 .job-card-left {
   text-align: left;
   min-width: 0;

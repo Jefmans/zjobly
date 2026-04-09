@@ -139,6 +139,10 @@ export function CandidateProfileFlow({
   const canPause = recordingState === "recording";
   const canStop = recordingState === "recording" || recordingState === "paused";
   const introCountdownSeconds = Math.max(1, Number(runtimeConfig.video?.introCountdownSeconds) || 3);
+  const questionCountdownSeconds = Math.max(
+    1,
+    Number(runtimeConfig.video?.questionCountdownSeconds) || 3,
+  );
   const maxVideoLabel =
     formatDuration(runtimeConfig.video?.maxDurationSeconds ?? 180) ?? "3:00";
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
@@ -195,6 +199,7 @@ export function CandidateProfileFlow({
   );
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
+  const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);
   const [introCountdown, setIntroCountdown] = useState<number | null>(null);
   const [introStartPending, setIntroStartPending] = useState(false);
   const [detailedFlowStarted, setDetailedFlowStarted] = useState(false);
@@ -204,6 +209,7 @@ export function CandidateProfileFlow({
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
       ? candidateQuestions[candidateQuestionIndex]
       : null;
+  const canPrevCandidateQuestion = candidateQuestionIndex > 0;
   const canNextCandidateQuestion = candidateQuestionIndex < candidateQuestions.length - 1;
   const questionActionLabel = canNextCandidateQuestion ? "Next question" : "End video";
   const showDetailedIntroOverlay =
@@ -242,19 +248,22 @@ export function CandidateProfileFlow({
   const handleStartDetailedFlow = () => {
     if (!hasCandidateQuestions || recordingState !== "idle") return;
     setCandidateQuestionIndex(0);
+    setQuestionCountdown(null);
     setDetailedFlowStarted(true);
     setDetailedAwaitingContinue(true);
   };
   const handleContinueDetailedQuestion = () => {
-    if (!hasCandidateQuestions || !detailedAwaitingContinue) return;
-    setDetailedAwaitingContinue(false);
-    if (recordingState === "paused") {
-      resumeRecording();
-      return;
+    if (!hasCandidateQuestions || !detailedAwaitingContinue || questionCountdown !== null) return;
+    setQuestionCountdown(questionCountdownSeconds);
+  };
+  const handlePreviousDetailedQuestion = () => {
+    if (!hasCandidateQuestions || !canPrevCandidateQuestion) return;
+    if (recordingState === "recording") {
+      pauseRecording();
     }
-    if (recordingState === "idle") {
-      startRecording();
-    }
+    setQuestionCountdown(null);
+    setCandidateQuestionIndex((prev) => Math.max(0, prev - 1));
+    setDetailedAwaitingContinue(true);
   };
   const handleNextQuestion = () => {
     if (!canNextCandidateQuestion) {
@@ -264,6 +273,7 @@ export function CandidateProfileFlow({
     if (recordingState === "recording") {
       pauseRecording();
     }
+    setQuestionCountdown(null);
     setCandidateQuestionIndex((prev) => Math.min(candidateQuestions.length - 1, prev + 1));
     setDetailedAwaitingContinue(true);
   };
@@ -280,6 +290,7 @@ export function CandidateProfileFlow({
 
   useEffect(() => {
     if (candidateStep !== "record") {
+      setQuestionCountdown(null);
       setIntroCountdown(null);
       setIntroStartPending(false);
       setDetailedFlowStarted(false);
@@ -287,6 +298,7 @@ export function CandidateProfileFlow({
       return;
     }
     setCandidateQuestionIndex(0);
+    setQuestionCountdown(null);
     setIntroCountdown(null);
     setIntroStartPending(false);
     setDetailedFlowStarted(false);
@@ -318,6 +330,25 @@ export function CandidateProfileFlow({
     }, 1200);
     return () => window.clearTimeout(timer);
   }, [introStartPending, recordingState]);
+  useEffect(() => {
+    if (questionCountdown === null) return;
+    if (questionCountdown <= 0) {
+      setQuestionCountdown(null);
+      setDetailedAwaitingContinue(false);
+      if (recordingState === "paused") {
+        resumeRecording();
+        return;
+      }
+      if (recordingState === "idle") {
+        startRecording();
+      }
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setQuestionCountdown((prev) => (prev === null ? null : prev - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [questionCountdown, recordingState, resumeRecording, startRecording]);
   const renderReviewTextField = (
     field: "headline" | "location" | "summary",
     label: string,
@@ -687,15 +718,31 @@ export function CandidateProfileFlow({
                                 Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
                               </p>
                               <p className="question-text">{candidateQuestion?.text ?? ""}</p>
-                              <div className="question-actions">
-                                <button
-                                  type="button"
-                                  className="cta primary question-cta"
-                                  onClick={handleContinueDetailedQuestion}
-                                >
-                                  Continue
-                                </button>
-                              </div>
+                              {questionCountdown !== null ? (
+                                <div className="question-countdown">
+                                  <span className="question-countdown-label">Starting in</span>
+                                  <span className="question-countdown-value">{questionCountdown}</span>
+                                </div>
+                              ) : (
+                                <div className="question-actions question-actions-vertical">
+                                  <button
+                                    type="button"
+                                    className="cta primary question-cta"
+                                    onClick={handleContinueDetailedQuestion}
+                                  >
+                                    Continue
+                                  </button>
+                                  {canPrevCandidateQuestion && (
+                                    <button
+                                      type="button"
+                                      className="ghost dark question-cta question-cta-subtle"
+                                      onClick={handlePreviousDetailedQuestion}
+                                    >
+                                      Previous
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
