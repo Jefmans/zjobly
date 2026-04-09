@@ -118,6 +118,7 @@ type AppHistoryState = {
   role: UserRole | null;
   createStep: CreateStep;
   candidateStep: CandidateStep;
+  candidateDetailedMode: boolean;
 };
 
 const VIEW_MODES: ViewMode[] = [
@@ -561,6 +562,10 @@ function App() {
           historyState && isCreateStep(historyState.createStep) ? historyState.createStep : null;
         const historyCandidateStep =
           historyState && isCandidateStep(historyState.candidateStep) ? historyState.candidateStep : null;
+        const historyCandidateDetailedMode =
+          historyState && typeof historyState.candidateDetailedMode === 'boolean'
+            ? historyState.candidateDetailedMode
+            : false;
         if (current) {
           const isAdmin = isAdminUser(current);
           const pathView = getViewFromPath(window.location.pathname);
@@ -568,6 +573,7 @@ function App() {
           persistRole(historyRole ?? storedRole ?? 'candidate');
           if (historyCreateStep) setCreateStep(historyCreateStep);
           if (historyCandidateStep) setCandidateStep(historyCandidateStep);
+          setCandidateDetailedMode(historyCandidateDetailedMode);
           const storedView = getStoredView();
           const safeStoredView =
             storedView === 'adminConfig' && !isAdmin ? 'welcome' : storedView;
@@ -598,6 +604,7 @@ function App() {
             persistRole(historyRole ?? null);
             if (historyCreateStep) setCreateStep(historyCreateStep);
             if (historyCandidateStep) setCandidateStep(historyCandidateStep);
+            setCandidateDetailedMode(historyCandidateDetailedMode);
             if (historyView && historyView !== 'adminConfig') {
               setView(historyView);
             } else {
@@ -637,11 +644,14 @@ function App() {
         state.role === 'candidate' || state.role === 'employer' ? state.role : null;
       const nextCreateStep = isCreateStep(state.createStep) ? state.createStep : 'record';
       const nextCandidateStep = isCandidateStep(state.candidateStep) ? state.candidateStep : 'record';
+      const nextCandidateDetailedMode =
+        typeof state.candidateDetailedMode === 'boolean' ? state.candidateDetailedMode : false;
 
       applyingHistoryStateRef.current = true;
       persistRole(nextRole);
       setCreateStep(nextCreateStep);
       setCandidateStep(nextCandidateStep);
+      setCandidateDetailedMode(nextCandidateDetailedMode);
       setView(nextView);
     };
 
@@ -661,6 +671,7 @@ function App() {
       role,
       createStep,
       candidateStep,
+      candidateDetailedMode,
     };
     const serializedState = JSON.stringify(nextState);
 
@@ -693,7 +704,7 @@ function App() {
       window.history.replaceState(nextState, '', nextUrl);
       lastHistoryStateRef.current = serializedState;
     }
-  }, [adminPathAuthRequired, authLoading, candidateStep, createStep, role, view]);
+  }, [adminPathAuthRequired, authLoading, candidateDetailedMode, candidateStep, createStep, role, view]);
 
   useEffect(() => {
     if (authLoading) return;
