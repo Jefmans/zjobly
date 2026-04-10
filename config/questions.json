@@ -11,22 +11,30 @@
             {
               "id": "candidate-job-type",
               "text": "What kind of job are you looking for?",
-              "goals": ["role_preferences"]
+              "goals": ["role_preferences"],
+              "target_field": "headline",
+              "prompt_key": "goal_role_preferences_v1"
             },
             {
               "id": "candidate-location",
               "text": "Where are you looking for a job?",
-              "goals": ["location"]
+              "goals": ["location"],
+              "target_field": "location",
+              "prompt_key": "goal_location_v1"
             },
             {
               "id": "candidate-education",
               "text": "What is your education? Where did you study?",
-              "goals": ["education"]
+              "goals": ["education"],
+              "target_field": "summary",
+              "prompt_key": "goal_education_v1"
             },
             {
               "id": "candidate-job-values",
               "text": "What do you like in a job?",
-              "goals": ["preferences"]
+              "goals": ["preferences"],
+              "target_field": "summary",
+              "prompt_key": "goal_preferences_v1"
             }
           ]
         }
@@ -43,17 +51,23 @@
             {
               "id": "application-motivation",
               "text": "Why do you want this job?",
-              "goals": ["motivation"]
+              "goals": ["motivation"],
+              "target_field": "summary",
+              "prompt_key": "goal_motivation_v1"
             },
             {
               "id": "application-first-90-days",
               "text": "What would your first 90 days look like?",
-              "goals": ["plan"]
+              "goals": ["plan"],
+              "target_field": "summary",
+              "prompt_key": "goal_plan_v1"
             },
             {
               "id": "application-skills-fit",
               "text": "Which skills make you a strong fit?",
-              "goals": ["skills"]
+              "goals": ["skills"],
+              "target_field": "keywords",
+              "prompt_key": "goal_skills_v1"
             }
           ]
         }

@@ -12,5 +12,33 @@
     "max_tokens": 260,
     "response_format": "json_object",
     "system_prompt": "You turn a short candidate intro transcript into a concise profile. Output JSON with keys: headline (6-10 words, role + level + 1 hook), summary (80-140 words, 2-3 sentences), and keywords (array of 4-8 short skill/tool/role terms, exclude locations). Keep it factual and derived from the transcript; do not invent details."
+  },
+  "goal_role_preferences_v1": {
+    "system_prompt": "Extract preferred role and role level from the answer. Keep it concise and factual.",
+    "target_field": "headline"
+  },
+  "goal_location_v1": {
+    "system_prompt": "Extract location preference from the answer. Use a concise city/region/country format.",
+    "target_field": "location"
+  },
+  "goal_education_v1": {
+    "system_prompt": "Summarize education highlights from the answer in one concise sentence.",
+    "target_field": "summary"
+  },
+  "goal_preferences_v1": {
+    "system_prompt": "Summarize job preferences from the answer in one concise sentence.",
+    "target_field": "summary"
+  },
+  "goal_motivation_v1": {
+    "system_prompt": "Summarize candidate motivation in one concise sentence.",
+    "target_field": "summary"
+  },
+  "goal_plan_v1": {
+    "system_prompt": "Summarize first-90-days plan in one concise sentence.",
+    "target_field": "summary"
+  },
+  "goal_skills_v1": {
+    "system_prompt": "Extract concrete skills and tools as short terms.",
+    "target_field": "keywords"
   }
 }

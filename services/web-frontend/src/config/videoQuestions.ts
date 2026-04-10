@@ -4,6 +4,8 @@ export type VideoQuestion = {
   id: string;
   text: string;
   goals?: string[];
+  targetField?: "headline" | "location" | "summary" | "keywords" | "transcript";
+  promptKey?: string;
 };
 
 export type VideoQuestionVariant = {
@@ -34,6 +36,10 @@ type RawQuestion =
       id?: unknown;
       text?: unknown;
       goals?: unknown;
+      target_field?: unknown;
+      targetField?: unknown;
+      prompt_key?: unknown;
+      promptKey?: unknown;
       enabled?: unknown;
     };
 
@@ -67,6 +73,29 @@ const normalizeGoals = (value: unknown): string[] | undefined => {
   return goals.length > 0 ? goals : undefined;
 };
 
+const normalizeTargetField = (
+  value: unknown,
+): VideoQuestion["targetField"] | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "headline" ||
+    normalized === "location" ||
+    normalized === "summary" ||
+    normalized === "keywords" ||
+    normalized === "transcript"
+  ) {
+    return normalized;
+  }
+  return undefined;
+};
+
+const normalizePromptKey = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const key = value.trim();
+  return key.length > 0 ? key : undefined;
+};
+
 const normalizeQuestion = (
   value: RawQuestion,
   index: number,
@@ -86,7 +115,15 @@ const normalizeQuestion = (
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
   const goals = normalizeGoals(value.goals);
-  return goals ? { id, text, goals } : { id, text };
+  const targetField = normalizeTargetField(
+    value.target_field ?? value.targetField,
+  );
+  const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
+  const question: VideoQuestion = { id, text };
+  if (goals) question.goals = goals;
+  if (targetField) question.targetField = targetField;
+  if (promptKey) question.promptKey = promptKey;
+  return question;
 };
 
 const normalizeVariants = (

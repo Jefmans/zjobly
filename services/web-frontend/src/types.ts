@@ -28,6 +28,8 @@ export type CandidateDetailedSignal = {
   question_id: string;
   goal: string;
   value: string;
+  target_field?: string | null;
+  prompt_key?: string | null;
   question_text?: string | null;
   source?: string | null;
   confidence?: number | null;
