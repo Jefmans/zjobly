@@ -244,6 +244,14 @@ def _build_chat_model(prompt_key: str) -> tuple[ChatOpenAI, str]:
     return llm, system_prompt
 
 
+def _get_prompt_output_schema(prompt_key: str) -> dict[str, object] | None:
+    entry = _get_prompt_entry(prompt_key)
+    raw_schema = entry.get("output_schema")
+    if not isinstance(raw_schema, dict):
+        return None
+    return raw_schema
+
+
 def _normalize_keywords(raw_keywords: object) -> list[str]:
     if isinstance(raw_keywords, list):
         return [str(k).strip() for k in raw_keywords if str(k).strip()]
@@ -494,6 +502,8 @@ def _signal_from_transcript(
     language: str | None,
     output_schema: dict[str, object] | None = None,
 ) -> SignalFromTranscriptResponse:
+    if output_schema is None:
+        output_schema = _get_prompt_output_schema(prompt_key)
     llm, system_prompt = _build_chat_model(prompt_key)
     if language:
         system_prompt = f"{system_prompt} Respond in {language}."

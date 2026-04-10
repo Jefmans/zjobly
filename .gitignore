@@ -11,3 +11,5 @@ werk uren.ods
 /test.txt
 /AGENTS.md
 /.~lock.werk uren.ods#
+__pycache__/
+*/__pycache__/*

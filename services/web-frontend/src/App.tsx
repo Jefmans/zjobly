@@ -172,6 +172,30 @@ const normalizeStructuredData = (value: unknown): Record<string, unknown> | null
   return value as Record<string, unknown>;
 };
 
+const ensureStructuredDataForSchema = (
+  structuredData: Record<string, unknown> | null,
+  outputSchema: Record<string, unknown> | undefined,
+  fallbackValue: string,
+): Record<string, unknown> | null => {
+  if (!outputSchema || typeof outputSchema !== 'object' || Array.isArray(outputSchema)) {
+    return structuredData;
+  }
+  const properties = (outputSchema as { properties?: unknown }).properties;
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties)) {
+    return structuredData;
+  }
+  const normalized: Record<string, unknown> = structuredData ? { ...structuredData } : {};
+  Object.keys(properties as Record<string, unknown>).forEach((key) => {
+    if (!(key in normalized)) {
+      normalized[key] = null;
+    }
+  });
+  if (typeof normalized.value !== 'string' || !normalized.value.toString().trim()) {
+    normalized.value = fallbackValue.trim();
+  }
+  return normalized;
+};
+
 const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | undefined): CandidateDetailedSignal[] => {
   if (!Array.isArray(signals)) return [];
   return signals
@@ -475,7 +499,11 @@ const buildDetailedSignalsFromQuestions = async (
         prompt_key: question.promptKey ?? null,
         question_text: questionText,
         source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',
-        structured_data: promptStructuredData,
+        structured_data: ensureStructuredDataForSchema(
+          promptStructuredData,
+          question.outputSchema,
+          value,
+        ),
         supporting_text: supportingText,
         supporting_text_mode: captureMode,
         question_start_sec: questionWindow?.start_sec ?? null,
