@@ -271,6 +271,59 @@ def _coerce_response_text(content: object) -> str:
     return str(content).strip()
 
 
+def _parse_json_object(text: str) -> dict[str, object] | None:
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict):
+        return parsed
+    return None
+
+
+def _ensure_schema_keys(
+    structured_data: dict[str, object] | None,
+    output_schema: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if structured_data is None:
+        return None
+    if not output_schema:
+        return structured_data
+    properties = output_schema.get("properties")
+    if not isinstance(properties, dict):
+        return structured_data
+    normalized = dict(structured_data)
+    for key in properties.keys():
+        if key not in normalized:
+            normalized[key] = None
+    return normalized
+
+
+def _schema_reformat_with_llm(
+    llm: ChatOpenAI,
+    raw_text: str,
+    output_schema: dict[str, object],
+) -> dict[str, object] | None:
+    schema_hint = json.dumps(output_schema, ensure_ascii=True)
+    try:
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "Convert the input into a valid JSON object only, following this schema guidance: {schema_hint}.",
+                ),
+                ("user", "{raw_text}"),
+            ]
+        )
+        response = (prompt | llm).invoke({"schema_hint": schema_hint, "raw_text": raw_text[:5000]})
+    except Exception:
+        return None
+    return _parse_json_object(_coerce_response_text(getattr(response, "content", None)))
+
+
 def _download_object(object_key: str, dest_path: str) -> None:
     s3 = storage.get_s3_client()
     try:
@@ -435,20 +488,27 @@ def _signal_from_transcript(
     if not text:
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 
-    if text.startswith("{") and text.endswith("}"):
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                structured_data = parsed
-                candidate = parsed.get("value") or parsed.get("summary") or parsed.get("signal")
-                if isinstance(candidate, str) and candidate.strip():
-                    text = candidate.strip()
-                elif len(parsed) == 1:
-                    only_value = next(iter(parsed.values()))
-                    if isinstance(only_value, str) and only_value.strip():
-                        text = only_value.strip()
-        except json.JSONDecodeError:
-            pass
+    parsed_inline = _parse_json_object(text)
+    if parsed_inline is not None:
+        structured_data = parsed_inline
+
+    if structured_data is None and output_schema:
+        structured_data = _schema_reformat_with_llm(llm, text, output_schema)
+
+    structured_data = _ensure_schema_keys(structured_data, output_schema)
+
+    if structured_data is not None:
+        candidate = structured_data.get("value") or structured_data.get("summary") or structured_data.get("signal")
+        if isinstance(candidate, str) and candidate.strip():
+            text = candidate.strip()
+        elif len(structured_data) == 1:
+            only_value = next(iter(structured_data.values()))
+            if isinstance(only_value, str) and only_value.strip():
+                text = only_value.strip()
+
+    if output_schema and structured_data is None:
+        # Keep at least a predictable structured shape for downstream UI persistence.
+        structured_data = {"value": text[:1200].strip()}
 
     return SignalFromTranscriptResponse(value=text[:1200].strip(), structured_data=structured_data)
 
