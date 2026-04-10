@@ -177,6 +177,11 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         question_id: questionId,
         goal,
         value,
+        signal_key: signal.signal_key
+          ? signal.signal_key.toString().trim()
+          : signal.target_field
+          ? signal.target_field.toString().trim()
+          : null,
         target_field: signal.target_field ? signal.target_field.toString().trim() : null,
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
@@ -231,29 +236,36 @@ const buildDetailedSignalChoiceDefaults = (
 
 const resolveSignalValue = (
   goal: string,
-  targetField: VideoQuestion["targetField"] | undefined,
+  signalKey: string | undefined,
   draft: CandidateDraftFields | null,
   transcript: string,
 ): string => {
   const normalizedGoal = goal.toLowerCase();
+  const normalizedSignalKey = (signalKey || '').toLowerCase();
   const normalizedKeywords = Array.isArray(draft?.keywords)
     ? draft.keywords
         .map((item) => (item || '').toString().trim())
         .filter((item, index, list) => item.length > 0 && list.indexOf(item) === index)
     : [];
-  if (targetField === 'headline') {
+  if (normalizedSignalKey.includes('role') || normalizedSignalKey.includes('headline')) {
     return (draft?.headline || draft?.summary || '').trim();
   }
-  if (targetField === 'location') {
+  if (normalizedSignalKey.includes('location')) {
     return (draft?.location || '').trim();
   }
-  if (targetField === 'summary') {
+  if (
+    normalizedSignalKey.includes('summary') ||
+    normalizedSignalKey.includes('education') ||
+    normalizedSignalKey.includes('preference') ||
+    normalizedSignalKey.includes('motivation') ||
+    normalizedSignalKey.includes('plan')
+  ) {
     return (draft?.summary || '').trim();
   }
-  if (targetField === 'keywords') {
+  if (normalizedSignalKey.includes('skill') || normalizedSignalKey.includes('keyword')) {
     return normalizedKeywords.join(', ').trim();
   }
-  if (targetField === 'transcript') {
+  if (normalizedSignalKey.includes('transcript')) {
     return transcript.slice(0, 220).trim();
   }
   if (normalizedGoal.includes('location')) {
@@ -291,13 +303,13 @@ const buildDetailedSignalsFromQuestions = (
     goals.forEach((goal) => {
       const normalizedGoal = (goal || '').trim();
       if (!normalizedGoal) return;
-      const value = resolveSignalValue(normalizedGoal, question.targetField, draft, transcript);
+      const value = resolveSignalValue(normalizedGoal, question.signalKey, draft, transcript);
       if (!value) return;
       signals.push({
         question_id: questionId,
         goal: normalizedGoal,
         value,
-        target_field: question.targetField ?? null,
+        signal_key: question.signalKey ?? null,
         prompt_key: question.promptKey ?? null,
         question_text: questionText,
         source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',

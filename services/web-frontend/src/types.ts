@@ -28,6 +28,8 @@ export type CandidateDetailedSignal = {
   question_id: string;
   goal: string;
   value: string;
+  signal_key?: string | null;
+  // Backward compatibility for older payloads/config.
   target_field?: string | null;
   prompt_key?: string | null;
   question_text?: string | null;

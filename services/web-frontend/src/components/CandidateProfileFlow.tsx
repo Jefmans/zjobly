@@ -296,6 +296,7 @@ export function CandidateProfileFlow({
       {
         key: string;
         questionId: string;
+        signalKey: string | null;
         goal: string;
         questionText: string | null;
         current: CandidateDetailedSignal | null;
@@ -308,6 +309,7 @@ export function CandidateProfileFlow({
       byKey.set(key, {
         key,
         questionId: signal.question_id,
+        signalKey: signal.signal_key ?? null,
         goal: signal.goal,
         questionText: signal.question_text ?? null,
         current: signal,
@@ -321,6 +323,7 @@ export function CandidateProfileFlow({
       byKey.set(key, {
         key,
         questionId: signal.question_id,
+        signalKey: signal.signal_key ?? existing?.signalKey ?? null,
         goal: signal.goal,
         questionText: signal.question_text ?? existing?.questionText ?? null,
         current: existing?.current ?? null,
@@ -538,7 +541,7 @@ export function CandidateProfileFlow({
             <div key={pair.key} className="review-signal-card">
               <div className="review-signal-header">
                 <span className="pill soft">{pair.goal}</span>
-                <span className="hint">{pair.questionId}</span>
+                <span className="hint">{pair.signalKey || pair.questionId}</span>
               </div>
               {pair.questionText && <p className="hint review-signal-question">{pair.questionText}</p>}
               {canChooseCurrent && canChooseNew && (
@@ -869,7 +872,7 @@ export function CandidateProfileFlow({
                         >
                           <div className="review-signal-header">
                             <span className="pill soft">{signal.goal}</span>
-                            <span className="hint">{signal.question_id}</span>
+                            <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
                           <div className="field">

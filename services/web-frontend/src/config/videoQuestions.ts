@@ -4,7 +4,7 @@ export type VideoQuestion = {
   id: string;
   text: string;
   goals?: string[];
-  targetField?: "headline" | "location" | "summary" | "keywords" | "transcript";
+  signalKey?: string;
   promptKey?: string;
 };
 
@@ -36,6 +36,8 @@ type RawQuestion =
       id?: unknown;
       text?: unknown;
       goals?: unknown;
+      signal_key?: unknown;
+      signalKey?: unknown;
       target_field?: unknown;
       targetField?: unknown;
       prompt_key?: unknown;
@@ -64,6 +66,7 @@ type RawQuestionsConfig = {
 };
 
 const questionsConfig = rawQuestionsConfig as RawQuestionsConfig;
+type LegacyTargetField = "headline" | "location" | "summary" | "keywords" | "transcript";
 
 const normalizeGoals = (value: unknown): string[] | undefined => {
   if (!Array.isArray(value)) return undefined;
@@ -75,7 +78,7 @@ const normalizeGoals = (value: unknown): string[] | undefined => {
 
 const normalizeTargetField = (
   value: unknown,
-): VideoQuestion["targetField"] | undefined => {
+): LegacyTargetField | undefined => {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
   if (
@@ -87,6 +90,23 @@ const normalizeTargetField = (
   ) {
     return normalized;
   }
+  return undefined;
+};
+
+const normalizeSignalKey = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const mapLegacyTargetFieldToSignalKey = (value: unknown): string | undefined => {
+  const target = normalizeTargetField(value);
+  if (!target) return undefined;
+  if (target === "headline") return "desired_role";
+  if (target === "location") return "desired_location";
+  if (target === "summary") return "profile_summary";
+  if (target === "keywords") return "core_skills";
+  if (target === "transcript") return "raw_transcript";
   return undefined;
 };
 
@@ -115,13 +135,13 @@ const normalizeQuestion = (
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
   const goals = normalizeGoals(value.goals);
-  const targetField = normalizeTargetField(
-    value.target_field ?? value.targetField,
-  );
+  const signalKey =
+    normalizeSignalKey(value.signal_key ?? value.signalKey) ??
+    mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
   const question: VideoQuestion = { id, text };
   if (goals) question.goals = goals;
-  if (targetField) question.targetField = targetField;
+  if (signalKey) question.signalKey = signalKey;
   if (promptKey) question.promptKey = promptKey;
   return question;
 };

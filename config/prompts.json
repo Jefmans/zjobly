@@ -15,30 +15,30 @@
   },
   "goal_role_preferences_v1": {
     "system_prompt": "Extract preferred role and role level from the answer. Keep it concise and factual.",
-    "target_field": "headline"
+    "signal_key": "desired_role"
   },
   "goal_location_v1": {
     "system_prompt": "Extract location preference from the answer. Use a concise city/region/country format.",
-    "target_field": "location"
+    "signal_key": "desired_location"
   },
   "goal_education_v1": {
     "system_prompt": "Summarize education highlights from the answer in one concise sentence.",
-    "target_field": "summary"
+    "signal_key": "education_background"
   },
   "goal_preferences_v1": {
     "system_prompt": "Summarize job preferences from the answer in one concise sentence.",
-    "target_field": "summary"
+    "signal_key": "work_preferences"
   },
   "goal_motivation_v1": {
     "system_prompt": "Summarize candidate motivation in one concise sentence.",
-    "target_field": "summary"
+    "signal_key": "motivation_statement"
   },
   "goal_plan_v1": {
     "system_prompt": "Summarize first-90-days plan in one concise sentence.",
-    "target_field": "summary"
+    "signal_key": "first_90_day_plan"
   },
   "goal_skills_v1": {
     "system_prompt": "Extract concrete skills and tools as short terms.",
-    "target_field": "keywords"
+    "signal_key": "core_skills"
   }
 }

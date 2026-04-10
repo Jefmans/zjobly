@@ -162,7 +162,7 @@ export function CandidateProfileView({
                     >
                       <div className="review-signal-header">
                         <span className="pill soft">{signal.goal}</span>
-                        <span className="hint">{signal.question_id}</span>
+                        <span className="hint">{signal.signal_key || signal.question_id}</span>
                       </div>
                       {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
                       <p className="review-signal-value">{signal.value}</p>

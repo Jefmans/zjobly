@@ -12,28 +12,28 @@
               "id": "candidate-job-type",
               "text": "What kind of job are you looking for?",
               "goals": ["role_preferences"],
-              "target_field": "headline",
+              "signal_key": "desired_role",
               "prompt_key": "goal_role_preferences_v1"
             },
             {
               "id": "candidate-location",
               "text": "Where are you looking for a job?",
               "goals": ["location"],
-              "target_field": "location",
+              "signal_key": "desired_location",
               "prompt_key": "goal_location_v1"
             },
             {
               "id": "candidate-education",
               "text": "What is your education? Where did you study?",
               "goals": ["education"],
-              "target_field": "summary",
+              "signal_key": "education_background",
               "prompt_key": "goal_education_v1"
             },
             {
               "id": "candidate-job-values",
               "text": "What do you like in a job?",
               "goals": ["preferences"],
-              "target_field": "summary",
+              "signal_key": "work_preferences",
               "prompt_key": "goal_preferences_v1"
             }
           ]
@@ -52,21 +52,21 @@
               "id": "application-motivation",
               "text": "Why do you want this job?",
               "goals": ["motivation"],
-              "target_field": "summary",
+              "signal_key": "motivation_statement",
               "prompt_key": "goal_motivation_v1"
             },
             {
               "id": "application-first-90-days",
               "text": "What would your first 90 days look like?",
               "goals": ["plan"],
-              "target_field": "summary",
+              "signal_key": "first_90_day_plan",
               "prompt_key": "goal_plan_v1"
             },
             {
               "id": "application-skills-fit",
               "text": "Which skills make you a strong fit?",
               "goals": ["skills"],
-              "target_field": "keywords",
+              "signal_key": "core_skills",
               "prompt_key": "goal_skills_v1"
             }
           ]
