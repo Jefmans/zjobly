@@ -167,6 +167,11 @@ type CandidateDraftFields = {
   keywords?: string[];
 };
 
+const normalizeStructuredData = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+};
+
 const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | undefined): CandidateDetailedSignal[] => {
   if (!Array.isArray(signals)) return [];
   return signals
@@ -188,6 +193,11 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
         source: signal.source ? signal.source.toString().trim() : null,
+        structured_data: normalizeStructuredData(signal.structured_data),
+        supporting_text: signal.supporting_text ? signal.supporting_text.toString().trim() : null,
+        supporting_text_mode: signal.supporting_text_mode
+          ? signal.supporting_text_mode.toString().trim().toLowerCase()
+          : null,
         question_start_sec:
           typeof signal.question_start_sec === 'number' && Number.isFinite(signal.question_start_sec)
             ? Math.max(0, signal.question_start_sec)
@@ -350,6 +360,13 @@ const sliceTranscriptByWindow = (
   return source;
 };
 
+const trimToMaxChars = (value: string, maxChars: number): string => {
+  const text = (value || '').trim();
+  if (!text) return '';
+  const safeMaxChars = Number.isFinite(maxChars) ? Math.max(60, Math.min(2000, Math.round(maxChars))) : 320;
+  return text.length <= safeMaxChars ? text : text.slice(0, safeMaxChars).trim();
+};
+
 const buildDetailedSignalsFromQuestions = async (
   questions: VideoQuestion[],
   fullDraft: CandidateDraftFields | null,
@@ -373,17 +390,25 @@ const buildDetailedSignalsFromQuestions = async (
 
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
+    const transcriptExcerpt = questionTranscript ? trimToMaxChars(questionTranscript, 320) : null;
     const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
     let snippetDraft: CandidateDraftFields | null = null;
     let promptExtractedValue = '';
+    let promptStructuredData: Record<string, unknown> | null = null;
+    let promptExtraction: Awaited<ReturnType<typeof getSignalFromTranscript>> | null = null;
     const includeLocationLookup =
       (question.signalKey || '').toLowerCase().includes('location') ||
       goals.some((goal) => (goal || '').toLowerCase().includes('location'));
 
     if (question.promptKey && questionTranscript.length >= 8) {
       try {
-        const extracted = await getSignalFromTranscript(questionTranscript, question.promptKey);
-        promptExtractedValue = (extracted?.value || '').toString().trim();
+        promptExtraction = await getSignalFromTranscript(
+          questionTranscript,
+          question.promptKey,
+          question.outputSchema,
+        );
+        promptExtractedValue = (promptExtraction?.value || '').toString().trim();
+        promptStructuredData = normalizeStructuredData(promptExtraction?.structured_data ?? null);
       } catch (err) {
         console.error(`Could not extract signal for prompt ${question.promptKey}`, err);
       }
@@ -413,6 +438,35 @@ const buildDetailedSignalsFromQuestions = async (
       }
       if (!value) continue;
 
+      const captureMode = question.captureText?.mode ?? 'none';
+      const captureMaxChars = Number(question.captureText?.maxChars) || 320;
+      let supportingText: string | null = null;
+      if (captureMode === 'full') {
+        supportingText = trimToMaxChars(questionTranscript || transcript, captureMaxChars);
+      } else if (captureMode === 'excerpt') {
+        supportingText = trimToMaxChars(questionTranscript, captureMaxChars);
+      } else if (captureMode === 'summary') {
+        const summaryPromptKey = (question.captureText?.promptKey || '').trim();
+        if (summaryPromptKey && questionTranscript.length >= 8) {
+          try {
+            if (summaryPromptKey === question.promptKey && promptExtraction) {
+              supportingText = trimToMaxChars((promptExtraction.value || '').toString(), captureMaxChars);
+            } else {
+              const summaryExtraction = await getSignalFromTranscript(questionTranscript, summaryPromptKey);
+              supportingText = trimToMaxChars((summaryExtraction?.value || '').toString(), captureMaxChars);
+            }
+          } catch (err) {
+            console.error(`Could not extract summary text for prompt ${summaryPromptKey}`, err);
+          }
+        }
+        if (!supportingText) {
+          supportingText = trimToMaxChars(promptExtractedValue || questionTranscript, captureMaxChars);
+        }
+      }
+      if (supportingText && supportingText.length === 0) {
+        supportingText = null;
+      }
+
       signals.push({
         question_id: questionId,
         goal: normalizedGoal,
@@ -421,9 +475,12 @@ const buildDetailedSignalsFromQuestions = async (
         prompt_key: question.promptKey ?? null,
         question_text: questionText,
         source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',
+        structured_data: promptStructuredData,
+        supporting_text: supportingText,
+        supporting_text_mode: captureMode,
         question_start_sec: questionWindow?.start_sec ?? null,
         question_end_sec: questionWindow?.end_sec ?? null,
-        transcript_excerpt: questionTranscript ? questionTranscript.slice(0, 320) : null,
+        transcript_excerpt: transcriptExcerpt,
         updated_at: now,
       });
     }

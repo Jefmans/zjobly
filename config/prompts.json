@@ -25,6 +25,17 @@
     "system_prompt": "Summarize education highlights from the answer in one concise sentence.",
     "signal_key": "education_background"
   },
+  "goal_education_v2": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "response_format": "json_object",
+    "system_prompt": "Extract education details from the answer. Return JSON with keys: value, school, degree, field, start_year, end_year, in_progress. Use null for unknown year values. Keep value as one concise sentence summary.",
+    "signal_key": "education_background"
+  },
+  "goal_education_summary_v1": {
+    "system_prompt": "Write a short plain-text summary (max 2 sentences) of the candidate's education details: school, degree, field, and years if mentioned.",
+    "signal_key": "education_background_summary"
+  },
   "goal_preferences_v1": {
     "system_prompt": "Summarize job preferences from the answer in one concise sentence.",
     "signal_key": "work_preferences"

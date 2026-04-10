@@ -61,6 +61,9 @@ class CandidateDetailedSignal(BaseModel):
     prompt_key: Optional[str] = None
     question_text: Optional[str] = None
     source: Optional[str] = None
+    structured_data: Optional[dict[str, object]] = None
+    supporting_text: Optional[str] = None
+    supporting_text_mode: Optional[str] = None
     question_start_sec: Optional[float] = None
     question_end_sec: Optional[float] = None
     transcript_excerpt: Optional[str] = None

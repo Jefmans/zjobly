@@ -40,6 +40,9 @@ export type CandidateDetailedSignal = {
   prompt_key?: string | null;
   question_text?: string | null;
   source?: string | null;
+  structured_data?: Record<string, unknown> | null;
+  supporting_text?: string | null;
+  supporting_text_mode?: "none" | "excerpt" | "full" | "summary" | string | null;
   question_start_sec?: number | null;
   question_end_sec?: number | null;
   transcript_excerpt?: string | null;

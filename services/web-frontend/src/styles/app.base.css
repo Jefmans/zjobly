@@ -2207,6 +2207,30 @@ button[type='submit']:disabled {
   white-space: pre-wrap;
 }
 
+.signal-metadata {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.signal-supporting-text {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.signal-structured-json {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .auth-overlay-card .auth-form {
   min-width: 0;
 }

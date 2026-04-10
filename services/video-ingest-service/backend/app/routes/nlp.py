@@ -401,15 +401,28 @@ def _draft_profile_from_transcript(transcript: str, language: str | None) -> Pro
     return ProfileDraftResponse(headline=headline, summary=summary, location=location, keywords=keywords)
 
 
-def _signal_from_transcript(transcript: str, prompt_key: str, language: str | None) -> SignalFromTranscriptResponse:
+def _signal_from_transcript(
+    transcript: str,
+    prompt_key: str,
+    language: str | None,
+    output_schema: dict[str, object] | None = None,
+) -> SignalFromTranscriptResponse:
     llm, system_prompt = _build_chat_model(prompt_key)
     if language:
         system_prompt = f"{system_prompt} Respond in {language}."
-    extraction_prompt = (
-        f"{system_prompt}\n"
-        "Return only the extracted value as plain text."
-        " Do not add JSON, labels, markdown, or quotes."
-    )
+    if output_schema:
+        extraction_prompt = (
+            f"{system_prompt}\n"
+            "Return a valid JSON object only."
+            " Include a top-level 'value' string for human-readable display."
+            f" Follow this schema guidance: {json.dumps(output_schema, ensure_ascii=True)}"
+        )
+    else:
+        extraction_prompt = (
+            f"{system_prompt}\n"
+            "Return only the extracted value as plain text."
+            " Do not add JSON, labels, markdown, or quotes."
+        )
 
     try:
         prompt = ChatPromptTemplate.from_messages([("system", extraction_prompt), ("user", "{transcript}")])
@@ -418,6 +431,7 @@ def _signal_from_transcript(transcript: str, prompt_key: str, language: str | No
         raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from exc
 
     text = _coerce_response_text(getattr(response, "content", None))
+    structured_data: dict[str, object] | None = None
     if not text:
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 
@@ -425,13 +439,18 @@ def _signal_from_transcript(transcript: str, prompt_key: str, language: str | No
         try:
             parsed = json.loads(text)
             if isinstance(parsed, dict):
+                structured_data = parsed
                 candidate = parsed.get("value") or parsed.get("summary") or parsed.get("signal")
                 if isinstance(candidate, str) and candidate.strip():
                     text = candidate.strip()
+                elif len(parsed) == 1:
+                    only_value = next(iter(parsed.values()))
+                    if isinstance(only_value, str) and only_value.strip():
+                        text = only_value.strip()
         except json.JSONDecodeError:
             pass
 
-    return SignalFromTranscriptResponse(value=text[:1200].strip())
+    return SignalFromTranscriptResponse(value=text[:1200].strip(), structured_data=structured_data)
 
 
 @router.post("/location-from-transcript", response_model=LocationFromTranscriptResponse)
@@ -498,4 +517,4 @@ def signal_from_transcript(payload: SignalFromTranscriptRequest) -> SignalFromTr
     prompt_key = payload.prompt_key.strip()
     if not prompt_key:
         raise HTTPException(status_code=400, detail="Missing prompt_key")
-    return _signal_from_transcript(transcript, prompt_key, payload.language)
+    return _signal_from_transcript(transcript, prompt_key, payload.language, payload.output_schema)

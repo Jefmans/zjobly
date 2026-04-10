@@ -30,7 +30,25 @@
               "helper_text": "Include school, degree, field, and graduation year if relevant.",
               "goals": ["education"],
               "signal_key": "education_background",
-              "prompt_key": "goal_education_v1"
+              "prompt_key": "goal_education_v2",
+              "output_schema": {
+                "type": "object",
+                "required": ["value", "school", "degree", "field", "start_year", "end_year", "in_progress"],
+                "properties": {
+                  "value": { "type": "string" },
+                  "school": { "type": "string" },
+                  "degree": { "type": "string" },
+                  "field": { "type": "string" },
+                  "start_year": { "type": ["integer", "null"] },
+                  "end_year": { "type": ["integer", "null"] },
+                  "in_progress": { "type": "boolean" }
+                }
+              },
+              "capture_text": {
+                "mode": "summary",
+                "prompt_key": "goal_education_summary_v1",
+                "max_chars": 300
+              }
             },
             {
               "id": "candidate-job-values",

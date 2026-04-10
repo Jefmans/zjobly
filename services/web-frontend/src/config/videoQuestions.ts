@@ -7,6 +7,12 @@ export type VideoQuestion = {
   goals?: string[];
   signalKey?: string;
   promptKey?: string;
+  outputSchema?: Record<string, unknown>;
+  captureText?: {
+    mode: "none" | "excerpt" | "full" | "summary";
+    promptKey?: string;
+    maxChars?: number;
+  };
 };
 
 export type VideoQuestionVariant = {
@@ -46,6 +52,10 @@ type RawQuestion =
       targetField?: unknown;
       prompt_key?: unknown;
       promptKey?: unknown;
+      output_schema?: unknown;
+      outputSchema?: unknown;
+      capture_text?: unknown;
+      captureText?: unknown;
       enabled?: unknown;
     };
 
@@ -126,6 +136,49 @@ const normalizeHelperText = (value: unknown): string | undefined => {
   return text.length > 0 ? text : undefined;
 };
 
+const normalizeCaptureTextMode = (
+  value: unknown,
+): "none" | "excerpt" | "full" | "summary" | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "excerpt") return "excerpt";
+  if (normalized === "full" || normalized === "full_transcript") return "full";
+  if (normalized === "summary") return "summary";
+  return undefined;
+};
+
+const normalizeCaptureText = (
+  value: unknown,
+): VideoQuestion["captureText"] | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as {
+    mode?: unknown;
+    prompt_key?: unknown;
+    promptKey?: unknown;
+    max_chars?: unknown;
+    maxChars?: unknown;
+  };
+  const mode = normalizeCaptureTextMode(raw.mode);
+  if (!mode) return undefined;
+  const promptKey = normalizePromptKey(raw.prompt_key ?? raw.promptKey);
+  const maxCharsRaw = Number(raw.max_chars ?? raw.maxChars);
+  const maxChars =
+    Number.isFinite(maxCharsRaw) && maxCharsRaw > 0
+      ? Math.min(2000, Math.max(60, Math.round(maxCharsRaw)))
+      : undefined;
+
+  const captureText: VideoQuestion["captureText"] = { mode };
+  if (promptKey) captureText.promptKey = promptKey;
+  if (typeof maxChars === "number") captureText.maxChars = maxChars;
+  return captureText;
+};
+
+const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+};
+
 const normalizeQuestion = (
   value: RawQuestion,
   index: number,
@@ -152,11 +205,15 @@ const normalizeQuestion = (
     normalizeSignalKey(value.signal_key ?? value.signalKey) ??
     mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
+  const outputSchema = normalizeOutputSchema(value.output_schema ?? value.outputSchema);
+  const captureText = normalizeCaptureText(value.capture_text ?? value.captureText);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
   if (goals) question.goals = goals;
   if (signalKey) question.signalKey = signalKey;
   if (promptKey) question.promptKey = promptKey;
+  if (outputSchema) question.outputSchema = outputSchema;
+  if (captureText) question.captureText = captureText;
   return question;
 };
 

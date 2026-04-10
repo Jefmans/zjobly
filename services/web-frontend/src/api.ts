@@ -66,6 +66,7 @@ export type ProfileDraft = {
 
 export type SignalDraft = {
   value: string;
+  structured_data?: Record<string, unknown> | null;
 };
 
 export type AdminConfigBundle = {
@@ -252,11 +253,16 @@ export async function getProfileDraftFromTranscript(
 export async function getSignalFromTranscript(
   transcript: string,
   promptKey: string,
+  outputSchema?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<SignalDraft> {
   return requestJson<SignalDraft>("/nlp/signal-from-transcript", {
     method: "POST",
-    body: JSON.stringify({ transcript, prompt_key: promptKey }),
+    body: JSON.stringify({
+      transcript,
+      prompt_key: promptKey,
+      ...(outputSchema ? { output_schema: outputSchema } : {}),
+    }),
     signal,
   });
 }

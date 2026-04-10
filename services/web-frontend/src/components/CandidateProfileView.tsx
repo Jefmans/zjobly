@@ -35,6 +35,14 @@ export function CandidateProfileView({
     (signal): signal is CandidateDetailedSignal =>
       Boolean(signal?.question_id && signal?.goal && signal?.value),
   );
+  const formatSupportingModeLabel = (mode: string | null | undefined) => {
+    const normalized = (mode || "").toString().trim().toLowerCase();
+    if (!normalized) return "Supporting text";
+    if (normalized === "summary") return "Supporting text (summary)";
+    if (normalized === "excerpt") return "Supporting text (excerpt)";
+    if (normalized === "full") return "Supporting text (full)";
+    return `Supporting text (${normalized})`;
+  };
 
   return (
     <>
@@ -166,6 +174,28 @@ export function CandidateProfileView({
                       </div>
                       {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
                       <p className="review-signal-value">{signal.value}</p>
+                      {signal.supporting_text && (
+                        <div className="field">
+                          <label>{formatSupportingModeLabel(signal.supporting_text_mode)}</label>
+                          <textarea
+                            rows={3}
+                            className="signal-supporting-text"
+                            value={signal.supporting_text}
+                            readOnly
+                          />
+                        </div>
+                      )}
+                      {signal.structured_data &&
+                        typeof signal.structured_data === "object" &&
+                        !Array.isArray(signal.structured_data) &&
+                        Object.keys(signal.structured_data).length > 0 && (
+                          <div className="field">
+                            <label>Structured data</label>
+                            <pre className="signal-structured-json">
+                              {JSON.stringify(signal.structured_data, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>

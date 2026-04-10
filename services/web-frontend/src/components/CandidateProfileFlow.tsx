@@ -615,6 +615,54 @@ export function CandidateProfileFlow({
     element.style.height = "auto";
     element.style.height = `${element.scrollHeight}px`;
   };
+  const formatSupportingModeLabel = (mode: string | null | undefined) => {
+    const normalized = (mode || "").toString().trim().toLowerCase();
+    if (!normalized) return "Supporting text";
+    if (normalized === "summary") return "Supporting text (summary)";
+    if (normalized === "excerpt") return "Supporting text (excerpt)";
+    if (normalized === "full") return "Supporting text (full)";
+    return `Supporting text (${normalized})`;
+  };
+  const renderSignalMetadata = (
+    signal: CandidateDetailedSignal | null | undefined,
+    idPrefix: string,
+  ) => {
+    if (!signal) return null;
+    const supportingText = (signal.supporting_text || "").toString().trim();
+    const hasStructuredData =
+      Boolean(signal.structured_data) &&
+      typeof signal.structured_data === "object" &&
+      !Array.isArray(signal.structured_data) &&
+      Object.keys(signal.structured_data as Record<string, unknown>).length > 0;
+    if (!supportingText && !hasStructuredData) return null;
+    return (
+      <div className="signal-metadata">
+        {supportingText && (
+          <div className="field">
+            <label htmlFor={`${idPrefix}-supporting`}>
+              {formatSupportingModeLabel(signal.supporting_text_mode)}
+            </label>
+            <textarea
+              id={`${idPrefix}-supporting`}
+              rows={1}
+              className="autosize-textarea signal-supporting-text"
+              ref={(element) => autoSizeTextarea(element)}
+              value={supportingText}
+              readOnly
+            />
+          </div>
+        )}
+        {hasStructuredData && (
+          <div className="field">
+            <label>Structured data</label>
+            <pre className="signal-structured-json">
+              {JSON.stringify(signal.structured_data, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  };
   const renderDetailedSignals = () => {
     if (detailedSignalPairs.length === 0) {
       return <p className="hint">No detailed signals.</p>;
@@ -672,6 +720,7 @@ export function CandidateProfileFlow({
                   ) : (
                     <p className="hint">No current value.</p>
                   )}
+                  {renderSignalMetadata(pair.current, `review-current-${pair.key}`)}
                 </div>
                 <div className="field">
                   <label>New value</label>
@@ -689,6 +738,7 @@ export function CandidateProfileFlow({
                   ) : (
                     <p className="hint">No new value.</p>
                   )}
+                  {renderSignalMetadata(pair.next, `review-new-${pair.key}`)}
                 </div>
               </div>
             </div>
@@ -983,6 +1033,10 @@ export function CandidateProfileFlow({
                                 autoSizeTextarea(event.currentTarget);
                               }}
                             />
+                            {renderSignalMetadata(
+                              signal,
+                              `profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`,
+                            )}
                           </div>
                         </div>
                       ))}
