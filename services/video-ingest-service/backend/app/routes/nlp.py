@@ -244,6 +244,61 @@ def _build_chat_model(prompt_key: str) -> tuple[ChatOpenAI, str]:
     return llm, system_prompt
 
 
+def _extract_with_structured_output(
+    llm: ChatOpenAI,
+    system_prompt: str,
+    transcript: str,
+    output_schema: dict[str, object],
+) -> dict[str, object] | None:
+    if not hasattr(llm, "with_structured_output"):
+        return None
+    try:
+        structured_llm = llm.with_structured_output(output_schema, method="json_schema", strict=True)
+    except TypeError:
+        try:
+            structured_llm = llm.with_structured_output(output_schema, method="json_schema")
+        except TypeError:
+            try:
+                structured_llm = llm.with_structured_output(output_schema)
+            except Exception:
+                return None
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+    strict_prompt = (
+        f"{system_prompt}\n"
+        "Return data that matches the schema exactly."
+        " Use null for unknown values and do not invent missing details."
+    )
+    try:
+        prompt = ChatPromptTemplate.from_messages([("system", strict_prompt), ("user", "{transcript}")])
+        response = (prompt | structured_llm).invoke({"transcript": transcript})
+    except Exception:
+        return None
+
+    if isinstance(response, dict):
+        return response
+    model_dump = getattr(response, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+            if isinstance(dumped, dict):
+                return dumped
+        except Exception:
+            pass
+    dict_method = getattr(response, "dict", None)
+    if callable(dict_method):
+        try:
+            dumped = dict_method()
+            if isinstance(dumped, dict):
+                return dumped
+        except Exception:
+            pass
+    return _parse_json_object(_coerce_response_text(getattr(response, "content", response)))
+
+
 def _get_prompt_output_schema(prompt_key: str) -> dict[str, object] | None:
     entry = _get_prompt_entry(prompt_key)
     raw_schema = entry.get("output_schema")
@@ -507,6 +562,12 @@ def _signal_from_transcript(
     llm, system_prompt = _build_chat_model(prompt_key)
     if language:
         system_prompt = f"{system_prompt} Respond in {language}."
+    structured_data: dict[str, object] | None = None
+    if output_schema:
+        structured_attempt = _extract_with_structured_output(llm, system_prompt, transcript, output_schema)
+        if _has_meaningful_schema_data(structured_attempt, output_schema):
+            structured_data = structured_attempt
+
     if output_schema:
         extraction_prompt = (
             f"{system_prompt}\n"
@@ -528,13 +589,13 @@ def _signal_from_transcript(
         raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from exc
 
     text = _coerce_response_text(getattr(response, "content", None))
-    structured_data: dict[str, object] | None = None
     if not text:
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 
-    parsed_inline = _parse_json_object(text)
-    if parsed_inline is not None:
-        structured_data = parsed_inline
+    if structured_data is None:
+        parsed_inline = _parse_json_object(text)
+        if parsed_inline is not None:
+            structured_data = parsed_inline
 
     if output_schema and not _has_meaningful_schema_data(structured_data, output_schema):
         reparsed = _schema_reformat_with_llm(llm, transcript or text, output_schema)
