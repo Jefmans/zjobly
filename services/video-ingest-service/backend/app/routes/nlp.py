@@ -275,13 +275,47 @@ def _parse_json_object(text: str) -> dict[str, object] | None:
     raw = (text or "").strip()
     if not raw:
         return None
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-    if isinstance(parsed, dict):
-        return parsed
+    candidates: list[str] = [raw]
+    first_brace = raw.find("{")
+    last_brace = raw.rfind("}")
+    if 0 <= first_brace < last_brace:
+        candidates.append(raw[first_brace : last_brace + 1].strip())
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
     return None
+
+
+def _has_meaningful_schema_data(
+    structured_data: dict[str, object] | None,
+    output_schema: dict[str, object] | None,
+) -> bool:
+    if structured_data is None:
+        return False
+    if not output_schema:
+        return True
+    properties = output_schema.get("properties")
+    if not isinstance(properties, dict) or not properties:
+        return len(structured_data) > 0
+    non_value_keys = [key for key in properties.keys() if key != "value"]
+    keys_to_check = non_value_keys or list(properties.keys())
+    for key in keys_to_check:
+        value = structured_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, bool):
+            return True
+        if isinstance(value, (int, float)):
+            return True
+        if isinstance(value, list) and len(value) > 0:
+            return True
+        if isinstance(value, dict) and len(value) > 0:
+            return True
+    return False
 
 
 def _ensure_schema_keys(
@@ -492,8 +526,19 @@ def _signal_from_transcript(
     if parsed_inline is not None:
         structured_data = parsed_inline
 
-    if structured_data is None and output_schema:
-        structured_data = _schema_reformat_with_llm(llm, text, output_schema)
+    if output_schema and not _has_meaningful_schema_data(structured_data, output_schema):
+        reparsed = _schema_reformat_with_llm(llm, transcript or text, output_schema)
+        if reparsed is not None:
+            if isinstance(structured_data, dict):
+                original_value = structured_data.get("value")
+                reparsed_value = reparsed.get("value")
+                if (
+                    isinstance(original_value, str)
+                    and original_value.strip()
+                    and (not isinstance(reparsed_value, str) or not reparsed_value.strip())
+                ):
+                    reparsed["value"] = original_value.strip()
+            structured_data = reparsed
 
     structured_data = _ensure_schema_keys(structured_data, output_schema)
 
@@ -508,7 +553,7 @@ def _signal_from_transcript(
 
     if output_schema and structured_data is None:
         # Keep at least a predictable structured shape for downstream UI persistence.
-        structured_data = {"value": text[:1200].strip()}
+        structured_data = _ensure_schema_keys({"value": text[:1200].strip()}, output_schema)
 
     return SignalFromTranscriptResponse(value=text[:1200].strip(), structured_data=structured_data)
 

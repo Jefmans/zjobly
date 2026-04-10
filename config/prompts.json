@@ -29,7 +29,7 @@
     "model": "gpt-4o-mini",
     "temperature": 0.2,
     "response_format": "json_object",
-    "system_prompt": "Extract education details from the answer. Return JSON with keys: value, school, degree, field, start_year, end_year, in_progress. Use null for unknown year values. Keep value as one concise sentence summary.",
+    "system_prompt": "Extract education details from the answer. Return JSON with keys: value, school, degree, field, start_year, end_year, in_progress. Keep value as one concise sentence summary. For all other keys, use null when not explicitly stated. Do not invent missing details.",
     "signal_key": "education_background"
   },
   "goal_education_summary_v1": {
