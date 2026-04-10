@@ -13,5 +13,3 @@ werk uren.ods
 /.~lock.werk uren.ods#
 __pycache__/
 *.py[cod]
-/services/video-ingest-service/backend/app/routes/__pycache__
-services/video-ingest-service/backend/app/routes/__pycache__/nlp.cpython-314.pyc

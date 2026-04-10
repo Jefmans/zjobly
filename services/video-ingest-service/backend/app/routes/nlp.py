@@ -244,6 +244,67 @@ def _build_chat_model(prompt_key: str) -> tuple[ChatOpenAI, str]:
     return llm, system_prompt
 
 
+def _extract_with_openai_json_schema(
+    prompt_key: str,
+    system_prompt: str,
+    transcript: str,
+    output_schema: dict[str, object],
+) -> dict[str, object] | None:
+    try:
+        _, model, temperature, max_tokens, _ = _build_prompt_settings(prompt_key)
+        client = get_openai_client()
+    except Exception:
+        return None
+
+    schema_payload = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "signal_output",
+            "strict": True,
+            "schema": output_schema,
+        },
+    }
+    user_prompt = transcript[:8000]
+    strict_system_prompt = (
+        f"{system_prompt}\n"
+        "Return JSON only that matches the schema."
+        " Use null for unknown values and do not invent missing details."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=schema_payload,
+            messages=[
+                {"role": "system", "content": strict_system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+    except Exception:
+        try:
+            schema_payload["json_schema"]["strict"] = False
+            response = client.chat.completions.create(
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format=schema_payload,
+                messages=[
+                    {"role": "system", "content": strict_system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+        except Exception:
+            return None
+
+    try:
+        content = response.choices[0].message.content if response.choices else ""
+    except Exception:
+        content = ""
+    return _parse_json_object(_coerce_response_text(content))
+
+
 def _extract_with_structured_output(
     llm: ChatOpenAI,
     system_prompt: str,
@@ -564,7 +625,9 @@ def _signal_from_transcript(
         system_prompt = f"{system_prompt} Respond in {language}."
     structured_data: dict[str, object] | None = None
     if output_schema:
-        structured_attempt = _extract_with_structured_output(llm, system_prompt, transcript, output_schema)
+        structured_attempt = _extract_with_openai_json_schema(prompt_key, system_prompt, transcript, output_schema)
+        if not _has_meaningful_schema_data(structured_attempt, output_schema):
+            structured_attempt = _extract_with_structured_output(llm, system_prompt, transcript, output_schema)
         if _has_meaningful_schema_data(structured_attempt, output_schema):
             structured_data = structured_attempt
 
