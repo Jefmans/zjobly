@@ -3,6 +3,7 @@ import rawQuestionsConfig from "../../../../config/questions.json";
 export type VideoQuestion = {
   id: string;
   text: string;
+  helperText?: string;
   goals?: string[];
   signalKey?: string;
   promptKey?: string;
@@ -35,6 +36,9 @@ type RawQuestion =
   | {
       id?: unknown;
       text?: unknown;
+      helper_text?: unknown;
+      helperText?: unknown;
+      subtext?: unknown;
       goals?: unknown;
       signal_key?: unknown;
       signalKey?: unknown;
@@ -116,6 +120,12 @@ const normalizePromptKey = (value: unknown): string | undefined => {
   return key.length > 0 ? key : undefined;
 };
 
+const normalizeHelperText = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  return text.length > 0 ? text : undefined;
+};
+
 const normalizeQuestion = (
   value: RawQuestion,
   index: number,
@@ -135,11 +145,15 @@ const normalizeQuestion = (
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
   const goals = normalizeGoals(value.goals);
+  const helperText = normalizeHelperText(
+    value.helper_text ?? value.helperText ?? value.subtext,
+  );
   const signalKey =
     normalizeSignalKey(value.signal_key ?? value.signalKey) ??
     mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
   const question: VideoQuestion = { id, text };
+  if (helperText) question.helperText = helperText;
   if (goals) question.goals = goals;
   if (signalKey) question.signalKey = signalKey;
   if (promptKey) question.promptKey = promptKey;

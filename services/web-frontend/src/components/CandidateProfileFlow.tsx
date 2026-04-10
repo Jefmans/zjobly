@@ -526,6 +526,11 @@ export function CandidateProfileFlow({
       </div>
     );
   };
+  const autoSizeTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  };
   const renderDetailedSignals = () => {
     if (detailedSignalPairs.length === 0) {
       return <p className="hint">No detailed signals.</p>;
@@ -571,11 +576,14 @@ export function CandidateProfileFlow({
                   <label>Current value</label>
                   {pair.current ? (
                     <textarea
-                      rows={3}
+                      rows={1}
+                      className="autosize-textarea"
+                      ref={(element) => autoSizeTextarea(element)}
                       value={pair.current.value}
-                      onChange={(event) =>
-                        onReviewDetailedSignalValueChange("current", pair.key, event.target.value)
-                      }
+                      onChange={(event) => {
+                        onReviewDetailedSignalValueChange("current", pair.key, event.target.value);
+                        autoSizeTextarea(event.currentTarget);
+                      }}
                     />
                   ) : (
                     <p className="hint">No current value.</p>
@@ -585,11 +593,14 @@ export function CandidateProfileFlow({
                   <label>New value</label>
                   {pair.next ? (
                     <textarea
-                      rows={3}
+                      rows={1}
+                      className="autosize-textarea"
+                      ref={(element) => autoSizeTextarea(element)}
                       value={pair.next.value}
-                      onChange={(event) =>
-                        onReviewDetailedSignalValueChange("new", pair.key, event.target.value)
-                      }
+                      onChange={(event) => {
+                        onReviewDetailedSignalValueChange("new", pair.key, event.target.value);
+                        autoSizeTextarea(event.currentTarget);
+                      }}
                     />
                   ) : (
                     <p className="hint">No new value.</p>
@@ -879,9 +890,14 @@ export function CandidateProfileFlow({
                             <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
                             <textarea
                               id={`detailed-signal-value-${index}`}
-                              rows={3}
+                              rows={1}
+                              className="autosize-textarea"
+                              ref={(element) => autoSizeTextarea(element)}
                               value={signal.value}
-                              onChange={(event) => onDetailedSignalValueChange(index, event.target.value)}
+                              onChange={(event) => {
+                                onDetailedSignalValueChange(index, event.target.value);
+                                autoSizeTextarea(event.currentTarget);
+                              }}
                             />
                           </div>
                         </div>
@@ -980,6 +996,9 @@ export function CandidateProfileFlow({
                                 Question {candidateQuestionIndex + 1} of {candidateQuestions.length}
                               </p>
                               <p className="question-text">{candidateQuestion?.text ?? ""}</p>
+                              {candidateQuestion?.helperText && (
+                                <p className="question-helper-text">{candidateQuestion.helperText}</p>
+                              )}
                               {questionCountdown !== null ? (
                                 <div className="question-countdown">
                                   <span className="question-countdown-label">Starting in</span>

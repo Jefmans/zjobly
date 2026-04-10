@@ -747,6 +747,11 @@ p {
   resize: vertical;
 }
 
+.autosize-textarea {
+  resize: none;
+  overflow: hidden;
+}
+
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
@@ -1928,6 +1933,14 @@ button[type='submit']:disabled {
   font-size: 1.05rem;
   font-weight: 600;
   color: #f8fafc;
+}
+
+.question-helper-text {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+  max-width: 44ch;
 }
 
 .question-actions {
