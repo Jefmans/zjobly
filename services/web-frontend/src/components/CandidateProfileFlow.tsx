@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { formatDuration } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
@@ -11,6 +11,7 @@ import {
   CandidateReviewSide,
   CandidateReviewVideoChoice,
   CandidateStep,
+  DetailedQuestionWindow,
   RecordedTake,
   RecordingState,
   Status,
@@ -30,6 +31,7 @@ type Props = {
   liveVideoRef: RefObject<HTMLVideoElement>;
   playbackVideoRef: RefObject<HTMLVideoElement>;
   recordLabel: string | null;
+  recordDurationSec: number;
   durationLabel: string | null;
   startRecording: () => void;
   pauseRecording: () => void;
@@ -49,7 +51,10 @@ type Props = {
   isEditingProfile: boolean;
   keywords: string[];
   removedKeywords: string[];
-  onSaveVideo: (options?: { showBlockingOverlay?: boolean }) => void | Promise<void>;
+  onSaveVideo: (options?: {
+    showBlockingOverlay?: boolean;
+    detailedQuestionWindows?: DetailedQuestionWindow[];
+  }) => void | Promise<void>;
   profile: CandidateProfileInput;
   onProfileChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onSaveProfile: () => void;
@@ -95,6 +100,7 @@ export function CandidateProfileFlow({
   liveVideoRef,
   playbackVideoRef,
   recordLabel,
+  recordDurationSec,
   durationLabel,
   startRecording,
   pauseRecording,
@@ -332,11 +338,51 @@ export function CandidateProfileFlow({
     });
     return Array.from(byKey.values());
   }, [showDetailedReviewSection, reviewCurrent, reviewNew]);
+  const [detailedQuestionWindows, setDetailedQuestionWindows] = useState<DetailedQuestionWindow[]>([]);
+  const activeQuestionStartSecRef = useRef<number | null>(null);
+  const normalizeWindowTime = (value: number) =>
+    Number.isFinite(value) ? Math.max(0, Math.round(value * 100) / 100) : 0;
+  const upsertDetailedQuestionWindow = (
+    questionId: string,
+    startSeconds: number,
+    endSeconds: number,
+  ) => {
+    const normalizedQuestionId = (questionId || "").trim();
+    if (!normalizedQuestionId) return;
+    const start = normalizeWindowTime(Math.min(startSeconds, endSeconds));
+    const end = normalizeWindowTime(Math.max(startSeconds, endSeconds));
+    if (end <= start) return;
+    setDetailedQuestionWindows((prev) => {
+      const existing = prev.find((item) => item.question_id === normalizedQuestionId);
+      if (!existing) {
+        return [...prev, { question_id: normalizedQuestionId, start_sec: start, end_sec: end }];
+      }
+      return prev.map((item) =>
+        item.question_id === normalizedQuestionId
+          ? {
+              ...item,
+              start_sec: Math.min(item.start_sec, start),
+              end_sec: Math.max(item.end_sec, end),
+            }
+          : item,
+      );
+    });
+  };
+  const closeActiveQuestionWindow = (questionId: string | undefined | null, endSeconds: number) => {
+    const startSeconds = activeQuestionStartSecRef.current;
+    if (startSeconds === null) return;
+    activeQuestionStartSecRef.current = null;
+    const normalizedQuestionId = (questionId || "").trim();
+    if (!normalizedQuestionId) return;
+    upsertDetailedQuestionWindow(normalizedQuestionId, startSeconds, endSeconds);
+  };
   const handleStartDetailedFlow = () => {
     if (!hasCandidateQuestions || recordingState !== "idle") return;
     setCandidateQuestionIndex(0);
     setQuestionCountdown(null);
     setDetailedAutoSavePending(false);
+    setDetailedQuestionWindows([]);
+    activeQuestionStartSecRef.current = null;
     setDetailedFlowStarted(true);
     setDetailedAwaitingContinue(true);
   };
@@ -346,6 +392,7 @@ export function CandidateProfileFlow({
   };
   const handlePreviousDetailedQuestion = () => {
     if (!hasCandidateQuestions || !canPrevCandidateQuestion) return;
+    closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
     if (recordingState === "recording") {
       pauseRecording();
     }
@@ -355,6 +402,7 @@ export function CandidateProfileFlow({
   };
   const handleNextQuestion = () => {
     if (!canNextCandidateQuestion) {
+      closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
       setQuestionCountdown(null);
       setDetailedAwaitingContinue(false);
       setDetailedAutoSaveTakeCount(recordedTakes.length);
@@ -362,6 +410,7 @@ export function CandidateProfileFlow({
       stopRecording();
       return;
     }
+    closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
     if (recordingState === "recording") {
       pauseRecording();
     }
@@ -382,6 +431,7 @@ export function CandidateProfileFlow({
 
   useEffect(() => {
     if (candidateStep !== "record") {
+      closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
       setQuestionCountdown(null);
       setIntroCountdown(null);
       setIntroStartPending(false);
@@ -389,6 +439,8 @@ export function CandidateProfileFlow({
       setDetailedAwaitingContinue(false);
       setDetailedAutoSavePending(false);
       setDetailedAutoSaveTakeCount(0);
+      setDetailedQuestionWindows([]);
+      activeQuestionStartSecRef.current = null;
       return;
     }
     setCandidateQuestionIndex(0);
@@ -399,7 +451,29 @@ export function CandidateProfileFlow({
     setDetailedAwaitingContinue(false);
     setDetailedAutoSavePending(false);
     setDetailedAutoSaveTakeCount(0);
+    setDetailedQuestionWindows([]);
+    activeQuestionStartSecRef.current = null;
   }, [candidateStep, candidateQuestionSet?.variant.id]);
+  useEffect(() => {
+    if (!hasCandidateQuestions || !detailedFlowStarted || detailedAwaitingContinue) {
+      closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
+      return;
+    }
+    if (recordingState === "recording") {
+      if (activeQuestionStartSecRef.current === null) {
+        activeQuestionStartSecRef.current = normalizeWindowTime(recordDurationSec);
+      }
+      return;
+    }
+    closeActiveQuestionWindow(candidateQuestion?.id, recordDurationSec);
+  }, [
+    hasCandidateQuestions,
+    detailedFlowStarted,
+    detailedAwaitingContinue,
+    recordingState,
+    candidateQuestion?.id,
+    recordDurationSec,
+  ]);
   useEffect(() => {
     if (introCountdown === null) return;
     if (introCountdown <= 0) {
@@ -450,8 +524,18 @@ export function CandidateProfileFlow({
     if (recordingState !== "idle") return;
     if (recordedTakes.length <= detailedAutoSaveTakeCount) return;
     setDetailedAutoSavePending(false);
-    void onSaveVideo({ showBlockingOverlay: true });
-  }, [detailedAutoSavePending, recordingState, recordedTakes.length, detailedAutoSaveTakeCount, onSaveVideo]);
+    void onSaveVideo({
+      showBlockingOverlay: true,
+      detailedQuestionWindows,
+    });
+  }, [
+    detailedAutoSavePending,
+    recordingState,
+    recordedTakes.length,
+    detailedAutoSaveTakeCount,
+    onSaveVideo,
+    detailedQuestionWindows,
+  ]);
   useEffect(() => {
     if (!hasCandidateQuestions) return;
     if (status !== "error" || recordingState !== "idle") return;

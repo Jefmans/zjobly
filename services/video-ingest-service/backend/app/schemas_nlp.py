@@ -46,3 +46,13 @@ class ProfileDraftResponse(BaseModel):
     summary: str
     keywords: List[str] = []
     location: Optional[str] = None
+
+
+class SignalFromTranscriptRequest(BaseModel):
+    transcript: str = Field(..., min_length=1, description="Transcript text to extract a specific signal from.")
+    prompt_key: str = Field(..., min_length=1, description="Prompt key from prompts.json to guide extraction.")
+    language: Optional[str] = Field(None, description="Optional language/locale hint (e.g., 'en', 'nl-BE').")
+
+
+class SignalFromTranscriptResponse(BaseModel):
+    value: str

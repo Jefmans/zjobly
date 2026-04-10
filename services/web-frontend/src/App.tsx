@@ -17,6 +17,7 @@ import {
   loginAccount,
   logoutAccount,
   getProfileDraftFromTranscript,
+  getSignalFromTranscript,
   finalizeAudioSession,
   getAudioSessionTranscript,
   getCandidateById,
@@ -89,6 +90,7 @@ import {
   RecordedTake,
   RecordingState,
   Status,
+  DetailedQuestionWindow,
   UserRole,
   ViewMode,
 } from './types';
@@ -186,6 +188,15 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
         source: signal.source ? signal.source.toString().trim() : null,
+        question_start_sec:
+          typeof signal.question_start_sec === 'number' && Number.isFinite(signal.question_start_sec)
+            ? Math.max(0, signal.question_start_sec)
+            : null,
+        question_end_sec:
+          typeof signal.question_end_sec === 'number' && Number.isFinite(signal.question_end_sec)
+            ? Math.max(0, signal.question_end_sec)
+            : null,
+        transcript_excerpt: signal.transcript_excerpt ? signal.transcript_excerpt.toString().trim() : null,
         confidence:
           typeof signal.confidence === 'number' && Number.isFinite(signal.confidence)
             ? Math.max(0, Math.min(1, signal.confidence))
@@ -288,23 +299,120 @@ const resolveSignalValue = (
   return transcript.slice(0, 220).trim();
 };
 
-const buildDetailedSignalsFromQuestions = (
-  questions: VideoQuestion[],
-  draft: CandidateDraftFields | null,
+const normalizeDetailedQuestionWindows = (
+  windows: DetailedQuestionWindow[] | null | undefined,
+): DetailedQuestionWindow[] => {
+  if (!Array.isArray(windows)) return [];
+  const byQuestion = new Map<string, DetailedQuestionWindow>();
+  windows.forEach((window) => {
+    const questionId = (window?.question_id || '').toString().trim();
+    const start = Number(window?.start_sec);
+    const end = Number(window?.end_sec);
+    if (!questionId || !Number.isFinite(start) || !Number.isFinite(end)) return;
+    const normalizedStart = Math.max(0, Math.min(start, end));
+    const normalizedEnd = Math.max(normalizedStart, Math.max(start, end));
+    const existing = byQuestion.get(questionId);
+    if (!existing) {
+      byQuestion.set(questionId, {
+        question_id: questionId,
+        start_sec: normalizedStart,
+        end_sec: normalizedEnd,
+      });
+      return;
+    }
+    byQuestion.set(questionId, {
+      question_id: questionId,
+      start_sec: Math.min(existing.start_sec, normalizedStart),
+      end_sec: Math.max(existing.end_sec, normalizedEnd),
+    });
+  });
+  return Array.from(byQuestion.values()).sort((a, b) => a.start_sec - b.start_sec);
+};
+
+const sliceTranscriptByWindow = (
   transcript: string,
-): CandidateDetailedSignal[] => {
+  totalDurationSeconds: number,
+  window: DetailedQuestionWindow | null,
+): string => {
+  const source = (transcript || '').trim();
+  if (!source) return '';
+  if (!window || !Number.isFinite(totalDurationSeconds) || totalDurationSeconds <= 0) {
+    return source;
+  }
+
+  const startRatio = Math.max(0, Math.min(1, window.start_sec / totalDurationSeconds));
+  const endRatio = Math.max(startRatio, Math.min(1, window.end_sec / totalDurationSeconds));
+  const totalChars = source.length;
+  const startIndex = Math.max(0, Math.min(totalChars - 1, Math.floor(totalChars * startRatio)));
+  const endIndex = Math.max(startIndex + 1, Math.min(totalChars, Math.ceil(totalChars * endRatio)));
+  const snippet = source.slice(startIndex, endIndex).trim();
+  if (snippet.length >= 12) return snippet;
+  return source;
+};
+
+const buildDetailedSignalsFromQuestions = async (
+  questions: VideoQuestion[],
+  fullDraft: CandidateDraftFields | null,
+  transcript: string,
+  windows: DetailedQuestionWindow[] | null | undefined,
+  totalDurationSeconds: number,
+  buildDraftFromSnippet: (
+    transcript: string,
+    options?: { includeLocation?: boolean },
+  ) => Promise<CandidateDraftFields | null>,
+): Promise<CandidateDetailedSignal[]> => {
   const now = new Date().toISOString();
   const signals: CandidateDetailedSignal[] = [];
-  questions.forEach((question) => {
+  const normalizedWindows = normalizeDetailedQuestionWindows(windows);
+  const windowByQuestionId = new Map(normalizedWindows.map((item) => [item.question_id, item]));
+
+  for (const question of questions) {
     const questionId = (question.id || '').trim();
     const questionText = (question.text || '').trim();
-    if (!questionId || !questionText) return;
+    if (!questionId || !questionText) continue;
+
+    const questionWindow = windowByQuestionId.get(questionId) ?? null;
+    const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
-    goals.forEach((goal) => {
+    let snippetDraft: CandidateDraftFields | null = null;
+    let promptExtractedValue = '';
+    const includeLocationLookup =
+      (question.signalKey || '').toLowerCase().includes('location') ||
+      goals.some((goal) => (goal || '').toLowerCase().includes('location'));
+
+    if (question.promptKey && questionTranscript.length >= 8) {
+      try {
+        const extracted = await getSignalFromTranscript(questionTranscript, question.promptKey);
+        promptExtractedValue = (extracted?.value || '').toString().trim();
+      } catch (err) {
+        console.error(`Could not extract signal for prompt ${question.promptKey}`, err);
+      }
+    }
+
+    if (!promptExtractedValue) {
+      try {
+        snippetDraft = await buildDraftFromSnippet(questionTranscript, { includeLocation: includeLocationLookup });
+      } catch (err) {
+        console.error('Could not build snippet draft for detailed signal', err);
+      }
+    }
+
+    for (const goal of goals) {
       const normalizedGoal = (goal || '').trim();
-      if (!normalizedGoal) return;
-      const value = resolveSignalValue(normalizedGoal, question.signalKey, draft, transcript);
-      if (!value) return;
+      if (!normalizedGoal) continue;
+
+      let value = promptExtractedValue;
+
+      if (!value) {
+        value = resolveSignalValue(
+          normalizedGoal,
+          question.signalKey,
+          snippetDraft || fullDraft,
+          questionTranscript || transcript,
+        );
+      }
+      if (!value) continue;
+
       signals.push({
         question_id: questionId,
         goal: normalizedGoal,
@@ -313,10 +421,14 @@ const buildDetailedSignalsFromQuestions = (
         prompt_key: question.promptKey ?? null,
         question_text: questionText,
         source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',
+        question_start_sec: questionWindow?.start_sec ?? null,
+        question_end_sec: questionWindow?.end_sec ?? null,
+        transcript_excerpt: questionTranscript ? questionTranscript.slice(0, 320) : null,
         updated_at: now,
       });
-    });
-  });
+    }
+  }
+
   return normalizeDetailedSignals(signals);
 };
 
@@ -1553,39 +1665,47 @@ function App() {
     setRoleAndView('candidate', 'find', { candidateStep: 'intro' });
   };
 
-  const buildCandidateDraftFromTranscript = useCallback(async (transcript: string) => {
-    const text = transcript.trim().slice(0, 8000);
-    if (!text) return null;
-    const prefill: {
-      headline?: string;
-      summary?: string;
-      location?: string;
-      keywords?: string[];
-    } = {};
+  const buildCandidateDraftFromTranscript = useCallback(
+    async (transcript: string, options?: { includeLocation?: boolean }) => {
+      const includeLocation = options?.includeLocation !== false;
+      const text = transcript.trim().slice(0, 8000);
+      if (!text) return null;
+      const prefill: {
+        headline?: string;
+        summary?: string;
+        location?: string;
+        keywords?: string[];
+      } = {};
 
-    const [profileDraftResult, locationResult] = await Promise.allSettled([
-      getProfileDraftFromTranscript(text),
-      getLocationFromTranscript(text),
-    ]);
+      const profileDraftPromise = getProfileDraftFromTranscript(text);
+      const locationPromise = includeLocation ? getLocationFromTranscript(text) : Promise.resolve(null);
+      const [profileDraftResult, locationResult] = await Promise.allSettled([
+        profileDraftPromise,
+        locationPromise,
+      ]);
 
-    if (profileDraftResult.status === 'fulfilled') {
-      const profileDraft = profileDraftResult.value;
-      const normalizedKeywords = normalizeKeywords(profileDraft.keywords);
-      prefill.headline = profileDraft.headline || '';
-      prefill.summary = profileDraft.summary || '';
-      prefill.keywords = normalizedKeywords;
-    } else {
-      console.error('Candidate profile prefill failed', profileDraftResult.reason);
-    }
+      if (profileDraftResult.status === 'fulfilled') {
+        const profileDraft = profileDraftResult.value;
+        const normalizedKeywords = normalizeKeywords(profileDraft.keywords);
+        prefill.headline = profileDraft.headline || '';
+        prefill.summary = profileDraft.summary || '';
+        prefill.keywords = normalizedKeywords;
+      } else {
+        console.error('Candidate profile prefill failed', profileDraftResult.reason);
+      }
 
-    if (locationResult.status === 'fulfilled') {
-      const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
-      prefill.location = suggestion || '';
-    } else {
-      console.error('Candidate location prefill failed', locationResult.reason);
-    }
-    return Object.keys(prefill).length > 0 ? prefill : null;
-  }, []);
+      if (includeLocation) {
+        if (locationResult.status === 'fulfilled') {
+          const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
+          prefill.location = suggestion || '';
+        } else {
+          console.error('Candidate location prefill failed', locationResult.reason);
+        }
+      }
+      return Object.keys(prefill).length > 0 ? prefill : null;
+    },
+    [],
+  );
 
   const handleRoleSelection = (value: UserRole, navigate: boolean) => {
     if (navigate) {
@@ -1939,7 +2059,10 @@ function App() {
     }
   };
 
-  const saveCandidateVideo = async (options?: { showBlockingOverlay?: boolean }) => {
+  const saveCandidateVideo = async (options?: {
+    showBlockingOverlay?: boolean;
+    detailedQuestionWindows?: DetailedQuestionWindow[];
+  }) => {
     if (status === 'presigning' || status === 'uploading' || status === 'confirming' || status === 'processing') {
       return;
     }
@@ -2011,10 +2134,13 @@ function App() {
         ? getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile)
         : null;
       const generatedDetailedSignals = isDetailedUpdateFlow
-        ? buildDetailedSignalsFromQuestions(
+        ? await buildDetailedSignalsFromQuestions(
             detailedQuestionSet?.questions ?? [],
             transcriptPrefill,
             transcriptFromVideo,
+            options?.detailedQuestionWindows ?? [],
+            Math.max(0.001, Number(selectedTake.duration ?? videoDuration ?? 0)),
+            buildCandidateDraftFromTranscript,
           )
         : [];
       setCandidateDetailedSignalsDraft(generatedDetailedSignals);
@@ -3648,6 +3774,7 @@ function App() {
               liveVideoRef,
               playbackVideoRef,
               recordLabel,
+              recordDurationSec: recordDuration,
               durationLabel,
               startRecording,
               pauseRecording,

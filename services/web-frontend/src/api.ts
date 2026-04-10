@@ -64,6 +64,10 @@ export type ProfileDraft = {
   keywords?: string[];
 };
 
+export type SignalDraft = {
+  value: string;
+};
+
 export type AdminConfigBundle = {
   runtime: Record<string, unknown>;
   questions: Record<string, unknown>;
@@ -241,6 +245,18 @@ export async function getProfileDraftFromTranscript(
   return requestJson<ProfileDraft>("/nlp/profile-draft", {
     method: "POST",
     body: JSON.stringify({ transcript }),
+    signal,
+  });
+}
+
+export async function getSignalFromTranscript(
+  transcript: string,
+  promptKey: string,
+  signal?: AbortSignal,
+): Promise<SignalDraft> {
+  return requestJson<SignalDraft>("/nlp/signal-from-transcript", {
+    method: "POST",
+    body: JSON.stringify({ transcript, prompt_key: promptKey }),
     signal,
   });
 }

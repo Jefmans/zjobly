@@ -24,6 +24,12 @@ export type CandidateReviewField = 'headline' | 'location' | 'summary' | 'keywor
 export type CandidateReviewVideoChoice = 'current' | 'new' | 'both';
 export type CandidateReviewSide = 'current' | 'new';
 
+export type DetailedQuestionWindow = {
+  question_id: string;
+  start_sec: number;
+  end_sec: number;
+};
+
 export type CandidateDetailedSignal = {
   question_id: string;
   goal: string;
@@ -34,6 +40,9 @@ export type CandidateDetailedSignal = {
   prompt_key?: string | null;
   question_text?: string | null;
   source?: string | null;
+  question_start_sec?: number | null;
+  question_end_sec?: number | null;
+  transcript_excerpt?: string | null;
   confidence?: number | null;
   updated_at?: string | null;
 };

@@ -24,6 +24,8 @@ from app.schemas_nlp import (
     LocationFromTranscriptResponse,
     ProfileDraftRequest,
     ProfileDraftResponse,
+    SignalFromTranscriptRequest,
+    SignalFromTranscriptResponse,
 )
 
 router = APIRouter(prefix="/nlp", tags=["nlp"])
@@ -211,10 +213,14 @@ def _get_prompt_int(entry: dict[str, object], field: str, prompt_key: str, defau
 def _build_prompt_settings(prompt_key: str) -> tuple[str, str, float, int | None, dict[str, object]]:
     entry = _get_prompt_entry(prompt_key)
     system_prompt = _require_prompt_str(entry, "system_prompt", prompt_key)
-    model = _require_prompt_str(entry, "model", prompt_key)
+    raw_model = entry.get("model")
+    if isinstance(raw_model, str) and raw_model.strip():
+        model = raw_model.strip()
+    else:
+        model = (settings.LLM_MODEL or "gpt-4o-mini").strip()
     temperature = _get_prompt_float(entry, "temperature", prompt_key, 0.45)
     max_tokens = _get_prompt_int(entry, "max_tokens", prompt_key, None)
-    response_format = entry.get("response_format", "json_object")
+    response_format = entry.get("response_format", "text")
     model_kwargs: dict[str, object] = {}
     if response_format == "json_object":
         model_kwargs["response_format"] = {"type": "json_object"}
@@ -244,6 +250,25 @@ def _normalize_keywords(raw_keywords: object) -> list[str]:
     if isinstance(raw_keywords, str):
         return [k.strip() for k in raw_keywords.split(",") if k.strip()]
     return []
+
+
+def _coerce_response_text(content: object) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text_part = item.get("text")
+                if isinstance(text_part, str) and text_part.strip():
+                    parts.append(text_part.strip())
+                    continue
+            if isinstance(item, str) and item.strip():
+                parts.append(item.strip())
+        return " ".join(parts).strip()
+    return str(content).strip()
 
 
 def _download_object(object_key: str, dest_path: str) -> None:
@@ -376,6 +401,39 @@ def _draft_profile_from_transcript(transcript: str, language: str | None) -> Pro
     return ProfileDraftResponse(headline=headline, summary=summary, location=location, keywords=keywords)
 
 
+def _signal_from_transcript(transcript: str, prompt_key: str, language: str | None) -> SignalFromTranscriptResponse:
+    llm, system_prompt = _build_chat_model(prompt_key)
+    if language:
+        system_prompt = f"{system_prompt} Respond in {language}."
+    extraction_prompt = (
+        f"{system_prompt}\n"
+        "Return only the extracted value as plain text."
+        " Do not add JSON, labels, markdown, or quotes."
+    )
+
+    try:
+        prompt = ChatPromptTemplate.from_messages([("system", extraction_prompt), ("user", "{transcript}")])
+        response = (prompt | llm).invoke({"transcript": transcript})
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from exc
+
+    text = _coerce_response_text(getattr(response, "content", None))
+    if not text:
+        raise HTTPException(status_code=500, detail="Empty response from the language model")
+
+    if text.startswith("{") and text.endswith("}"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                candidate = parsed.get("value") or parsed.get("summary") or parsed.get("signal")
+                if isinstance(candidate, str) and candidate.strip():
+                    text = candidate.strip()
+        except json.JSONDecodeError:
+            pass
+
+    return SignalFromTranscriptResponse(value=text[:1200].strip())
+
+
 @router.post("/location-from-transcript", response_model=LocationFromTranscriptResponse)
 def location_from_transcript(payload: LocationFromTranscriptRequest) -> LocationFromTranscriptResponse:
     text = (payload.transcript or "").strip()
@@ -430,3 +488,14 @@ def generate_profile_draft(payload: ProfileDraftRequest) -> ProfileDraftResponse
     if len(transcript) < _get_profile_draft_min_chars():
         raise HTTPException(status_code=400, detail="Transcript is too short to generate a profile draft")
     return _draft_profile_from_transcript(transcript, payload.language)
+
+
+@router.post("/signal-from-transcript", response_model=SignalFromTranscriptResponse)
+def signal_from_transcript(payload: SignalFromTranscriptRequest) -> SignalFromTranscriptResponse:
+    transcript = payload.transcript.strip()
+    if len(transcript) < 8:
+        raise HTTPException(status_code=400, detail="Transcript is too short to extract a signal")
+    prompt_key = payload.prompt_key.strip()
+    if not prompt_key:
+        raise HTTPException(status_code=400, detail="Missing prompt_key")
+    return _signal_from_transcript(transcript, prompt_key, payload.language)
