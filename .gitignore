@@ -12,4 +12,4 @@ werk uren.ods
 /AGENTS.md
 /.~lock.werk uren.ods#
 __pycache__/
-*/__pycache__/*
+*.py[cod]
