@@ -224,6 +224,7 @@ export function CandidateProfileFlow({
   const [detailedAwaitingContinue, setDetailedAwaitingContinue] = useState(false);
   const [detailedAutoSavePending, setDetailedAutoSavePending] = useState(false);
   const [detailedAutoSaveTakeCount, setDetailedAutoSaveTakeCount] = useState(0);
+  const [guestAuthPromptedTakeId, setGuestAuthPromptedTakeId] = useState<string | null>(null);
   const hasCandidateQuestions = useGuidedQuestions && isAuthenticated && candidateQuestions.length > 0;
   const candidateQuestion =
     hasCandidateQuestions && candidateQuestionIndex < candidateQuestions.length
@@ -258,6 +259,7 @@ export function CandidateProfileFlow({
     (status === "processing" || transcriptStatus === "pending");
   const canViewJobs = isEditingProfile || profileSaved;
   const showPostTakeActions = isSimpleRecordingFlow && recordingState === "idle" && hasTakes;
+  const showGuestPostTakeActions = showPostTakeActions && !isAuthenticated;
   const showSimpleIntroOverlay = isSimpleRecordingFlow && recordingState === "idle" && !introStartPending;
   const isDetailedIntro = candidateStep === "intro" && isAuthenticated && useGuidedQuestions;
   const showDetailedReviewSection = useGuidedQuestions;
@@ -516,6 +518,29 @@ export function CandidateProfileFlow({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [questionCountdown, recordingState, resumeRecording, startRecording]);
+  useEffect(() => {
+    if (!hasTakes) {
+      setGuestAuthPromptedTakeId(null);
+    }
+  }, [hasTakes]);
+  useEffect(() => {
+    if (!isSimpleRecordingFlow) return;
+    if (isAuthenticated) return;
+    if (candidateStep !== "record" || recordingState !== "idle") return;
+    if (!selectedTake || !showPostTakeActions) return;
+    if (guestAuthPromptedTakeId === selectedTake.id) return;
+    setGuestAuthPromptedTakeId(selectedTake.id);
+    void Promise.resolve(onSaveVideo());
+  }, [
+    isSimpleRecordingFlow,
+    isAuthenticated,
+    candidateStep,
+    recordingState,
+    selectedTake,
+    showPostTakeActions,
+    guestAuthPromptedTakeId,
+    onSaveVideo,
+  ]);
   useEffect(() => {
     if (!detailedAutoSavePending) return;
     if (recordingState !== "idle") return;
@@ -1171,17 +1196,19 @@ export function CandidateProfileFlow({
                                   <button
                                     type="button"
                                     className="cta primary question-cta"
-                                    onClick={() => goToStep("select")}
+                                    onClick={showGuestPostTakeActions ? onSaveVideo : () => goToStep("select")}
                                   >
-                                    Continue
+                                    {showGuestPostTakeActions ? "Create account" : "Continue"}
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="ghost dark question-cta"
-                                    onClick={handleRecordAction}
-                                  >
-                                    New take
-                                  </button>
+                                  {!showGuestPostTakeActions && (
+                                    <button
+                                      type="button"
+                                      className="ghost dark question-cta"
+                                      onClick={handleRecordAction}
+                                    >
+                                      New take
+                                    </button>
+                                  )}
                                 </div>
                               ) : (
                                 <>
@@ -1220,7 +1247,8 @@ export function CandidateProfileFlow({
                                       onClick={handleRecordAction}
                                       disabled={
                                         !canRecord ||
-                                        (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null)
+                                        (isSimpleRecordingFlow && recordingState === "idle" && introCountdown !== null) ||
+                                        (!isAuthenticated && hasTakes)
                                       }
                                       aria-label={recordActionLabel}
                                     >

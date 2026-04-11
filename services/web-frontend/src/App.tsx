@@ -1954,7 +1954,18 @@ function App() {
           audioSessionId: ENABLE_AUDIO_CHUNKS ? audioSessionIdRef.current || undefined : undefined,
         };
         takeUrlsRef.current.add(objectUrl);
-        setRecordedTakes((prev) => [take, ...prev]);
+        setRecordedTakes((prev) => {
+          const limitGuestToSingleTake = !previewAuthenticated && view === 'find' && candidateStep === 'record';
+          if (!limitGuestToSingleTake) {
+            return [take, ...prev];
+          }
+          prev.forEach((oldTake) => {
+            if (!oldTake?.url || oldTake.url === objectUrl) return;
+            URL.revokeObjectURL(oldTake.url);
+            takeUrlsRef.current.delete(oldTake.url);
+          });
+          return [take];
+        });
         setSelectedTakeId(take.id);
         setVideoObjectKey(null);
         setVideoDuration(finalDuration);
@@ -2869,10 +2880,17 @@ function App() {
   const selectedTake = recordedTakes.find((t) => t.id === selectedTakeId) ?? null;
 
   useEffect(() => {
+    if (view === 'find' && candidateStep === 'select' && !previewAuthenticated) {
+      setCandidateStep('record');
+      return;
+    }
+  }, [view, candidateStep, previewAuthenticated]);
+
+  useEffect(() => {
     if (view !== 'find' || candidateStep !== 'review') return;
     if (candidateReviewCurrent && candidateReviewNew) return;
-    setCandidateStep('select');
-  }, [view, candidateStep, candidateReviewCurrent, candidateReviewNew]);
+    setCandidateStep(previewAuthenticated ? 'select' : 'record');
+  }, [view, candidateStep, candidateReviewCurrent, candidateReviewNew, previewAuthenticated]);
 
   useEffect(() => {
     if (selectedTake?.audioSessionId) {
