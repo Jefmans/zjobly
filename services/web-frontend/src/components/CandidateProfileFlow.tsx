@@ -148,7 +148,7 @@ export function CandidateProfileFlow({
   onReviewMoveKeyword,
   onApplyReview,
 }: Props) {
-  if (view !== "find") return null;
+  const isFindView = view === "find";
 
   const isSavingVideo = status === "presigning" || status === "uploading" || status === "confirming";
   const uploadPercent = typeof uploadProgress === "number" ? Math.max(0, Math.min(100, uploadProgress)) : null;
@@ -747,6 +747,8 @@ export function CandidateProfileFlow({
       </div>
     );
   };
+
+  if (!isFindView) return null;
 
   return (
     <>

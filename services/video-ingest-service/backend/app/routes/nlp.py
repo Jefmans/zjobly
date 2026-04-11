@@ -645,14 +645,32 @@ def _signal_from_transcript(
             " Do not add JSON, labels, markdown, or quotes."
         )
 
-    try:
-        prompt = ChatPromptTemplate.from_messages([("system", extraction_prompt), ("user", "{transcript}")])
-        response = (prompt | llm).invoke({"transcript": transcript})
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from exc
+    text = ""
+    invoke_error: Exception | None = None
+    for _ in range(2):
+        try:
+            prompt = ChatPromptTemplate.from_messages([("system", extraction_prompt), ("user", "{transcript}")])
+            response = (prompt | llm).invoke({"transcript": transcript})
+            text = _coerce_response_text(getattr(response, "content", None))
+            if text:
+                break
+        except Exception as exc:  # noqa: BLE001
+            invoke_error = exc
+            continue
 
-    text = _coerce_response_text(getattr(response, "content", None))
     if not text:
+        if output_schema:
+            fallback_value = ""
+            if isinstance(structured_data, dict):
+                candidate = structured_data.get("value") or structured_data.get("summary") or structured_data.get("signal")
+                if isinstance(candidate, str) and candidate.strip():
+                    fallback_value = candidate.strip()
+            if not fallback_value:
+                fallback_value = (transcript or "")[:1200].strip()
+            fallback_structured = _ensure_schema_keys(structured_data or {"value": fallback_value}, output_schema)
+            return SignalFromTranscriptResponse(value=fallback_value, structured_data=fallback_structured)
+        if invoke_error is not None:
+            raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from invoke_error
         raise HTTPException(status_code=500, detail="Empty response from the language model")
 
     if structured_data is None:
