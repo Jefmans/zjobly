@@ -51,11 +51,6 @@
                     }
                   }
                 }
-              },
-              "capture_text": {
-                "mode": "summary",
-                "prompt_key": "goal_education_summary_v1",
-                "max_chars": 300
               }
             },
             {

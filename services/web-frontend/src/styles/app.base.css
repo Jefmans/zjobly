@@ -2213,11 +2213,6 @@ button[type='submit']:disabled {
   margin-top: 0.45rem;
 }
 
-.signal-supporting-text {
-  background: #f8fafc;
-  color: #0f172a;
-}
-
 .signal-structured-json {
   margin: 0;
   padding: 0.65rem 0.75rem;
