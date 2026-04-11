@@ -16,6 +16,98 @@ type Props = {
   onBrowseJobs: () => void;
 };
 
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const formatStructuredLabel = (key: string): string =>
+  key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatStructuredPrimitive = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+};
+
+const getArrayObjectColumns = (rows: Record<string, unknown>[]): string[] => {
+  const columns: string[] = [];
+  rows.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (!columns.includes(key)) columns.push(key);
+    });
+  });
+  return columns;
+};
+
+const renderStructuredValuePreview = (value: unknown, keyPrefix: string): ReactNode => {
+  if (Array.isArray(value)) {
+    const objectRows = value.filter(isPlainRecord);
+    if (objectRows.length === value.length && objectRows.length > 0) {
+      const columns = getArrayObjectColumns(objectRows);
+      if (columns.length === 0) {
+        return <p className="hint">No structured properties yet.</p>;
+      }
+      return (
+        <div className="structured-table-wrap">
+          <table className="structured-table">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={`${keyPrefix}-${column}`}>{formatStructuredLabel(column)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {objectRows.map((row, rowIndex) => (
+                <tr key={`${keyPrefix}-row-${rowIndex}`}>
+                  {columns.map((column) => (
+                    <td key={`${keyPrefix}-${rowIndex}-${column}`}>
+                      {formatStructuredPrimitive(row[column])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    if (value.length === 0) {
+      return <p className="hint">No values yet.</p>;
+    }
+    return (
+      <div className="structured-object-list">
+        {value.map((item, index) => (
+          <div className="field structured-editor-field" key={`${keyPrefix}-item-${index}`}>
+            <label>Item {index + 1}</label>
+            {renderStructuredValuePreview(item, `${keyPrefix}-item-${index}`)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isPlainRecord(value)) {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return <p className="hint">No structured properties yet.</p>;
+    }
+    return (
+      <div className="structured-object-list">
+        {entries.map(([key, nestedValue]) => (
+          <div className="field structured-editor-field" key={`${keyPrefix}-${key}`}>
+            <label>{formatStructuredLabel(key)}</label>
+            {renderStructuredValuePreview(nestedValue, `${keyPrefix}-${key}`)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return <p className="review-signal-value">{formatStructuredPrimitive(value)}</p>;
+};
+
 export function CandidateProfileView({
   view,
   nav,
@@ -172,9 +264,12 @@ export function CandidateProfileView({
                         Object.keys(signal.structured_data).length > 0 && (
                           <div className="field">
                             <label>Structured data</label>
-                            <pre className="signal-structured-json">
-                              {JSON.stringify(signal.structured_data, null, 2)}
-                            </pre>
+                            <div className="structured-editor">
+                              {renderStructuredValuePreview(
+                                signal.structured_data,
+                                `profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`,
+                              )}
+                            </div>
                           </div>
                         )}
                     </div>
