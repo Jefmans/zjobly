@@ -159,7 +159,23 @@ const normalizeHelperText = (value: unknown): string | undefined => {
 
 const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
+  const schema = { ...(value as Record<string, unknown>) };
+  const propertiesValue = schema.properties;
+  if (!propertiesValue || typeof propertiesValue !== "object" || Array.isArray(propertiesValue)) {
+    return schema;
+  }
+  const properties = { ...(propertiesValue as Record<string, unknown>) };
+  const valueProperty = properties.value;
+  if (!valueProperty || typeof valueProperty !== "object" || Array.isArray(valueProperty)) {
+    properties.value = { type: "string" };
+  }
+  schema.properties = properties;
+
+  const requiredValue = schema.required;
+  const required = Array.isArray(requiredValue) ? [...requiredValue] : [];
+  if (!required.includes("value")) required.push("value");
+  schema.required = required;
+  return schema;
 };
 
 const normalizeOutputModeValue = (value: unknown): VideoQuestionOutputMode | null => {

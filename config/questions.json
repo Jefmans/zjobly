@@ -36,9 +36,7 @@
               "prompt_key": "goal_education_v2",
               "output_schema": {
                 "type": "object",
-                "required": ["value"],
                 "properties": {
-                  "value": { "type": "string" },
                   "educations": {
                     "type": ["array", "null"],
                     "items": {

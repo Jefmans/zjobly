@@ -43,6 +43,9 @@ Question output control (per question):
   - `["transcript"]`: use question transcript as the signal value.
   - `["prompt", "transcript"]`: keep both outputs. `value` stays prompt-oriented, and transcript is stored in `structured_data._transcript`.
   - value `summary` maps to `prompt`.
+- You can use a single string too:
+  - `"output": "prompt"`
+  - `"output": "transcript"`
 
 Question display control (per question):
 
@@ -52,5 +55,14 @@ Question display control (per question):
   - `["transcript"]`: show transcript text.
   - `["structured"]`: show structured data block.
   - combine modes, for example `["summary", "transcript"]`.
+- You can use a single string too:
+  - `"display": "summary"`
+  - `"display": "transcript"`
+  - `"display": "structured"`
 - Compatibility aliases:
   - `front_end` / `frontEnd` / `front-end` map to `display`.
+
+Simple structured schema rule:
+
+- If `output_schema` has `properties`, frontend auto-adds `properties.value: { "type": "string" }` and adds `"value"` to `required`.
+- So you can keep schema shorter and only define your domain fields (for example `educations`).
