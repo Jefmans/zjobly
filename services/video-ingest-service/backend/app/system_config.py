@@ -23,6 +23,7 @@ CONFIG_DIR = _resolve_config_dir()
 RUNTIME_CONFIG_PATH = CONFIG_DIR / "runtime.json"
 PROMPTS_CONFIG_PATH = CONFIG_DIR / "prompts.json"
 QUESTIONS_CONFIG_PATH = CONFIG_DIR / "questions.json"
+DEV_QUESTIONS_CONFIG_PATH = CONFIG_DIR / "dev_questions.json"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -48,9 +49,26 @@ def get_prompts_config() -> dict[str, dict[str, Any]]:
     return {key: value for key, value in raw.items() if isinstance(value, dict)}
 
 
+def _normalize_question_set(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    return "dev" if normalized in {"dev", "development"} else "default"
+
+
+def get_active_question_set() -> str:
+    runtime = get_runtime_config()
+    ui = runtime.get("ui") if isinstance(runtime, dict) else None
+    selected = ui.get("activeQuestionSet") if isinstance(ui, dict) else None
+    return _normalize_question_set(selected)
+
+
+def get_questions_config_path() -> Path:
+    selected = get_active_question_set()
+    return DEV_QUESTIONS_CONFIG_PATH if selected == "dev" else QUESTIONS_CONFIG_PATH
+
+
 @lru_cache(maxsize=1)
 def get_questions_config() -> dict[str, Any]:
-    return _load_json(QUESTIONS_CONFIG_PATH)
+    return _load_json(get_questions_config_path())
 
 
 def clear_system_config_cache() -> None:

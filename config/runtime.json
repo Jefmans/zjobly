@@ -20,6 +20,7 @@
     "stubSuccessAfterAttempts": 3
   },
   "ui": {
-    "showDevelopmentNavigation": true
+    "showDevelopmentNavigation": true,
+    "activeQuestionSet": "default"
   }
 }

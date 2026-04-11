@@ -1,4 +1,6 @@
 import rawQuestionsConfig from "../../../../config/questions.json";
+import rawDevQuestionsConfig from "../../../../config/dev_questions.json";
+import { runtimeConfig } from "./runtimeConfig";
 
 export type VideoQuestion = {
   id: string;
@@ -72,7 +74,23 @@ type RawQuestionsConfig = {
   };
 };
 
-let questionsConfig = rawQuestionsConfig as RawQuestionsConfig;
+export type QuestionSetName = "default" | "dev";
+
+let defaultQuestionsConfig = rawQuestionsConfig as RawQuestionsConfig;
+let devQuestionsConfig = rawDevQuestionsConfig as RawQuestionsConfig;
+
+const normalizeQuestionSetName = (value: unknown): QuestionSetName => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return normalized === "dev" || normalized === "development" ? "dev" : "default";
+};
+
+let activeQuestionSet: QuestionSetName = normalizeQuestionSetName(
+  (runtimeConfig as { ui?: { activeQuestionSet?: unknown } }).ui?.activeQuestionSet,
+);
+
+const getConfigBySet = (setName: QuestionSetName): RawQuestionsConfig =>
+  setName === "dev" ? devQuestionsConfig : defaultQuestionsConfig;
+
 type LegacyTargetField = "headline" | "location" | "summary" | "keywords" | "transcript";
 
 const normalizeGoals = (value: unknown): string[] | undefined => {
@@ -232,20 +250,37 @@ const buildVideoQuestionConfig = (configSource: RawQuestionsConfig) => ({
   ),
 });
 
-const initialVideoQuestionConfig = buildVideoQuestionConfig(questionsConfig);
+const initialVideoQuestionConfig = buildVideoQuestionConfig(getConfigBySet(activeQuestionSet));
 
 export const VIDEO_QUESTION_CONFIG = {
   candidateProfile: initialVideoQuestionConfig.candidateProfile,
   application: initialVideoQuestionConfig.application,
 };
 
-export const applyQuestionsConfig = (nextQuestions: unknown): void => {
-  if (!nextQuestions || typeof nextQuestions !== "object" || Array.isArray(nextQuestions)) return;
-  const normalized = nextQuestions as RawQuestionsConfig;
-  questionsConfig = normalized;
-  const rebuilt = buildVideoQuestionConfig(normalized);
+const rebuildActiveQuestionConfig = (): void => {
+  const rebuilt = buildVideoQuestionConfig(getConfigBySet(activeQuestionSet));
   VIDEO_QUESTION_CONFIG.candidateProfile = rebuilt.candidateProfile;
   VIDEO_QUESTION_CONFIG.application = rebuilt.application;
+};
+
+export const getActiveQuestionSet = (): QuestionSetName => activeQuestionSet;
+
+export const applyQuestionSetSelection = (nextSet: unknown): QuestionSetName => {
+  activeQuestionSet = normalizeQuestionSetName(nextSet);
+  rebuildActiveQuestionConfig();
+  return activeQuestionSet;
+};
+
+export const applyQuestionsConfig = (nextQuestions: unknown, setName?: QuestionSetName): void => {
+  if (!nextQuestions || typeof nextQuestions !== "object" || Array.isArray(nextQuestions)) return;
+  const normalized = nextQuestions as RawQuestionsConfig;
+  const targetSet = setName ?? activeQuestionSet;
+  if (targetSet === "dev") {
+    devQuestionsConfig = normalized;
+  } else {
+    defaultQuestionsConfig = normalized;
+  }
+  rebuildActiveQuestionConfig();
 };
 
 const STORAGE_PREFIX = "zjobly-question-variant:";

@@ -5,7 +5,11 @@ import {
   updateAdminConfigBundle,
 } from "../api";
 import { applyRuntimeConfig } from "../config/runtimeConfig";
-import { applyQuestionsConfig } from "../config/videoQuestions";
+import {
+  applyQuestionsConfig,
+  applyQuestionSetSelection,
+  QuestionSetName,
+} from "../config/videoQuestions";
 
 type Props = {
   nav: ReactNode;
@@ -14,16 +18,27 @@ type Props = {
 const DEFAULT_CONFIG: AdminConfigBundle = {
   runtime: {},
   questions: {},
+  dev_questions: {},
   prompts: {},
+  active_question_set: "default",
 };
 
 const stringifyConfig = (value: Record<string, unknown>) =>
   JSON.stringify(value ?? {}, null, 2);
 
+const normalizeQuestionSetName = (value: unknown): QuestionSetName =>
+  typeof value === "string" && value.trim().toLowerCase() === "dev" ? "dev" : "default";
+
 export function ConfigAdminView({ nav }: Props) {
   const [runtimeText, setRuntimeText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.runtime));
-  const [questionsText, setQuestionsText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.questions));
+  const [defaultQuestionsText, setDefaultQuestionsText] = useState<string>(
+    stringifyConfig(DEFAULT_CONFIG.questions),
+  );
+  const [devQuestionsText, setDevQuestionsText] = useState<string>(
+    stringifyConfig(DEFAULT_CONFIG.dev_questions ?? {}),
+  );
   const [promptsText, setPromptsText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.prompts));
+  const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetName>("default");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +51,15 @@ export function ConfigAdminView({ nav }: Props) {
     try {
       const config = await getAdminConfigBundle();
       setRuntimeText(stringifyConfig(config.runtime));
-      setQuestionsText(stringifyConfig(config.questions));
+      setDefaultQuestionsText(stringifyConfig(config.questions));
+      setDevQuestionsText(stringifyConfig(config.dev_questions ?? {}));
       setPromptsText(stringifyConfig(config.prompts));
+      const selectedSet = normalizeQuestionSetName(config.active_question_set);
+      setActiveQuestionSet(selectedSet);
       applyRuntimeConfig(config.runtime);
-      applyQuestionsConfig(config.questions);
+      applyQuestionSetSelection(selectedSet);
+      applyQuestionsConfig(config.questions, "default");
+      applyQuestionsConfig(config.dev_questions ?? {}, "dev");
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Could not load config.");
@@ -72,15 +92,22 @@ export function ConfigAdminView({ nav }: Props) {
     try {
       const payload: AdminConfigBundle = {
         runtime: parseConfigSection("runtime", runtimeText),
-        questions: parseConfigSection("questions", questionsText),
+        questions: parseConfigSection("questions", defaultQuestionsText),
+        dev_questions: parseConfigSection("dev_questions", devQuestionsText),
         prompts: parseConfigSection("prompts", promptsText),
+        active_question_set: activeQuestionSet,
       };
       const updated = await updateAdminConfigBundle(payload);
       setRuntimeText(stringifyConfig(updated.runtime));
-      setQuestionsText(stringifyConfig(updated.questions));
+      setDefaultQuestionsText(stringifyConfig(updated.questions));
+      setDevQuestionsText(stringifyConfig(updated.dev_questions ?? {}));
       setPromptsText(stringifyConfig(updated.prompts));
+      const selectedSet = normalizeQuestionSetName(updated.active_question_set);
+      setActiveQuestionSet(selectedSet);
       applyRuntimeConfig(updated.runtime);
-      applyQuestionsConfig(updated.questions);
+      applyQuestionSetSelection(selectedSet);
+      applyQuestionsConfig(updated.questions, "default");
+      applyQuestionsConfig(updated.dev_questions ?? {}, "dev");
       setSuccess("Config saved and applied.");
     } catch (err) {
       console.error(err);
@@ -89,6 +116,9 @@ export function ConfigAdminView({ nav }: Props) {
       setSaving(false);
     }
   };
+
+  const questionsText = activeQuestionSet === "dev" ? devQuestionsText : defaultQuestionsText;
+  const questionsLabel = activeQuestionSet === "dev" ? "dev_questions.json" : "questions.json";
 
   return (
     <>
@@ -125,13 +155,34 @@ export function ConfigAdminView({ nav }: Props) {
           </div>
 
           <div className="field">
-            <label htmlFor="questionsConfigJson">questions.json</label>
+            <label htmlFor="activeQuestionSet">Active question set</label>
+            <select
+              id="activeQuestionSet"
+              name="activeQuestionSet"
+              value={activeQuestionSet}
+              onChange={(event) => setActiveQuestionSet(normalizeQuestionSetName(event.target.value))}
+              disabled={loading || saving}
+            >
+              <option value="default">default (questions.json)</option>
+              <option value="dev">dev (dev_questions.json)</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="questionsConfigJson">{questionsLabel}</label>
             <textarea
               id="questionsConfigJson"
               name="questionsConfigJson"
               rows={10}
               value={questionsText}
-              onChange={(event) => setQuestionsText(event.target.value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                if (activeQuestionSet === "dev") {
+                  setDevQuestionsText(nextValue);
+                } else {
+                  setDefaultQuestionsText(nextValue);
+                }
+              }}
               spellCheck={false}
             />
           </div>

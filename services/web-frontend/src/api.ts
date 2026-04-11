@@ -72,7 +72,9 @@ export type SignalDraft = {
 export type AdminConfigBundle = {
   runtime: Record<string, unknown>;
   questions: Record<string, unknown>;
+  dev_questions?: Record<string, unknown>;
   prompts: Record<string, unknown>;
+  active_question_set?: string;
 };
 
 const apiBase = () => {

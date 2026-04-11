@@ -1,0 +1,81 @@
+{
+  "questions": {
+    "candidateProfile": {
+      "enabled": true,
+      "assignment": "fixed",
+      "variants": [
+        {
+          "id": "baseline",
+          "label": "Baseline",
+          "questions": [
+            {
+              "id": "candidate-education",
+              "text": "What is your education? Where did you study?",
+              "helper_text": "Include school, degree, field, and graduation year if relevant.",
+              "goals": ["education"],
+              "signal_key": "education_background",
+              "prompt_key": "goal_education_v2",
+              "output_schema": {
+                "type": "object",
+                "required": ["value"],
+                "properties": {
+                  "value": { "type": "string" },
+                  "educations": {
+                    "type": ["array", "null"],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "school": { "type": ["string", "null"] },
+                        "degree": { "type": ["string", "null"] },
+                        "field": { "type": ["string", "null"] },
+                        "start_year": { "type": ["integer", "null"] },
+                        "end_year": { "type": ["integer", "null"] },
+                        "in_progress": { "type": ["boolean", "null"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "application": {
+      "enabled": false,
+      "assignment": "fixed",
+      "variants": [
+        {
+          "id": "baseline",
+          "label": "Baseline",
+          "questions": [
+            {
+              "id": "application-motivation",
+              "text": "Why do you want this job?",
+              "helper_text": "Connect your motivation to this role and company context.",
+              "goals": ["motivation"],
+              "signal_key": "motivation_statement",
+              "prompt_key": "goal_motivation_v1"
+            },
+            {
+              "id": "application-first-90-days",
+              "text": "What would your first 90 days look like?",
+              "helper_text": "Describe priorities, expected outcomes, and how you would collaborate.",
+              "goals": ["plan"],
+              "signal_key": "first_90_day_plan",
+              "prompt_key": "goal_plan_v1"
+            },
+            {
+              "id": "application-skills-fit",
+              "text": "Which skills make you a strong fit?",
+              "helper_text": "Focus on concrete skills, tools, and examples from your experience.",
+              "goals": ["skills"],
+              "signal_key": "core_skills",
+              "prompt_key": "goal_skills_v1"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

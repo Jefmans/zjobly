@@ -3,13 +3,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.models import User
 from app.routes.accounts import get_current_user
 from app.system_config import (
     CONFIG_DIR,
+    DEV_QUESTIONS_CONFIG_PATH,
     PROMPTS_CONFIG_PATH,
     QUESTIONS_CONFIG_PATH,
     RUNTIME_CONFIG_PATH,
@@ -23,7 +24,32 @@ router = APIRouter(prefix="/accounts/admin/config", tags=["admin-config"])
 class ConfigBundle(BaseModel):
     runtime: dict[str, Any]
     questions: dict[str, Any]
+    dev_questions: dict[str, Any] = Field(default_factory=dict)
     prompts: dict[str, Any]
+    active_question_set: str | None = None
+
+
+def _normalize_question_set(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    return "dev" if normalized in {"dev", "development"} else "default"
+
+
+def _extract_active_question_set(runtime: dict[str, Any] | None) -> str:
+    ui = runtime.get("ui") if isinstance(runtime, dict) else None
+    selected = ui.get("activeQuestionSet") if isinstance(ui, dict) else None
+    return _normalize_question_set(selected)
+
+
+def _runtime_with_active_question_set(
+    runtime: dict[str, Any],
+    selected_question_set: str,
+) -> dict[str, Any]:
+    next_runtime = dict(runtime)
+    ui = next_runtime.get("ui")
+    ui_dict = dict(ui) if isinstance(ui, dict) else {}
+    ui_dict["activeQuestionSet"] = _normalize_question_set(selected_question_set)
+    next_runtime["ui"] = ui_dict
+    return next_runtime
 
 
 def _is_admin_config_enabled() -> bool:
@@ -127,10 +153,13 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 def get_admin_config_bundle(current_user: User = Depends(get_current_user)) -> ConfigBundle:
     _require_admin_config_enabled()
     _require_admin_allowlist_user(current_user)
+    runtime = _load_json(RUNTIME_CONFIG_PATH)
     return ConfigBundle(
-        runtime=_load_json(RUNTIME_CONFIG_PATH),
+        runtime=runtime,
         questions=_load_json(QUESTIONS_CONFIG_PATH),
+        dev_questions=_load_json(DEV_QUESTIONS_CONFIG_PATH),
         prompts=_load_json(PROMPTS_CONFIG_PATH),
+        active_question_set=_extract_active_question_set(runtime),
     )
 
 
@@ -141,14 +170,20 @@ def update_admin_config_bundle(
 ) -> ConfigBundle:
     _require_admin_config_enabled()
     _require_admin_allowlist_user(current_user)
-
-    _write_json(RUNTIME_CONFIG_PATH, payload.runtime)
+    selected_question_set = _normalize_question_set(
+        payload.active_question_set or _extract_active_question_set(payload.runtime)
+    )
+    runtime_payload = _runtime_with_active_question_set(payload.runtime, selected_question_set)
+    _write_json(RUNTIME_CONFIG_PATH, runtime_payload)
     _write_json(QUESTIONS_CONFIG_PATH, payload.questions)
+    _write_json(DEV_QUESTIONS_CONFIG_PATH, payload.dev_questions)
     _write_json(PROMPTS_CONFIG_PATH, payload.prompts)
     clear_system_config_cache()
-
+    runtime = _load_json(RUNTIME_CONFIG_PATH)
     return ConfigBundle(
-        runtime=_load_json(RUNTIME_CONFIG_PATH),
+        runtime=runtime,
         questions=_load_json(QUESTIONS_CONFIG_PATH),
+        dev_questions=_load_json(DEV_QUESTIONS_CONFIG_PATH),
         prompts=_load_json(PROMPTS_CONFIG_PATH),
+        active_question_set=_extract_active_question_set(runtime),
     )

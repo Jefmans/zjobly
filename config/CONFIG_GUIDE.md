@@ -4,6 +4,7 @@ Edit config only in this folder:
 
 - `runtime.json`
 - `questions.json`
+- `dev_questions.json`
 - `prompts.json`
 
 No per-service config copies are required.
@@ -19,7 +20,10 @@ Admin panel (dev):
 
 - Open the frontend and sign in.
 - Use `Development navigation` -> `Admin config panel`.
-- Save changes to update `runtime.json`, `questions.json`, and `prompts.json` from the UI.
+- Save changes to update `runtime.json`, `questions.json`, `dev_questions.json`, and `prompts.json` from the UI.
+- Use `Active question set` in admin config to switch between:
+  - `default` -> `questions.json`
+  - `dev` -> `dev_questions.json`
 - Refresh the browser to apply frontend-side config changes.
 - Restrict access with `.env`:
   - `CONFIG_ADMIN_ALLOWLIST=admin_username,admin@email.com,<user_id>`
