@@ -10,7 +10,10 @@ export type VideoQuestion = {
   signalKey?: string;
   promptKey?: string;
   outputSchema?: Record<string, unknown>;
+  output?: VideoQuestionOutputMode[];
 };
+
+export type VideoQuestionOutputMode = "prompt" | "transcript";
 
 export type VideoQuestionVariant = {
   id: string;
@@ -49,6 +52,10 @@ type RawQuestion =
       targetField?: unknown;
       prompt_key?: unknown;
       promptKey?: unknown;
+      output?: unknown;
+      front_end?: unknown;
+      frontEnd?: unknown;
+      "front-end"?: unknown;
       output_schema?: unknown;
       outputSchema?: unknown;
       enabled?: unknown;
@@ -152,6 +159,26 @@ const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefi
   return value as Record<string, unknown>;
 };
 
+const normalizeOutputModeValue = (value: unknown): VideoQuestionOutputMode | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "prompt" || normalized === "summary") return "prompt";
+  if (normalized === "transcript") return "transcript";
+  return null;
+};
+
+const normalizeOutputModes = (value: unknown): VideoQuestionOutputMode[] | undefined => {
+  const rawValues = Array.isArray(value) ? value : [value];
+  const modes: VideoQuestionOutputMode[] = [];
+  rawValues.forEach((rawValue) => {
+    const normalized = normalizeOutputModeValue(rawValue);
+    if (!normalized) return;
+    if (!modes.includes(normalized)) modes.push(normalized);
+  });
+  return modes.length > 0 ? modes : undefined;
+};
+
 const normalizeQuestion = (
   value: RawQuestion,
   index: number,
@@ -178,12 +205,16 @@ const normalizeQuestion = (
     normalizeSignalKey(value.signal_key ?? value.signalKey) ??
     mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
+  const outputModes = normalizeOutputModes(
+    value.output ?? value.front_end ?? value.frontEnd ?? value["front-end"],
+  );
   const outputSchema = normalizeOutputSchema(value.output_schema ?? value.outputSchema);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
   if (goals) question.goals = goals;
   if (signalKey) question.signalKey = signalKey;
   if (promptKey) question.promptKey = promptKey;
+  if (outputModes) question.output = outputModes;
   if (outputSchema) question.outputSchema = outputSchema;
   return question;
 };

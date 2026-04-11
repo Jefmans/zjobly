@@ -34,3 +34,14 @@ Admin panel (dev):
 - Config admin on/off is separate from dev navigation:
   - `runtime.json` -> `ui.enableConfigAdmin: true` (default if omitted)
   - Set `ui.enableConfigAdmin: false` only when you want to fully disable `Screen:Admin/Config`.
+
+Question output control (per question):
+
+- Add `output` to a question in `questions.json` / `dev_questions.json`.
+- Supported values:
+  - `["prompt"]` (default behavior): use prompt extraction and existing fallback logic.
+  - `["transcript"]`: store/show transcript text for that question.
+  - `["prompt", "transcript"]`: prefer prompt output, fallback to transcript.
+- Aliases accepted for compatibility:
+  - `front_end` / `frontEnd` / `front-end`
+  - value `summary` maps to `prompt`

@@ -13,6 +13,7 @@
               "text": "What kind of job are you looking for?",
               "helper_text": "Mention the role title, seniority, and preferred contract type.",
               "goals": ["role_preferences"],
+              "output": ["transcript"],
               "signal_key": "desired_role",
               "prompt_key": "goal_role_preferences_v1"
             },

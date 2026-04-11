@@ -434,6 +434,9 @@ const buildDetailedSignalsFromQuestions = async (
     const questionText = (question.text || '').trim();
     if (!questionId || !questionText) continue;
 
+    const outputModes = Array.isArray(question.output) && question.output.length > 0 ? question.output : ['prompt'];
+    const wantsPromptOutput = outputModes.includes('prompt');
+    const wantsTranscriptOutput = outputModes.includes('transcript');
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
@@ -445,7 +448,7 @@ const buildDetailedSignalsFromQuestions = async (
       (question.signalKey || '').toLowerCase().includes('location') ||
       goals.some((goal) => (goal || '').toLowerCase().includes('location'));
 
-    if (question.promptKey && questionTranscript.length >= 8) {
+    if (wantsPromptOutput && question.promptKey && questionTranscript.length >= 8) {
       try {
         promptExtraction = await getSignalFromTranscript(
           questionTranscript,
@@ -459,7 +462,7 @@ const buildDetailedSignalsFromQuestions = async (
       }
     }
 
-    if (!promptExtractedValue) {
+    if (!promptExtractedValue && wantsPromptOutput) {
       try {
         snippetDraft = await buildDraftFromSnippet(questionTranscript, { includeLocation: includeLocationLookup });
       } catch (err) {
@@ -471,9 +474,17 @@ const buildDetailedSignalsFromQuestions = async (
       const normalizedGoal = (goal || '').trim();
       if (!normalizedGoal) continue;
 
-      let value = promptExtractedValue;
+      let value = '';
+
+      if (wantsTranscriptOutput && !wantsPromptOutput) {
+        value = trimToMaxChars(questionTranscript || transcript, 1200);
+      }
 
       if (!value) {
+        value = promptExtractedValue;
+      }
+
+      if (!value && wantsPromptOutput) {
         value = resolveSignalValue(
           normalizedGoal,
           question.signalKey,
@@ -481,6 +492,11 @@ const buildDetailedSignalsFromQuestions = async (
           questionTranscript || transcript,
         );
       }
+
+      if (!value && wantsTranscriptOutput) {
+        value = trimToMaxChars(questionTranscript || transcript, 1200);
+      }
+
       if (!value) continue;
 
       signals.push({
