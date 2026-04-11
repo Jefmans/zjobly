@@ -214,10 +214,7 @@ export function CandidateProfileFlow({
       : candidateStep === "record"
       ? "Record a short intro video."
       : "";
-  const candidateQuestionSet = useMemo(
-    () => getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile),
-    [],
-  );
+  const candidateQuestionSet = getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile);
   const candidateQuestions = candidateQuestionSet?.questions ?? [];
   const [candidateQuestionIndex, setCandidateQuestionIndex] = useState(0);
   const [questionCountdown, setQuestionCountdown] = useState<number | null>(null);

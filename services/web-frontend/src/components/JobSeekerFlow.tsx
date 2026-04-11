@@ -52,11 +52,6 @@ type Props = {
   onViewMatches: (jobId: string) => void;
 };
 
-const MAX_APPLICATION_VIDEO_SECONDS = Math.max(
-  1,
-  Number(runtimeConfig.video?.maxDurationSeconds) || 180,
-);
-
 const getDateValue = (value?: string | null) => {
   if (!value) return 0;
   const ts = new Date(value).getTime();
@@ -104,6 +99,10 @@ export function JobSeekerFlow({
   onViewCandidateProfile,
   onViewMatches,
 }: Props) {
+  const maxApplicationVideoSeconds = Math.max(
+    1,
+    Number(runtimeConfig.video?.maxDurationSeconds) || 180,
+  );
   const [sortBy, setSortBy] = useState(() => (role === "candidate" ? "relevant" : "created_desc"));
   const isCandidate = role === "candidate";
   const isEmployer = role === "employer";
@@ -158,14 +157,10 @@ export function JobSeekerFlow({
     () => (selectedJob ? getJobQuestionOverride(selectedJob.id) : null),
     [selectedJob?.id],
   );
-  const applicationQuestionSet = useMemo(
-    () =>
-      getQuestionSet(VIDEO_QUESTION_CONFIG.application, {
-        jobId: selectedJob?.id ?? null,
-        jobOverride: jobQuestionOverride,
-      }),
-    [selectedJob?.id, jobQuestionOverride],
-  );
+  const applicationQuestionSet = getQuestionSet(VIDEO_QUESTION_CONFIG.application, {
+    jobId: selectedJob?.id ?? null,
+    jobOverride: jobQuestionOverride,
+  });
   const applicationQuestions = applicationQuestionSet?.questions ?? [];
   const [applyQuestionIndex, setApplyQuestionIndex] = useState(0);
   const hasApplicationQuestions = applicationQuestions.length > 0;
@@ -265,7 +260,7 @@ export function JobSeekerFlow({
       const elapsed =
         applyRecordElapsedRef.current + (Date.now() - applyRecordStartedAtRef.current) / 1000;
       setApplyRecordDuration(elapsed);
-      if (elapsed >= MAX_APPLICATION_VIDEO_SECONDS) {
+      if (elapsed >= maxApplicationVideoSeconds) {
         stopApplyRecording(false);
       }
     }, 250);
@@ -563,7 +558,7 @@ export function JobSeekerFlow({
 
     probe.onloadedmetadata = () => {
       const duration = probe.duration;
-      if (duration > MAX_APPLICATION_VIDEO_SECONDS) {
+      if (duration > maxApplicationVideoSeconds) {
         setApplyError("Video must be 3 minutes or less.");
         URL.revokeObjectURL(objectUrl);
         return;
@@ -631,7 +626,7 @@ export function JobSeekerFlow({
         probe.preload = "metadata";
         probe.onloadedmetadata = () => {
           const duration = probe.duration;
-          if (duration > MAX_APPLICATION_VIDEO_SECONDS) {
+          if (duration > maxApplicationVideoSeconds) {
             setApplyError("Video must be 3 minutes or less.");
             URL.revokeObjectURL(objectUrl);
             return;
@@ -1040,7 +1035,7 @@ export function JobSeekerFlow({
     const recorderOpen = Boolean(applyStream || applyVideoUrl);
     const recordLabel = formatDuration(applyRecordDuration) ?? "0:00";
     const durationLabel = formatDuration(applyDuration) ?? "0:00";
-    const maxVideoLabel = formatDuration(MAX_APPLICATION_VIDEO_SECONDS) ?? "3:00";
+    const maxVideoLabel = formatDuration(maxApplicationVideoSeconds) ?? "3:00";
 
     return (
       <>

@@ -79,7 +79,7 @@ type RawQuestionsConfig = {
   };
 };
 
-const questionsConfig = rawQuestionsConfig as RawQuestionsConfig;
+let questionsConfig = rawQuestionsConfig as RawQuestionsConfig;
 type LegacyTargetField = "headline" | "location" | "summary" | "keywords" | "transcript";
 
 const normalizeGoals = (value: unknown): string[] | undefined => {
@@ -266,21 +266,33 @@ const createQuestionConfig = (
   };
 };
 
-const candidateProfileQuestions = createQuestionConfig(
-  questionsConfig.questions?.candidateProfile,
-  "candidate-profile",
-  "candidate-profile",
-);
+const buildVideoQuestionConfig = (configSource: RawQuestionsConfig) => ({
+  candidateProfile: createQuestionConfig(
+    configSource.questions?.candidateProfile,
+    "candidate-profile",
+    "candidate-profile",
+  ),
+  application: createQuestionConfig(
+    configSource.questions?.application,
+    "application-video",
+    "application-video",
+  ),
+});
 
-const applicationQuestions = createQuestionConfig(
-  questionsConfig.questions?.application,
-  "application-video",
-  "application-video",
-);
+const initialVideoQuestionConfig = buildVideoQuestionConfig(questionsConfig);
 
 export const VIDEO_QUESTION_CONFIG = {
-  candidateProfile: candidateProfileQuestions,
-  application: applicationQuestions,
+  candidateProfile: initialVideoQuestionConfig.candidateProfile,
+  application: initialVideoQuestionConfig.application,
+};
+
+export const applyQuestionsConfig = (nextQuestions: unknown): void => {
+  if (!nextQuestions || typeof nextQuestions !== "object" || Array.isArray(nextQuestions)) return;
+  const normalized = nextQuestions as RawQuestionsConfig;
+  questionsConfig = normalized;
+  const rebuilt = buildVideoQuestionConfig(normalized);
+  VIDEO_QUESTION_CONFIG.candidateProfile = rebuilt.candidateProfile;
+  VIDEO_QUESTION_CONFIG.application = rebuilt.application;
 };
 
 const STORAGE_PREFIX = "zjobly-question-variant:";

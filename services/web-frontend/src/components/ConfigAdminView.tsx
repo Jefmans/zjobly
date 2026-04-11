@@ -4,6 +4,8 @@ import {
   getAdminConfigBundle,
   updateAdminConfigBundle,
 } from "../api";
+import { applyRuntimeConfig } from "../config/runtimeConfig";
+import { applyQuestionsConfig } from "../config/videoQuestions";
 
 type Props = {
   nav: ReactNode;
@@ -36,6 +38,8 @@ export function ConfigAdminView({ nav }: Props) {
       setRuntimeText(stringifyConfig(config.runtime));
       setQuestionsText(stringifyConfig(config.questions));
       setPromptsText(stringifyConfig(config.prompts));
+      applyRuntimeConfig(config.runtime);
+      applyQuestionsConfig(config.questions);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Could not load config.");
@@ -75,7 +79,9 @@ export function ConfigAdminView({ nav }: Props) {
       setRuntimeText(stringifyConfig(updated.runtime));
       setQuestionsText(stringifyConfig(updated.questions));
       setPromptsText(stringifyConfig(updated.prompts));
-      setSuccess("Config saved. Refresh the browser to apply frontend-side changes.");
+      applyRuntimeConfig(updated.runtime);
+      applyQuestionsConfig(updated.questions);
+      setSuccess("Config saved and applied.");
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Could not save config.");
