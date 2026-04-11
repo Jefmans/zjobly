@@ -185,9 +185,24 @@ const ensureStructuredDataForSchema = (
     return structuredData;
   }
   const normalized: Record<string, unknown> = structuredData ? { ...structuredData } : {};
-  Object.keys(properties as Record<string, unknown>).forEach((key) => {
+  const isTypeMatch = (schemaType: unknown, expected: string): boolean => {
+    if (schemaType === expected) return true;
+    return Array.isArray(schemaType) && schemaType.includes(expected);
+  };
+  Object.entries(properties as Record<string, unknown>).forEach(([key, definition]) => {
     if (!(key in normalized)) {
-      normalized[key] = null;
+      const definitionObject =
+        definition && typeof definition === 'object' && !Array.isArray(definition)
+          ? (definition as Record<string, unknown>)
+          : null;
+      const schemaType = definitionObject?.type;
+      if (isTypeMatch(schemaType, 'array')) {
+        normalized[key] = [];
+      } else if (isTypeMatch(schemaType, 'object')) {
+        normalized[key] = {};
+      } else {
+        normalized[key] = null;
+      }
     }
   });
   if (typeof normalized.value !== 'string' || !normalized.value.toString().trim()) {

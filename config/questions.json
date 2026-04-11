@@ -36,12 +36,20 @@
                 "required": ["value"],
                 "properties": {
                   "value": { "type": "string" },
-                  "school": { "type": ["string", "null"] },
-                  "degree": { "type": ["string", "null"] },
-                  "field": { "type": ["string", "null"] },
-                  "start_year": { "type": ["integer", "null"] },
-                  "end_year": { "type": ["integer", "null"] },
-                  "in_progress": { "type": ["boolean", "null"] }
+                  "educations": {
+                    "type": ["array", "null"],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "school": { "type": ["string", "null"] },
+                        "degree": { "type": ["string", "null"] },
+                        "field": { "type": ["string", "null"] },
+                        "start_year": { "type": ["integer", "null"] },
+                        "end_year": { "type": ["integer", "null"] },
+                        "in_progress": { "type": ["boolean", "null"] }
+                      }
+                    }
+                  }
                 }
               },
               "capture_text": {
