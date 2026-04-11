@@ -279,6 +279,11 @@ export function CandidateProfileView({
                 <p className="hint">No detailed signals available yet.</p>
               )}
             </div>
+            <div className="panel-actions">
+              <button type="button" className="cta primary" onClick={onEditProfile}>
+                Edit profile
+              </button>
+            </div>
           </>
         ) : (
           <div className="panel">
