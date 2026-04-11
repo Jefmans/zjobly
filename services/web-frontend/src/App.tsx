@@ -167,6 +167,18 @@ type CandidateDraftFields = {
   keywords?: string[];
 };
 
+const LOCATION_INTENT_PATTERN =
+  /\b(location|where|based|located|city|country|region|remote|hybrid|on[-\s]?site|relocat|commut|locatie|waar|stad|land|regio|gemeente|provincie|postcode|post code|thuiswerk|op kantoor)\b/i;
+
+const LOCATION_PHRASE_PATTERN =
+  /\b(work|job|jobs|werken|werk)\b.{0,28}\b(in|at|near|around|te|in de|rond|omgeving)\b/i;
+
+const transcriptLikelyContainsLocationIntent = (transcript: string): boolean => {
+  const text = (transcript || '').trim();
+  if (!text) return false;
+  return LOCATION_INTENT_PATTERN.test(text) || LOCATION_PHRASE_PATTERN.test(text);
+};
+
 const normalizeStructuredData = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -1574,6 +1586,24 @@ function App() {
     setError(null);
   };
 
+  const handleCandidateDetailedSignalStructuredDataChange = (
+    index: number,
+    structuredData: Record<string, unknown> | null,
+  ) => {
+    setCandidateDetailedSignalsDraft((prev) =>
+      prev.map((signal, signalIndex) =>
+        signalIndex === index
+          ? {
+              ...signal,
+              structured_data: normalizeStructuredData(structuredData),
+            }
+          : signal,
+      ),
+    );
+    setCandidateProfileSaved(false);
+    setError(null);
+  };
+
   const normalizeKeywords = (keywords?: string[]): string[] => {
     const seen = new Set<string>();
     return (keywords ?? [])
@@ -1732,6 +1762,7 @@ function App() {
       const includeLocation = options?.includeLocation !== false;
       const text = transcript.trim().slice(0, 8000);
       if (!text) return null;
+      const canSuggestLocation = includeLocation && transcriptLikelyContainsLocationIntent(text);
       const prefill: {
         headline?: string;
         summary?: string;
@@ -1740,7 +1771,7 @@ function App() {
       } = {};
 
       const profileDraftPromise = getProfileDraftFromTranscript(text);
-      const locationPromise = includeLocation ? getLocationFromTranscript(text) : Promise.resolve(null);
+      const locationPromise = canSuggestLocation ? getLocationFromTranscript(text) : Promise.resolve(null);
       const [profileDraftResult, locationResult] = await Promise.allSettled([
         profileDraftPromise,
         locationPromise,
@@ -1756,7 +1787,7 @@ function App() {
         console.error('Candidate profile prefill failed', profileDraftResult.reason);
       }
 
-      if (includeLocation) {
+      if (canSuggestLocation) {
         if (locationResult.status === 'fulfilled') {
           const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
           prefill.location = suggestion || '';
@@ -3003,6 +3034,10 @@ function App() {
     const transcriptKey = text.slice(0, 8000);
     if (candidateLocationHandledTranscriptRef.current === transcriptKey) return;
     if (candidateProfileEditedRef.current.location) return;
+    if (!transcriptLikelyContainsLocationIntent(text)) {
+      candidateLocationHandledTranscriptRef.current = transcriptKey;
+      return;
+    }
 
     const controller = new AbortController();
     candidateLocationAbortRef.current?.abort();
@@ -3884,6 +3919,7 @@ function App() {
               showValidation: candidateValidation,
               detailedSignals: candidateDetailedSignalsDraft,
               onDetailedSignalValueChange: handleCandidateDetailedSignalValueChange,
+              onDetailedSignalStructuredDataChange: handleCandidateDetailedSignalStructuredDataChange,
               onProfileMoveKeyword: moveCandidateProfileKeyword,
               onViewJobs: goToJobsOverview,
               reviewCurrent: candidateReviewCurrent,

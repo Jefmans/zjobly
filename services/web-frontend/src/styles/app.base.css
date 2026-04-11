@@ -2213,6 +2213,67 @@ button[type='submit']:disabled {
   margin-top: 0.45rem;
 }
 
+.structured-editor {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.structured-editor-field {
+  margin-top: 0.15rem;
+}
+
+.structured-object-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.structured-table-wrap {
+  display: grid;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.structured-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.structured-table th,
+.structured-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.structured-table th {
+  font-size: 0.78rem;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.structured-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.structured-table .structured-table-actions-col {
+  width: 90px;
+  white-space: nowrap;
+}
+
+.structured-table input[type="text"] {
+  min-width: 120px;
+}
+
 .signal-structured-json {
   margin: 0;
   padding: 0.65rem 0.75rem;

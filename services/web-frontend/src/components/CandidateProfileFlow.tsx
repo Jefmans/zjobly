@@ -64,6 +64,10 @@ type Props = {
   showValidation: boolean;
   detailedSignals: CandidateDetailedSignal[];
   onDetailedSignalValueChange: (index: number, value: string) => void;
+  onDetailedSignalStructuredDataChange: (
+    index: number,
+    structuredData: Record<string, unknown> | null,
+  ) => void;
   onProfileMoveKeyword: (from: "keep" | "remove", keyword: string) => void;
   onViewJobs: () => void;
   reviewCurrent: CandidateReviewEditable | null;
@@ -130,6 +134,7 @@ export function CandidateProfileFlow({
   showValidation,
   detailedSignals,
   onDetailedSignalValueChange,
+  onDetailedSignalStructuredDataChange,
   onProfileMoveKeyword,
   onViewJobs,
   reviewCurrent,
@@ -637,6 +642,271 @@ export function CandidateProfileFlow({
     element.style.height = "auto";
     element.style.height = `${element.scrollHeight}px`;
   };
+  const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const isEditablePrimitive = (value: unknown): value is string | number | boolean | null =>
+    value === null || ["string", "number", "boolean"].includes(typeof value);
+  const formatStructuredLabel = (key: string): string =>
+    key
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  const coerceStructuredInputValue = (raw: string, previous: unknown): unknown => {
+    const trimmed = raw.trim();
+    if (typeof previous === "number") {
+      if (!trimmed) return null;
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : previous;
+    }
+    if (typeof previous === "boolean") {
+      return trimmed.toLowerCase() === "true";
+    }
+    if (previous === null) {
+      return trimmed ? raw : null;
+    }
+    return raw;
+  };
+  const getArrayObjectColumns = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    const columns: string[] = [];
+    value.forEach((row) => {
+      if (!isPlainRecord(row)) return;
+      Object.keys(row).forEach((key) => {
+        if (!columns.includes(key)) columns.push(key);
+      });
+    });
+    return columns;
+  };
+  const applyStructuredDataPatch = (
+    signalIndex: number,
+    updater: (current: Record<string, unknown>) => Record<string, unknown>,
+  ) => {
+    const signal = editableDetailedSignals[signalIndex];
+    if (!signal) return;
+    const currentStructured = isPlainRecord(signal.structured_data) ? signal.structured_data : {};
+    onDetailedSignalStructuredDataChange(signalIndex, updater(currentStructured));
+  };
+  const renderStructuredFieldEditor = (
+    signalIndex: number,
+    fieldKey: string,
+    value: unknown,
+  ) => {
+    if (Array.isArray(value) && value.every((item) => isPlainRecord(item) || item == null)) {
+      const rows = value.map((item) => (isPlainRecord(item) ? item : {}));
+      const columns = getArrayObjectColumns(rows);
+      if (columns.length === 0) {
+        return <p className="hint">No properties found yet.</p>;
+      }
+      return (
+        <div className="structured-table-wrap">
+          <table className="structured-table">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={`${fieldKey}-${column}`}>{formatStructuredLabel(column)}</th>
+                ))}
+                <th className="structured-table-actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={`${fieldKey}-row-${rowIndex}`}>
+                  {columns.map((column) => {
+                    const cellValue = row[column] ?? null;
+                    return (
+                      <td key={`${fieldKey}-${rowIndex}-${column}`}>
+                        {typeof cellValue === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(cellValue)}
+                            onChange={(event) => {
+                              applyStructuredDataPatch(signalIndex, (current) => {
+                                const next = { ...current };
+                                const existingRows = Array.isArray(next[fieldKey]) ? [...(next[fieldKey] as unknown[])] : [];
+                                const existingRow = isPlainRecord(existingRows[rowIndex]) ? existingRows[rowIndex] : {};
+                                existingRows[rowIndex] = {
+                                  ...existingRow,
+                                  [column]: event.target.checked,
+                                };
+                                next[fieldKey] = existingRows;
+                                return next;
+                              });
+                            }}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={cellValue === null ? "" : String(cellValue)}
+                            onChange={(event) => {
+                              const nextRaw = event.target.value;
+                              applyStructuredDataPatch(signalIndex, (current) => {
+                                const next = { ...current };
+                                const existingRows = Array.isArray(next[fieldKey]) ? [...(next[fieldKey] as unknown[])] : [];
+                                const existingRow = isPlainRecord(existingRows[rowIndex]) ? existingRows[rowIndex] : {};
+                                existingRows[rowIndex] = {
+                                  ...existingRow,
+                                  [column]: coerceStructuredInputValue(nextRaw, cellValue),
+                                };
+                                next[fieldKey] = existingRows;
+                                return next;
+                              });
+                            }}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="structured-table-actions-col">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        applyStructuredDataPatch(signalIndex, (current) => {
+                          const next = { ...current };
+                          const existingRows = Array.isArray(next[fieldKey]) ? [...(next[fieldKey] as unknown[])] : [];
+                          next[fieldKey] = existingRows.filter((_, idx) => idx !== rowIndex);
+                          return next;
+                        });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              applyStructuredDataPatch(signalIndex, (current) => {
+                const next = { ...current };
+                const existingRows = Array.isArray(next[fieldKey]) ? [...(next[fieldKey] as unknown[])] : [];
+                const newRow: Record<string, unknown> = {};
+                columns.forEach((column) => {
+                  newRow[column] = null;
+                });
+                existingRows.push(newRow);
+                next[fieldKey] = existingRows;
+                return next;
+              });
+            }}
+          >
+            Add row
+          </button>
+        </div>
+      );
+    }
+
+    if (isPlainRecord(value)) {
+      return (
+        <div className="structured-object-list">
+          {Object.entries(value).map(([nestedKey, nestedValue]) => (
+            <div className="field" key={`${fieldKey}-${nestedKey}`}>
+              <label>{formatStructuredLabel(nestedKey)}</label>
+              {typeof nestedValue === "boolean" ? (
+                <input
+                  type="checkbox"
+                  checked={Boolean(nestedValue)}
+                  onChange={(event) => {
+                    applyStructuredDataPatch(signalIndex, (current) => {
+                      const next = { ...current };
+                      const record = isPlainRecord(next[fieldKey]) ? { ...next[fieldKey] } : {};
+                      record[nestedKey] = event.target.checked;
+                      next[fieldKey] = record;
+                      return next;
+                    });
+                  }}
+                />
+              ) : isEditablePrimitive(nestedValue) ? (
+                <input
+                  type="text"
+                  value={nestedValue == null ? "" : String(nestedValue)}
+                  onChange={(event) => {
+                    const nextRaw = event.target.value;
+                    applyStructuredDataPatch(signalIndex, (current) => {
+                      const next = { ...current };
+                      const record = isPlainRecord(next[fieldKey]) ? { ...next[fieldKey] } : {};
+                      record[nestedKey] = coerceStructuredInputValue(nextRaw, nestedValue);
+                      next[fieldKey] = record;
+                      return next;
+                    });
+                  }}
+                />
+              ) : (
+                <textarea
+                  rows={3}
+                  value={JSON.stringify(nestedValue, null, 2)}
+                  onChange={(event) => {
+                    const nextRaw = event.target.value;
+                    applyStructuredDataPatch(signalIndex, (current) => {
+                      const next = { ...current };
+                      const record = isPlainRecord(next[fieldKey]) ? { ...next[fieldKey] } : {};
+                      try {
+                        record[nestedKey] = JSON.parse(nextRaw);
+                      } catch {
+                        // keep previous value while JSON is invalid
+                      }
+                      next[fieldKey] = record;
+                      return next;
+                    });
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (typeof value === "boolean") {
+      return (
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => {
+            applyStructuredDataPatch(signalIndex, (current) => ({
+              ...current,
+              [fieldKey]: event.target.checked,
+            }));
+          }}
+        />
+      );
+    }
+
+    if (isEditablePrimitive(value)) {
+      return (
+        <input
+          type="text"
+          value={value == null ? "" : String(value)}
+          onChange={(event) => {
+            const nextRaw = event.target.value;
+            applyStructuredDataPatch(signalIndex, (current) => ({
+              ...current,
+              [fieldKey]: coerceStructuredInputValue(nextRaw, value),
+            }));
+          }}
+        />
+      );
+    }
+
+    return (
+      <textarea
+        rows={3}
+        value={JSON.stringify(value, null, 2)}
+        onChange={(event) => {
+          const nextRaw = event.target.value;
+          applyStructuredDataPatch(signalIndex, (current) => {
+            try {
+              return { ...current, [fieldKey]: JSON.parse(nextRaw) };
+            } catch {
+              return current;
+            }
+          });
+        }}
+      />
+    );
+  };
   const renderSignalMetadata = (signal: CandidateDetailedSignal | null | undefined) => {
     if (!signal) return null;
     const hasStructuredData =
@@ -1030,7 +1300,27 @@ export function CandidateProfileFlow({
                                 autoSizeTextarea(event.currentTarget);
                               }}
                             />
-                            {renderSignalMetadata(signal)}
+                            {isPlainRecord(signal.structured_data) &&
+                              (() => {
+                                const structuredEntries = Object.entries(signal.structured_data).filter(
+                                  ([key]) => key !== "value",
+                                );
+                                if (structuredEntries.length === 0) return null;
+                                return (
+                                  <div className="structured-editor">
+                                    <label>Structured data</label>
+                                    {structuredEntries.map(([key, fieldValue]) => (
+                                      <div
+                                        className="field structured-editor-field"
+                                        key={`structured-${index}-${key}`}
+                                      >
+                                        <label>{formatStructuredLabel(key)}</label>
+                                        {renderStructuredFieldEditor(index, key, fieldValue)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                           </div>
                         </div>
                       ))}
