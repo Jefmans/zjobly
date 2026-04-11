@@ -1,5 +1,10 @@
-import { ReactNode } from "react";
-import { formatLocationLabel } from "../helpers";
+﻿import { ReactNode } from "react";
+import {
+  formatLocationLabel,
+  getDetailedSignalStructuredDataForDisplay,
+  getDetailedSignalTranscriptText,
+  resolveDetailedSignalDisplayModes,
+} from "../helpers";
 import { CandidateDetailedSignal, CandidateProfile, ViewMode } from "../types";
 
 type Props = {
@@ -25,7 +30,7 @@ const formatStructuredLabel = (key: string): string =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const formatStructuredPrimitive = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 };
@@ -248,31 +253,44 @@ export function CandidateProfileView({
               {detailedSignals.length > 0 ? (
                 <div className="review-detail-signals">
                   {detailedSignals.map((signal, index) => (
-                    <div
-                      key={`profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
-                      className="review-signal-card"
-                    >
-                      <div className="review-signal-header">
-                        <span className="pill soft">{signal.goal}</span>
-                        <span className="hint">{signal.signal_key || signal.question_id}</span>
-                      </div>
-                      {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
-                      <p className="review-signal-value">{signal.value}</p>
-                      {signal.structured_data &&
-                        typeof signal.structured_data === "object" &&
-                        !Array.isArray(signal.structured_data) &&
-                        Object.keys(signal.structured_data).length > 0 && (
-                          <div className="field">
-                            <label>Structured data</label>
-                            <div className="structured-editor">
-                              {renderStructuredValuePreview(
-                                signal.structured_data,
-                                `profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`,
-                              )}
-                            </div>
+                    (() => {
+                      const displayModes = resolveDetailedSignalDisplayModes(signal.display);
+                      const showSummary = displayModes.includes("summary");
+                      const showTranscript = displayModes.includes("transcript");
+                      const showStructured = displayModes.includes("structured");
+                      const transcriptText = showTranscript ? getDetailedSignalTranscriptText(signal) : "";
+                      const structuredData = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
+                      return (
+                        <div
+                          key={`profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
+                          className="review-signal-card"
+                        >
+                          <div className="review-signal-header">
+                            <span className="pill soft">{signal.goal}</span>
+                            <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
-                        )}
-                    </div>
+                          {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
+                          {showSummary && <p className="review-signal-value">{signal.value}</p>}
+                          {showTranscript && (
+                            <div className="field">
+                              <label>Transcript</label>
+                              <p className="review-signal-value">{transcriptText || "-"}</p>
+                            </div>
+                          )}
+                          {showStructured && structuredData && (
+                            <div className="field">
+                              <label>Structured data</label>
+                              <div className="structured-editor">
+                                {renderStructuredValuePreview(
+                                  structuredData,
+                                  `profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`,
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
                   ))}
                 </div>
               ) : (

@@ -40,8 +40,17 @@ Question output control (per question):
 - Add `output` to a question in `questions.json` / `dev_questions.json`.
 - Supported values:
   - `["prompt"]` (default behavior): use prompt extraction and existing fallback logic.
-  - `["transcript"]`: store/show transcript text for that question.
-  - `["prompt", "transcript"]`: prefer prompt output, fallback to transcript.
-- Aliases accepted for compatibility:
-  - `front_end` / `frontEnd` / `front-end`
-  - value `summary` maps to `prompt`
+  - `["transcript"]`: use question transcript as the signal value.
+  - `["prompt", "transcript"]`: keep both outputs. `value` stays prompt-oriented, and transcript is stored in `structured_data._transcript`.
+  - value `summary` maps to `prompt`.
+
+Question display control (per question):
+
+- Add `display` to control what is shown in detailed profile UI.
+- Supported values:
+  - `["summary"]`: show signal value.
+  - `["transcript"]`: show transcript text.
+  - `["structured"]`: show structured data block.
+  - combine modes, for example `["summary", "transcript"]`.
+- Compatibility aliases:
+  - `front_end` / `frontEnd` / `front-end` map to `display`.

@@ -1,5 +1,10 @@
 import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
-import { formatDuration } from "../helpers";
+import {
+  formatDuration,
+  getDetailedSignalStructuredDataForDisplay,
+  getDetailedSignalTranscriptText,
+  resolveDetailedSignalDisplayModes,
+} from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
 import {
@@ -909,19 +914,25 @@ export function CandidateProfileFlow({
   };
   const renderSignalMetadata = (signal: CandidateDetailedSignal | null | undefined) => {
     if (!signal) return null;
-    const hasStructuredData =
-      Boolean(signal.structured_data) &&
-      typeof signal.structured_data === "object" &&
-      !Array.isArray(signal.structured_data) &&
-      Object.keys(signal.structured_data as Record<string, unknown>).length > 0;
-    if (!hasStructuredData) return null;
+    const displayModes = resolveDetailedSignalDisplayModes(signal.display);
+    const showTranscript = displayModes.includes("transcript");
+    const showStructured = displayModes.includes("structured");
+    const structuredData = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
+    const transcriptText = showTranscript ? getDetailedSignalTranscriptText(signal) : "";
+    if (!showStructured && !showTranscript) return null;
     return (
       <div className="signal-metadata">
-        {hasStructuredData && (
+        {showTranscript && (
+          <div className="field">
+            <label>Transcript</label>
+            <textarea rows={3} value={transcriptText} readOnly />
+          </div>
+        )}
+        {showStructured && structuredData && (
           <div className="field">
             <label>Structured data</label>
             <pre className="signal-structured-json">
-              {JSON.stringify(signal.structured_data, null, 2)}
+              {JSON.stringify(structuredData, null, 2)}
             </pre>
           </div>
         )}
@@ -1300,9 +1311,12 @@ export function CandidateProfileFlow({
                                 autoSizeTextarea(event.currentTarget);
                               }}
                             />
-                            {isPlainRecord(signal.structured_data) &&
+                            {resolveDetailedSignalDisplayModes(signal.display).includes("structured") &&
+                              isPlainRecord(signal.structured_data) &&
                               (() => {
-                                const structuredEntries = Object.entries(signal.structured_data).filter(
+                                const visibleStructured = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
+                                if (!visibleStructured) return null;
+                                const structuredEntries = Object.entries(visibleStructured).filter(
                                   ([key]) => key !== "value",
                                 );
                                 if (structuredEntries.length === 0) return null;

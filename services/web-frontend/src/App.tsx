@@ -68,7 +68,12 @@ import {
   USER_STORAGE_KEY,
   VIEW_STORAGE_KEY,
 } from './appStateConfig';
-import { filterKeywordsByLocation, formatDuration, makeTakeId } from './helpers';
+import {
+  filterKeywordsByLocation,
+  formatDuration,
+  makeTakeId,
+  normalizeDetailedSignalDisplayModes,
+} from './helpers';
 import { getQuestionSet, VIDEO_QUESTION_CONFIG, VideoQuestion } from './config/videoQuestions';
 import {
   AuthUser,
@@ -244,6 +249,7 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
         source: signal.source ? signal.source.toString().trim() : null,
+        display: normalizeDetailedSignalDisplayModes((signal as { display?: unknown }).display),
         structured_data: normalizeStructuredData(signal.structured_data),
         question_start_sec:
           typeof signal.question_start_sec === 'number' && Number.isFinite(signal.question_start_sec)
@@ -439,6 +445,7 @@ const buildDetailedSignalsFromQuestions = async (
     const wantsTranscriptOutput = outputModes.includes('transcript');
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
+    const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
     const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
     let snippetDraft: CandidateDraftFields | null = null;
     let promptExtractedValue = '';
@@ -477,7 +484,7 @@ const buildDetailedSignalsFromQuestions = async (
       let value = '';
 
       if (wantsTranscriptOutput && !wantsPromptOutput) {
-        value = trimToMaxChars(questionTranscript || transcript, 1200);
+        value = transcriptOutputValue;
       }
 
       if (!value) {
@@ -494,10 +501,25 @@ const buildDetailedSignalsFromQuestions = async (
       }
 
       if (!value && wantsTranscriptOutput) {
-        value = trimToMaxChars(questionTranscript || transcript, 1200);
+        value = transcriptOutputValue;
       }
 
       if (!value) continue;
+
+      let structuredDataForSignal = ensureStructuredDataForSchema(
+        promptStructuredData,
+        question.outputSchema,
+        value,
+      );
+
+      if (wantsPromptOutput && wantsTranscriptOutput) {
+        const combinedStructuredData: Record<string, unknown> = structuredDataForSignal
+          ? { ...structuredDataForSignal }
+          : {};
+        combinedStructuredData._prompt_value = value;
+        combinedStructuredData._transcript = transcriptOutputValue;
+        structuredDataForSignal = combinedStructuredData;
+      }
 
       signals.push({
         question_id: questionId,
@@ -507,11 +529,8 @@ const buildDetailedSignalsFromQuestions = async (
         prompt_key: question.promptKey ?? null,
         question_text: questionText,
         source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',
-        structured_data: ensureStructuredDataForSchema(
-          promptStructuredData,
-          question.outputSchema,
-          value,
-        ),
+        display: Array.isArray(question.display) && question.display.length > 0 ? question.display : null,
+        structured_data: structuredDataForSignal,
         question_start_sec: questionWindow?.start_sec ?? null,
         question_end_sec: questionWindow?.end_sec ?? null,
         updated_at: now,

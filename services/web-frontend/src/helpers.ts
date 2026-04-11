@@ -67,3 +67,52 @@ export const formatInvitationStatusLabel = (status?: string | null): string => {
 
 export const makeTakeId = (prefix: "rec" | "upload") =>
   `${prefix}-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+
+export type DetailedSignalDisplayMode = "summary" | "transcript" | "structured";
+
+const normalizeDetailedSignalDisplayMode = (value: unknown): DetailedSignalDisplayMode | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "summary" || normalized === "value" || normalized === "prompt") return "summary";
+  if (normalized === "transcript") return "transcript";
+  if (normalized === "structured" || normalized === "schema") return "structured";
+  return null;
+};
+
+export const normalizeDetailedSignalDisplayModes = (
+  value: unknown,
+): DetailedSignalDisplayMode[] | null => {
+  const rawValues = Array.isArray(value) ? value : [value];
+  const modes: DetailedSignalDisplayMode[] = [];
+  rawValues.forEach((rawValue) => {
+    const mode = normalizeDetailedSignalDisplayMode(rawValue);
+    if (!mode) return;
+    if (!modes.includes(mode)) modes.push(mode);
+  });
+  return modes.length > 0 ? modes : null;
+};
+
+export const resolveDetailedSignalDisplayModes = (value: unknown): DetailedSignalDisplayMode[] =>
+  normalizeDetailedSignalDisplayModes(value) ?? ["summary", "structured"];
+
+export const getDetailedSignalTranscriptText = (signal: {
+  value?: string | null;
+  structured_data?: Record<string, unknown> | null;
+}): string => {
+  const structuredData = signal?.structured_data;
+  if (structuredData && typeof structuredData._transcript === "string" && structuredData._transcript.trim()) {
+    return structuredData._transcript.trim();
+  }
+  return (signal?.value || "").toString().trim();
+};
+
+export const getDetailedSignalStructuredDataForDisplay = (
+  structuredData: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null => {
+  if (!structuredData || typeof structuredData !== "object" || Array.isArray(structuredData)) return null;
+  const filtered = Object.fromEntries(
+    Object.entries(structuredData).filter(([key]) => !key.startsWith("_")),
+  );
+  return Object.keys(filtered).length > 0 ? filtered : null;
+};

@@ -14,6 +14,7 @@
               "helper_text": "Mention the role title, seniority, and preferred contract type.",
               "goals": ["role_preferences"],
               "output": ["transcript"],
+              "display": ["transcript"],
               "signal_key": "desired_role",
               "prompt_key": "goal_role_preferences_v1"
             },
@@ -22,6 +23,7 @@
               "text": "Where are you looking for a job?",
               "helper_text": "Share city/region and whether you prefer remote, hybrid, or on-site.",
               "goals": ["location"],
+              "output": ["transcript"],
               "signal_key": "desired_location",
               "prompt_key": "goal_location_v1"
             },
