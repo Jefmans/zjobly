@@ -1,8 +1,11 @@
 import { ChangeEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   formatDuration,
+  getDetailedSignalIdentityKey,
+  getDetailedSignalLabel,
   getDetailedSignalStructuredDataForDisplay,
   getDetailedSignalTranscriptText,
+  isVisibleDetailedSignal,
   resolveDetailedSignalDisplayModes,
 } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
@@ -282,32 +285,20 @@ export function CandidateProfileFlow({
   const editableDetailedSignals = useMemo(
     () =>
       (Array.isArray(detailedSignals) ? detailedSignals : []).filter(
-        (signal): signal is CandidateDetailedSignal =>
-          Boolean(signal?.question_id && signal?.value && signal?.show !== false),
+        (signal): signal is CandidateDetailedSignal => isVisibleDetailedSignal(signal),
       ),
     [detailedSignals],
   );
-  const detailedSignalKey = (signal: {
-    question_id: string;
-    signal_key?: string | null;
-    goal?: string | null;
-  }) =>
-    `${(signal.question_id || "").toString().trim().toLowerCase()}::${((signal.signal_key || signal.goal || "signal") || "")
-      .toString()
-      .trim()
-      .toLowerCase()}`;
   const detailedSignalPairs = useMemo(() => {
     if (!showDetailedReviewSection || !reviewCurrent || !reviewNew) return [];
     const currentSignals = Array.isArray(reviewCurrent.detailedSignals)
       ? reviewCurrent.detailedSignals.filter(
-          (signal): signal is CandidateDetailedSignal =>
-            Boolean(signal?.question_id && signal?.value && signal?.show !== false),
+          (signal): signal is CandidateDetailedSignal => isVisibleDetailedSignal(signal),
         )
       : [];
     const nextSignals = Array.isArray(reviewNew.detailedSignals)
       ? reviewNew.detailedSignals.filter(
-          (signal): signal is CandidateDetailedSignal =>
-            Boolean(signal?.question_id && signal?.value && signal?.show !== false),
+          (signal): signal is CandidateDetailedSignal => isVisibleDetailedSignal(signal),
         )
       : [];
     const byKey = new Map<
@@ -323,27 +314,28 @@ export function CandidateProfileFlow({
       }
     >();
     currentSignals.forEach((signal) => {
-      const key = detailedSignalKey(signal);
+      const key = getDetailedSignalIdentityKey(signal);
       if (!key) return;
       byKey.set(key, {
         key,
         questionId: signal.question_id,
         signalKey: signal.signal_key ?? null,
-        goal: signal.signal_key || signal.goal || signal.question_id,
+        goal: getDetailedSignalLabel(signal),
         questionText: signal.question_text ?? null,
         current: signal,
         next: byKey.get(key)?.next ?? null,
       });
     });
     nextSignals.forEach((signal) => {
-      const key = detailedSignalKey(signal);
+      const key = getDetailedSignalIdentityKey(signal);
       if (!key) return;
       const existing = byKey.get(key);
+      const signalLabel = getDetailedSignalLabel(signal);
       byKey.set(key, {
         key,
         questionId: signal.question_id,
         signalKey: signal.signal_key ?? existing?.signalKey ?? null,
-        goal: signal.signal_key || signal.goal || existing?.goal || signal.question_id,
+        goal: signalLabel === "signal" && existing?.goal ? existing.goal : signalLabel,
         questionText: signal.question_text ?? existing?.questionText ?? null,
         current: existing?.current ?? null,
         next: signal,
@@ -1294,11 +1286,11 @@ export function CandidateProfileFlow({
                     <div className="review-detail-signals">
                       {editableDetailedSignals.map((signal, index) => (
                         <div
-                          key={`editable-detailed-signal-${signal.question_id}-${signal.signal_key || signal.goal || "signal"}-${index}`}
+                          key={`editable-detailed-signal-${signal.question_id}-${getDetailedSignalLabel(signal)}-${index}`}
                           className="review-signal-card"
                         >
                           <div className="review-signal-header">
-                            <span className="pill soft">{signal.signal_key || signal.goal || signal.question_id}</span>
+                            <span className="pill soft">{getDetailedSignalLabel(signal)}</span>
                             <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}

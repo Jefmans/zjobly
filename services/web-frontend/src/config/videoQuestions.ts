@@ -9,14 +9,8 @@ export type VideoQuestion = {
   helperText?: string;
   show?: boolean;
   extractors?: VideoQuestionExtractor[];
-  // Legacy question-level fields kept for backward compatibility.
+  // Kept for routing/grouping logic.
   goals?: string[];
-  signalKey?: string;
-  promptKey?: string;
-  schemaKey?: string;
-  outputSchema?: Record<string, unknown>;
-  output?: VideoQuestionOutputMode[];
-  display?: VideoQuestionDisplayMode[];
 };
 
 export type VideoQuestionExtractor = {
@@ -376,12 +370,6 @@ const normalizeQuestion = (
     question.extractors = [legacyExtractor];
   }
   if (goals) question.goals = goals;
-  if (signalKey) question.signalKey = signalKey;
-  if (promptKey) question.promptKey = promptKey;
-  if (schemaKey) question.schemaKey = schemaKey;
-  if (outputModes) question.output = outputModes;
-  if (displayModes) question.display = displayModes;
-  if (outputSchema) question.outputSchema = outputSchema;
   return question;
 };
 

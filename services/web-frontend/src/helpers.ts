@@ -120,3 +120,34 @@ export const getDetailedSignalStructuredDataForDisplay = (
   );
   return Object.keys(filtered).length > 0 ? filtered : null;
 };
+
+type DetailedSignalLike = {
+  question_id?: string | null;
+  signal_key?: string | null;
+  goal?: string | null;
+  value?: string | null;
+  show?: boolean | null;
+};
+
+const normalizeSignalPart = (value: unknown): string =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+export const getDetailedSignalLabel = (signal: DetailedSignalLike | null | undefined): string => {
+  if (!signal) return "signal";
+  const primary = (signal.signal_key || "").toString().trim();
+  if (primary) return primary;
+  const secondary = (signal.goal || "").toString().trim();
+  if (secondary) return secondary;
+  const fallback = (signal.question_id || "").toString().trim();
+  return fallback || "signal";
+};
+
+export const getDetailedSignalIdentityKey = (signal: DetailedSignalLike | null | undefined): string => {
+  const questionId = normalizeSignalPart(signal?.question_id);
+  const secondary = normalizeSignalPart(signal?.signal_key) || normalizeSignalPart(signal?.goal) || "signal";
+  return `${questionId}::${secondary}`;
+};
+
+export const isVisibleDetailedSignal = <T extends DetailedSignalLike>(
+  signal: T | null | undefined,
+): signal is T => Boolean(signal && signal.show !== false && `${signal.question_id ?? ""}`.trim() && `${signal.value ?? ""}`.trim());

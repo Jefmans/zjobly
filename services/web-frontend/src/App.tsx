@@ -71,6 +71,8 @@ import {
 import {
   filterKeywordsByLocation,
   formatDuration,
+  getDetailedSignalIdentityKey,
+  getDetailedSignalLabel,
   makeTakeId,
   normalizeDetailedSignalDisplayModes,
 } from './helpers';
@@ -278,7 +280,7 @@ const mergeDetailedSignals = (
 ): CandidateDetailedSignal[] => {
   const mergedByKey = new Map<string, CandidateDetailedSignal>();
   [...currentSignals, ...newSignals].forEach((signal) => {
-    const key = `${signal.question_id}::${signal.signal_key || signal.goal || "signal"}::${signal.value}`.toLowerCase();
+    const key = `${signal.question_id}::${getDetailedSignalLabel(signal)}::${signal.value}`.toLowerCase();
     if (!mergedByKey.has(key)) {
       mergedByKey.set(key, signal);
     }
@@ -286,23 +288,12 @@ const mergeDetailedSignals = (
   return Array.from(mergedByKey.values());
 };
 
-const getDetailedSignalKey = (signal: {
-  question_id: string;
-  goal?: string | null;
-  signal_key?: string | null;
-}): string => {
-  const secondaryKey =
-    (signal.signal_key || '').toString().trim().toLowerCase() ||
-    (signal.goal || '').toString().trim().toLowerCase();
-  return `${(signal.question_id || '').toString().trim().toLowerCase()}::${secondaryKey}`;
-};
-
 const buildDetailedSignalChoiceDefaults = (
   currentSignals: CandidateDetailedSignal[],
   newSignals: CandidateDetailedSignal[],
 ): Record<string, CandidateReviewChoice> => {
-  const currentByKey = new Map(currentSignals.map((signal) => [getDetailedSignalKey(signal), signal]));
-  const newByKey = new Map(newSignals.map((signal) => [getDetailedSignalKey(signal), signal]));
+  const currentByKey = new Map(currentSignals.map((signal) => [getDetailedSignalIdentityKey(signal), signal]));
+  const newByKey = new Map(newSignals.map((signal) => [getDetailedSignalIdentityKey(signal), signal]));
   const allKeys = new Set<string>([...currentByKey.keys(), ...newByKey.keys()]);
   const defaults: Record<string, CandidateReviewChoice> = {};
   allKeys.forEach((key) => {
@@ -461,22 +452,7 @@ const buildDetailedSignalsFromQuestions = async (
             )
             .filter((extractor): extractor is VideoQuestionExtractor => Boolean(extractor))
         : [];
-    const extractors: VideoQuestionExtractor[] =
-      configuredExtractors.length > 0
-        ? configuredExtractors
-        : question.signalKey
-        ? [
-            {
-              signalKey: question.signalKey,
-              promptKey: question.promptKey,
-              schemaKey: question.schemaKey,
-              outputSchema: question.outputSchema,
-              output: question.output,
-              show: question.show,
-              display: question.display,
-            },
-          ]
-        : [];
+    const extractors: VideoQuestionExtractor[] = configuredExtractors;
     if (extractors.length === 0) continue;
 
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
@@ -493,14 +469,12 @@ const buildDetailedSignalsFromQuestions = async (
       const extractorOutputModes =
         Array.isArray(extractor.output) && extractor.output.length > 0
           ? extractor.output
-          : Array.isArray(question.output) && question.output.length > 0
-          ? question.output
           : ['prompt'];
       const wantsPromptOutput = extractorOutputModes.includes('prompt');
       const wantsTranscriptOutput = extractorOutputModes.includes('transcript');
-      const promptKey = (extractor.promptKey || question.promptKey || '').toString().trim();
-      const schemaKey = (extractor.schemaKey || question.schemaKey || '').toString().trim();
-      const outputSchema = extractor.outputSchema ?? question.outputSchema;
+      const promptKey = (extractor.promptKey || '').toString().trim();
+      const schemaKey = (extractor.schemaKey || '').toString().trim();
+      const outputSchema = extractor.outputSchema;
       const normalizedGoal = ((normalizedGoals[0] || signalKey || 'general') || '').toString().trim();
       let promptExtractedValue = '';
       let promptStructuredData: Record<string, unknown> | null = null;
@@ -577,12 +551,7 @@ const buildDetailedSignalsFromQuestions = async (
         source: promptKey ? `guided-video:${promptKey}` : 'guided-video',
         show: typeof extractor.show === 'boolean' ? extractor.show : questionShow,
         transcript: transcriptOutputValue || null,
-        display:
-          Array.isArray(extractor.display) && extractor.display.length > 0
-            ? extractor.display
-            : Array.isArray(question.display) && question.display.length > 0
-            ? question.display
-            : null,
+        display: Array.isArray(extractor.display) && extractor.display.length > 0 ? extractor.display : null,
         structured_data: structuredDataForSignal,
         question_start_sec: questionWindow?.start_sec ?? null,
         question_end_sec: questionWindow?.end_sec ?? null,
@@ -2629,7 +2598,7 @@ function App() {
     if (!normalizedKey) return;
     const applyUpdate = (signals: CandidateDetailedSignal[]) =>
       signals.map((signal) =>
-        getDetailedSignalKey(signal) === normalizedKey
+        getDetailedSignalIdentityKey(signal) === normalizedKey
           ? {
               ...signal,
               value,
@@ -2711,10 +2680,10 @@ function App() {
     const selectedDetailedSignals = isDetailedUpdateFlow
       ? (() => {
           const currentByKey = new Map<string, CandidateDetailedSignal>(
-            currentDetailedSignals.map((signal) => [getDetailedSignalKey(signal), signal]),
+            currentDetailedSignals.map((signal) => [getDetailedSignalIdentityKey(signal), signal]),
           );
           const newByKey = new Map<string, CandidateDetailedSignal>(
-            newDetailedSignals.map((signal) => [getDetailedSignalKey(signal), signal]),
+            newDetailedSignals.map((signal) => [getDetailedSignalIdentityKey(signal), signal]),
           );
           const allKeys = new Set<string>([...currentByKey.keys(), ...newByKey.keys()]);
           const chosen: CandidateDetailedSignal[] = [];
