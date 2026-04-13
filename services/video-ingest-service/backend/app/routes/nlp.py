@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from app import storage
 from app.config import settings
-from app.system_config import get_prompts_config, get_runtime_int
+from app.system_config import get_prompts_config, get_runtime_int, get_signal_schemas_config
 import spacy
 from spacy.language import Language
 
@@ -363,6 +363,20 @@ def _extract_with_structured_output(
 def _get_prompt_output_schema(prompt_key: str) -> dict[str, object] | None:
     entry = _get_prompt_entry(prompt_key)
     raw_schema = entry.get("output_schema")
+    if isinstance(raw_schema, dict):
+        return raw_schema
+    schema_key = entry.get("schema_key")
+    if isinstance(schema_key, str) and schema_key.strip():
+        return _get_signal_schema(schema_key)
+    return None
+
+
+def _get_signal_schema(schema_key: str) -> dict[str, object] | None:
+    key = (schema_key or "").strip()
+    if not key:
+        return None
+    config = get_signal_schemas_config()
+    raw_schema = config.get(key)
     if not isinstance(raw_schema, dict):
         return None
     return raw_schema
@@ -616,8 +630,11 @@ def _signal_from_transcript(
     transcript: str,
     prompt_key: str,
     language: str | None,
+    schema_key: str | None = None,
     output_schema: dict[str, object] | None = None,
 ) -> SignalFromTranscriptResponse:
+    if output_schema is None:
+        output_schema = _get_signal_schema(schema_key or "")
     if output_schema is None:
         output_schema = _get_prompt_output_schema(prompt_key)
     llm, system_prompt = _build_chat_model(prompt_key)
@@ -774,4 +791,11 @@ def signal_from_transcript(payload: SignalFromTranscriptRequest) -> SignalFromTr
     prompt_key = payload.prompt_key.strip()
     if not prompt_key:
         raise HTTPException(status_code=400, detail="Missing prompt_key")
-    return _signal_from_transcript(transcript, prompt_key, payload.language, payload.output_schema)
+    schema_key = payload.schema_key.strip() if payload.schema_key else None
+    return _signal_from_transcript(
+        transcript,
+        prompt_key,
+        payload.language,
+        schema_key,
+        payload.output_schema,
+    )

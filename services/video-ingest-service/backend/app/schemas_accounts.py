@@ -54,13 +54,15 @@ class LocationOut(BaseModel):
 
 class CandidateDetailedSignal(BaseModel):
     question_id: str
-    goal: str
+    goal: Optional[str] = None
     value: str
     signal_key: Optional[str] = None
     target_field: Optional[str] = None
     prompt_key: Optional[str] = None
     question_text: Optional[str] = None
     source: Optional[str] = None
+    show: Optional[bool] = None
+    transcript: Optional[str] = None
     display: Optional[list[str]] = None
     structured_data: Optional[dict[str, object]] = None
     question_start_sec: Optional[float] = None

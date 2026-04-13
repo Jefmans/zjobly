@@ -8,6 +8,7 @@ import { applyRuntimeConfig } from "../config/runtimeConfig";
 import {
   applyQuestionsConfig,
   applyQuestionSetSelection,
+  applySignalSchemasConfig,
   QuestionSetName,
 } from "../config/videoQuestions";
 
@@ -20,6 +21,7 @@ const DEFAULT_CONFIG: AdminConfigBundle = {
   questions: {},
   dev_questions: {},
   prompts: {},
+  signal_schemas: {},
   active_question_set: "default",
 };
 
@@ -38,6 +40,9 @@ export function ConfigAdminView({ nav }: Props) {
     stringifyConfig(DEFAULT_CONFIG.dev_questions ?? {}),
   );
   const [promptsText, setPromptsText] = useState<string>(stringifyConfig(DEFAULT_CONFIG.prompts));
+  const [signalSchemasText, setSignalSchemasText] = useState<string>(
+    stringifyConfig(DEFAULT_CONFIG.signal_schemas ?? {}),
+  );
   const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetName>("default");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,12 +59,14 @@ export function ConfigAdminView({ nav }: Props) {
       setDefaultQuestionsText(stringifyConfig(config.questions));
       setDevQuestionsText(stringifyConfig(config.dev_questions ?? {}));
       setPromptsText(stringifyConfig(config.prompts));
+      setSignalSchemasText(stringifyConfig(config.signal_schemas ?? {}));
       const selectedSet = normalizeQuestionSetName(config.active_question_set);
       setActiveQuestionSet(selectedSet);
       applyRuntimeConfig(config.runtime);
       applyQuestionSetSelection(selectedSet);
       applyQuestionsConfig(config.questions, "default");
       applyQuestionsConfig(config.dev_questions ?? {}, "dev");
+      applySignalSchemasConfig(config.signal_schemas ?? {});
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Could not load config.");
@@ -95,6 +102,7 @@ export function ConfigAdminView({ nav }: Props) {
         questions: parseConfigSection("questions", defaultQuestionsText),
         dev_questions: parseConfigSection("dev_questions", devQuestionsText),
         prompts: parseConfigSection("prompts", promptsText),
+        signal_schemas: parseConfigSection("signal_schemas", signalSchemasText),
         active_question_set: activeQuestionSet,
       };
       const updated = await updateAdminConfigBundle(payload);
@@ -102,12 +110,14 @@ export function ConfigAdminView({ nav }: Props) {
       setDefaultQuestionsText(stringifyConfig(updated.questions));
       setDevQuestionsText(stringifyConfig(updated.dev_questions ?? {}));
       setPromptsText(stringifyConfig(updated.prompts));
+      setSignalSchemasText(stringifyConfig(updated.signal_schemas ?? {}));
       const selectedSet = normalizeQuestionSetName(updated.active_question_set);
       setActiveQuestionSet(selectedSet);
       applyRuntimeConfig(updated.runtime);
       applyQuestionSetSelection(selectedSet);
       applyQuestionsConfig(updated.questions, "default");
       applyQuestionsConfig(updated.dev_questions ?? {}, "dev");
+      applySignalSchemasConfig(updated.signal_schemas ?? {});
       setSuccess("Config saved and applied.");
     } catch (err) {
       console.error(err);
@@ -195,6 +205,18 @@ export function ConfigAdminView({ nav }: Props) {
               rows={10}
               value={promptsText}
               onChange={(event) => setPromptsText(event.target.value)}
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="signalSchemasConfigJson">signal_schemas.json</label>
+            <textarea
+              id="signalSchemasConfigJson"
+              name="signalSchemasConfigJson"
+              rows={10}
+              value={signalSchemasText}
+              onChange={(event) => setSignalSchemasText(event.target.value)}
               spellCheck={false}
             />
           </div>

@@ -74,7 +74,7 @@ import {
   makeTakeId,
   normalizeDetailedSignalDisplayModes,
 } from './helpers';
-import { getQuestionSet, VIDEO_QUESTION_CONFIG, VideoQuestion } from './config/videoQuestions';
+import { getQuestionSet, VIDEO_QUESTION_CONFIG, VideoQuestion, VideoQuestionExtractor } from './config/videoQuestions';
 import {
   AuthUser,
   CandidateDetailedSignal,
@@ -233,22 +233,25 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
   return signals
     .map((signal) => {
       const questionId = (signal.question_id || '').toString().trim();
-      const goal = (signal.goal || '').toString().trim();
+      const signalKey = signal.signal_key
+        ? signal.signal_key.toString().trim()
+        : signal.target_field
+        ? signal.target_field.toString().trim()
+        : '';
+      const goal = (signal.goal || '').toString().trim() || signalKey || questionId;
       const value = (signal.value || '').toString().trim();
-      if (!questionId || !goal || !value) return null;
+      if (!questionId || !value) return null;
       return {
         question_id: questionId,
         goal,
         value,
-        signal_key: signal.signal_key
-          ? signal.signal_key.toString().trim()
-          : signal.target_field
-          ? signal.target_field.toString().trim()
-          : null,
+        signal_key: signalKey || null,
         target_field: signal.target_field ? signal.target_field.toString().trim() : null,
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
         source: signal.source ? signal.source.toString().trim() : null,
+        show: typeof signal.show === 'boolean' ? signal.show : null,
+        transcript: signal.transcript ? signal.transcript.toString().trim() : null,
         display: normalizeDetailedSignalDisplayModes((signal as { display?: unknown }).display),
         structured_data: normalizeStructuredData(signal.structured_data),
         question_start_sec:
@@ -275,7 +278,7 @@ const mergeDetailedSignals = (
 ): CandidateDetailedSignal[] => {
   const mergedByKey = new Map<string, CandidateDetailedSignal>();
   [...currentSignals, ...newSignals].forEach((signal) => {
-    const key = `${signal.question_id}::${signal.goal}::${signal.value}`.toLowerCase();
+    const key = `${signal.question_id}::${signal.signal_key || signal.goal || "signal"}::${signal.value}`.toLowerCase();
     if (!mergedByKey.has(key)) {
       mergedByKey.set(key, signal);
     }
@@ -283,11 +286,16 @@ const mergeDetailedSignals = (
   return Array.from(mergedByKey.values());
 };
 
-const getDetailedSignalKey = (signal: { question_id: string; goal: string }): string =>
-  `${(signal.question_id || '').toString().trim().toLowerCase()}::${(signal.goal || '')
-    .toString()
-    .trim()
-    .toLowerCase()}`;
+const getDetailedSignalKey = (signal: {
+  question_id: string;
+  goal?: string | null;
+  signal_key?: string | null;
+}): string => {
+  const secondaryKey =
+    (signal.signal_key || '').toString().trim().toLowerCase() ||
+    (signal.goal || '').toString().trim().toLowerCase();
+  return `${(signal.question_id || '').toString().trim().toLowerCase()}::${secondaryKey}`;
+};
 
 const buildDetailedSignalChoiceDefaults = (
   currentSignals: CandidateDetailedSignal[],
@@ -440,46 +448,63 @@ const buildDetailedSignalsFromQuestions = async (
     const questionText = (question.text || '').trim();
     if (!questionId || !questionText) continue;
 
-    const outputModes = Array.isArray(question.output) && question.output.length > 0 ? question.output : ['prompt'];
-    const wantsPromptOutput = outputModes.includes('prompt');
-    const wantsTranscriptOutput = outputModes.includes('transcript');
+    const questionShow = question.show !== false;
+    const normalizedGoals =
+      Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
+    const configuredExtractors =
+      Array.isArray(question.extractors) && question.extractors.length > 0
+        ? question.extractors
+            .map((extractor) =>
+              extractor && typeof extractor.signalKey === 'string' && extractor.signalKey.trim()
+                ? extractor
+                : null,
+            )
+            .filter((extractor): extractor is VideoQuestionExtractor => Boolean(extractor))
+        : [];
+    const extractors: VideoQuestionExtractor[] =
+      configuredExtractors.length > 0
+        ? configuredExtractors
+        : question.signalKey
+        ? [
+            {
+              signalKey: question.signalKey,
+              promptKey: question.promptKey,
+              schemaKey: question.schemaKey,
+              outputSchema: question.outputSchema,
+              output: question.output,
+              show: question.show,
+              display: question.display,
+            },
+          ]
+        : [];
+    if (extractors.length === 0) continue;
+
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
-    const goals = Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
     let snippetDraft: CandidateDraftFields | null = null;
-    let promptExtractedValue = '';
-    let promptStructuredData: Record<string, unknown> | null = null;
-    let promptExtraction: Awaited<ReturnType<typeof getSignalFromTranscript>> | null = null;
     const includeLocationLookup =
-      (question.signalKey || '').toLowerCase().includes('location') ||
-      goals.some((goal) => (goal || '').toLowerCase().includes('location'));
+      extractors.some((extractor) => (extractor.signalKey || '').toLowerCase().includes('location')) ||
+      normalizedGoals.some((goal) => (goal || '').toLowerCase().includes('location'));
 
-    if (wantsPromptOutput && question.promptKey && questionTranscript.length >= 8) {
-      try {
-        promptExtraction = await getSignalFromTranscript(
-          questionTranscript,
-          question.promptKey,
-          question.outputSchema,
-        );
-        promptExtractedValue = (promptExtraction?.value || '').toString().trim();
-        promptStructuredData = normalizeStructuredData(promptExtraction?.structured_data ?? null);
-      } catch (err) {
-        console.error(`Could not extract signal for prompt ${question.promptKey}`, err);
-      }
-    }
-
-    if (!promptExtractedValue && wantsPromptOutput) {
-      try {
-        snippetDraft = await buildDraftFromSnippet(questionTranscript, { includeLocation: includeLocationLookup });
-      } catch (err) {
-        console.error('Could not build snippet draft for detailed signal', err);
-      }
-    }
-
-    for (const goal of goals) {
-      const normalizedGoal = (goal || '').trim();
-      if (!normalizedGoal) continue;
+    for (const extractor of extractors) {
+      const signalKey = (extractor.signalKey || '').toString().trim();
+      if (!signalKey) continue;
+      const extractorOutputModes =
+        Array.isArray(extractor.output) && extractor.output.length > 0
+          ? extractor.output
+          : Array.isArray(question.output) && question.output.length > 0
+          ? question.output
+          : ['prompt'];
+      const wantsPromptOutput = extractorOutputModes.includes('prompt');
+      const wantsTranscriptOutput = extractorOutputModes.includes('transcript');
+      const promptKey = (extractor.promptKey || question.promptKey || '').toString().trim();
+      const schemaKey = (extractor.schemaKey || question.schemaKey || '').toString().trim();
+      const outputSchema = extractor.outputSchema ?? question.outputSchema;
+      const normalizedGoal = ((normalizedGoals[0] || signalKey || 'general') || '').toString().trim();
+      let promptExtractedValue = '';
+      let promptStructuredData: Record<string, unknown> | null = null;
+      let promptExtraction: Awaited<ReturnType<typeof getSignalFromTranscript>> | null = null;
 
       let value = '';
 
@@ -487,14 +512,36 @@ const buildDetailedSignalsFromQuestions = async (
         value = transcriptOutputValue;
       }
 
+      if (wantsPromptOutput && promptKey && questionTranscript.length >= 8) {
+        try {
+          promptExtraction = await getSignalFromTranscript(
+            questionTranscript,
+            promptKey,
+            outputSchema,
+            schemaKey || undefined,
+          );
+          promptExtractedValue = (promptExtraction?.value || '').toString().trim();
+          promptStructuredData = normalizeStructuredData(promptExtraction?.structured_data ?? null);
+        } catch (err) {
+          console.error(`Could not extract signal for prompt ${promptKey}`, err);
+        }
+      }
+
       if (!value) {
         value = promptExtractedValue;
       }
 
       if (!value && wantsPromptOutput) {
+        if (!snippetDraft) {
+          try {
+            snippetDraft = await buildDraftFromSnippet(questionTranscript, { includeLocation: includeLocationLookup });
+          } catch (err) {
+            console.error('Could not build snippet draft for detailed signal', err);
+          }
+        }
         value = resolveSignalValue(
           normalizedGoal,
-          question.signalKey,
+          signalKey,
           snippetDraft || fullDraft,
           questionTranscript || transcript,
         );
@@ -508,7 +555,7 @@ const buildDetailedSignalsFromQuestions = async (
 
       let structuredDataForSignal = ensureStructuredDataForSchema(
         promptStructuredData,
-        question.outputSchema,
+        outputSchema,
         value,
       );
 
@@ -517,7 +564,6 @@ const buildDetailedSignalsFromQuestions = async (
           ? { ...structuredDataForSignal }
           : {};
         combinedStructuredData._prompt_value = value;
-        combinedStructuredData._transcript = transcriptOutputValue;
         structuredDataForSignal = combinedStructuredData;
       }
 
@@ -525,11 +571,18 @@ const buildDetailedSignalsFromQuestions = async (
         question_id: questionId,
         goal: normalizedGoal,
         value,
-        signal_key: question.signalKey ?? null,
-        prompt_key: question.promptKey ?? null,
+        signal_key: signalKey,
+        prompt_key: promptKey || null,
         question_text: questionText,
-        source: question.promptKey ? `guided-video:${question.promptKey}` : 'guided-video',
-        display: Array.isArray(question.display) && question.display.length > 0 ? question.display : null,
+        source: promptKey ? `guided-video:${promptKey}` : 'guided-video',
+        show: typeof extractor.show === 'boolean' ? extractor.show : questionShow,
+        transcript: transcriptOutputValue || null,
+        display:
+          Array.isArray(extractor.display) && extractor.display.length > 0
+            ? extractor.display
+            : Array.isArray(question.display) && question.display.length > 0
+            ? question.display
+            : null,
         structured_data: structuredDataForSignal,
         question_start_sec: questionWindow?.start_sec ?? null,
         question_end_sec: questionWindow?.end_sec ?? null,

@@ -283,12 +283,16 @@ export function CandidateProfileFlow({
     () =>
       (Array.isArray(detailedSignals) ? detailedSignals : []).filter(
         (signal): signal is CandidateDetailedSignal =>
-          Boolean(signal?.question_id && signal?.goal && signal?.value),
+          Boolean(signal?.question_id && signal?.value && signal?.show !== false),
       ),
     [detailedSignals],
   );
-  const detailedSignalKey = (signal: { question_id: string; goal: string }) =>
-    `${(signal.question_id || "").toString().trim().toLowerCase()}::${(signal.goal || "")
+  const detailedSignalKey = (signal: {
+    question_id: string;
+    signal_key?: string | null;
+    goal?: string | null;
+  }) =>
+    `${(signal.question_id || "").toString().trim().toLowerCase()}::${((signal.signal_key || signal.goal || "signal") || "")
       .toString()
       .trim()
       .toLowerCase()}`;
@@ -297,13 +301,13 @@ export function CandidateProfileFlow({
     const currentSignals = Array.isArray(reviewCurrent.detailedSignals)
       ? reviewCurrent.detailedSignals.filter(
           (signal): signal is CandidateDetailedSignal =>
-            Boolean(signal?.question_id && signal?.goal && signal?.value),
+            Boolean(signal?.question_id && signal?.value && signal?.show !== false),
         )
       : [];
     const nextSignals = Array.isArray(reviewNew.detailedSignals)
       ? reviewNew.detailedSignals.filter(
           (signal): signal is CandidateDetailedSignal =>
-            Boolean(signal?.question_id && signal?.goal && signal?.value),
+            Boolean(signal?.question_id && signal?.value && signal?.show !== false),
         )
       : [];
     const byKey = new Map<
@@ -325,7 +329,7 @@ export function CandidateProfileFlow({
         key,
         questionId: signal.question_id,
         signalKey: signal.signal_key ?? null,
-        goal: signal.goal,
+        goal: signal.signal_key || signal.goal || signal.question_id,
         questionText: signal.question_text ?? null,
         current: signal,
         next: byKey.get(key)?.next ?? null,
@@ -339,7 +343,7 @@ export function CandidateProfileFlow({
         key,
         questionId: signal.question_id,
         signalKey: signal.signal_key ?? existing?.signalKey ?? null,
-        goal: signal.goal,
+        goal: signal.signal_key || signal.goal || existing?.goal || signal.question_id,
         questionText: signal.question_text ?? existing?.questionText ?? null,
         current: existing?.current ?? null,
         next: signal,
@@ -1290,11 +1294,11 @@ export function CandidateProfileFlow({
                     <div className="review-detail-signals">
                       {editableDetailedSignals.map((signal, index) => (
                         <div
-                          key={`editable-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
+                          key={`editable-detailed-signal-${signal.question_id}-${signal.signal_key || signal.goal || "signal"}-${index}`}
                           className="review-signal-card"
                         >
                           <div className="review-signal-header">
-                            <span className="pill soft">{signal.goal}</span>
+                            <span className="pill soft">{signal.signal_key || signal.goal || signal.question_id}</span>
                             <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}

@@ -14,6 +14,7 @@ from app.system_config import (
     PROMPTS_CONFIG_PATH,
     QUESTIONS_CONFIG_PATH,
     RUNTIME_CONFIG_PATH,
+    SIGNAL_SCHEMAS_CONFIG_PATH,
     clear_system_config_cache,
     get_runtime_config,
 )
@@ -26,6 +27,7 @@ class ConfigBundle(BaseModel):
     questions: dict[str, Any]
     dev_questions: dict[str, Any] = Field(default_factory=dict)
     prompts: dict[str, Any]
+    signal_schemas: dict[str, Any] = Field(default_factory=dict)
     active_question_set: str | None = None
 
 
@@ -149,6 +151,91 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         ) from exc
 
 
+def _iter_question_entries(questions_config: dict[str, Any]) -> list[dict[str, Any]]:
+    questions_root = questions_config.get("questions")
+    if not isinstance(questions_root, dict):
+        return []
+    entries: list[dict[str, Any]] = []
+    for section_value in questions_root.values():
+        if not isinstance(section_value, dict):
+            continue
+        variants = section_value.get("variants")
+        if not isinstance(variants, list):
+            continue
+        for variant in variants:
+            if not isinstance(variant, dict):
+                continue
+            questions = variant.get("questions")
+            if not isinstance(questions, list):
+                continue
+            for question in questions:
+                if isinstance(question, dict):
+                    entries.append(question)
+    return entries
+
+
+def _validate_prompt_and_schema_refs(
+    questions_config: dict[str, Any],
+    dev_questions_config: dict[str, Any],
+    prompts_config: dict[str, Any],
+    signal_schemas_config: dict[str, Any],
+) -> None:
+    known_prompt_keys = {
+        key.strip()
+        for key, value in prompts_config.items()
+        if isinstance(key, str) and key.strip() and isinstance(value, dict)
+    }
+    known_schema_keys = {
+        key.strip()
+        for key, value in signal_schemas_config.items()
+        if isinstance(key, str) and key.strip() and isinstance(value, dict)
+    }
+    missing_prompt_keys: set[str] = set()
+    missing_schema_keys: set[str] = set()
+
+    for question in [*_iter_question_entries(questions_config), *_iter_question_entries(dev_questions_config)]:
+        prompt_key = question.get("prompt_key") or question.get("promptKey")
+        if isinstance(prompt_key, str) and prompt_key.strip() and prompt_key.strip() not in known_prompt_keys:
+            missing_prompt_keys.add(prompt_key.strip())
+        schema_key = question.get("schema_key") or question.get("schemaKey")
+        if isinstance(schema_key, str) and schema_key.strip() and schema_key.strip() not in known_schema_keys:
+            missing_schema_keys.add(schema_key.strip())
+        extractors = question.get("extractors")
+        if isinstance(extractors, list):
+            for extractor in extractors:
+                if not isinstance(extractor, dict):
+                    continue
+                extractor_prompt_key = extractor.get("prompt_key") or extractor.get("promptKey")
+                if (
+                    isinstance(extractor_prompt_key, str)
+                    and extractor_prompt_key.strip()
+                    and extractor_prompt_key.strip() not in known_prompt_keys
+                ):
+                    missing_prompt_keys.add(extractor_prompt_key.strip())
+                extractor_schema_key = extractor.get("schema_key") or extractor.get("schemaKey")
+                if (
+                    isinstance(extractor_schema_key, str)
+                    and extractor_schema_key.strip()
+                    and extractor_schema_key.strip() not in known_schema_keys
+                ):
+                    missing_schema_keys.add(extractor_schema_key.strip())
+
+    for prompt_value in prompts_config.values():
+        if not isinstance(prompt_value, dict):
+            continue
+        schema_key = prompt_value.get("schema_key") or prompt_value.get("schemaKey")
+        if isinstance(schema_key, str) and schema_key.strip() and schema_key.strip() not in known_schema_keys:
+            missing_schema_keys.add(schema_key.strip())
+
+    issues: list[str] = []
+    if missing_prompt_keys:
+        issues.append(f"Unknown prompt_key(s): {', '.join(sorted(missing_prompt_keys))}")
+    if missing_schema_keys:
+        issues.append(f"Unknown schema_key(s): {', '.join(sorted(missing_schema_keys))}")
+    if issues:
+        raise HTTPException(status_code=400, detail="; ".join(issues))
+
+
 @router.get("", response_model=ConfigBundle)
 def get_admin_config_bundle(current_user: User = Depends(get_current_user)) -> ConfigBundle:
     _require_admin_config_enabled()
@@ -159,6 +246,7 @@ def get_admin_config_bundle(current_user: User = Depends(get_current_user)) -> C
         questions=_load_json(QUESTIONS_CONFIG_PATH),
         dev_questions=_load_json(DEV_QUESTIONS_CONFIG_PATH),
         prompts=_load_json(PROMPTS_CONFIG_PATH),
+        signal_schemas=_load_json(SIGNAL_SCHEMAS_CONFIG_PATH),
         active_question_set=_extract_active_question_set(runtime),
     )
 
@@ -173,11 +261,18 @@ def update_admin_config_bundle(
     selected_question_set = _normalize_question_set(
         payload.active_question_set or _extract_active_question_set(payload.runtime)
     )
+    _validate_prompt_and_schema_refs(
+        payload.questions,
+        payload.dev_questions,
+        payload.prompts,
+        payload.signal_schemas,
+    )
     runtime_payload = _runtime_with_active_question_set(payload.runtime, selected_question_set)
     _write_json(RUNTIME_CONFIG_PATH, runtime_payload)
     _write_json(QUESTIONS_CONFIG_PATH, payload.questions)
     _write_json(DEV_QUESTIONS_CONFIG_PATH, payload.dev_questions)
     _write_json(PROMPTS_CONFIG_PATH, payload.prompts)
+    _write_json(SIGNAL_SCHEMAS_CONFIG_PATH, payload.signal_schemas)
     clear_system_config_cache()
     runtime = _load_json(RUNTIME_CONFIG_PATH)
     return ConfigBundle(
@@ -185,5 +280,6 @@ def update_admin_config_bundle(
         questions=_load_json(QUESTIONS_CONFIG_PATH),
         dev_questions=_load_json(DEV_QUESTIONS_CONFIG_PATH),
         prompts=_load_json(PROMPTS_CONFIG_PATH),
+        signal_schemas=_load_json(SIGNAL_SCHEMAS_CONFIG_PATH),
         active_question_set=_extract_active_question_set(runtime),
     )

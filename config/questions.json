@@ -31,28 +31,20 @@
               "id": "candidate-education",
               "text": "What is your education? Where did you study?",
               "helper_text": "Include school, degree, field, and graduation year if relevant.",
-              "goals": ["education"],
-              "signal_key": "education_background",
-              "prompt_key": "goal_education_v2",
-              "output_schema": {
-                "type": "object",
-                "properties": {
-                  "educations": {
-                    "type": ["array", "null"],
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "school": { "type": ["string", "null"] },
-                        "degree": { "type": ["string", "null"] },
-                        "field": { "type": ["string", "null"] },
-                        "start_year": { "type": ["integer", "null"] },
-                        "end_year": { "type": ["integer", "null"] },
-                        "in_progress": { "type": ["boolean", "null"] }
-                      }
-                    }
-                  }
+              "show": true,
+              "extractors": [
+                {
+                  "signal_key": "education_structured",
+                  "prompt_key": "goal_education_v2",
+                  "schema_key": "education_v1",
+                  "show": true
+                },
+                {
+                  "signal_key": "education_summary",
+                  "prompt_key": "goal_education_v1",
+                  "show": true
                 }
-              }
+              ]
             },
             {
               "id": "candidate-job-values",

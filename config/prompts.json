@@ -30,27 +30,7 @@
     "temperature": 0.2,
     "response_format": "json_object",
     "system_prompt": "Extract education details from the answer. Return JSON with keys: value and educations. Keep value as one concise sentence summary. educations must be an array of entries in chronological order (oldest to newest). Each entry should contain school, degree, field, start_year, end_year, in_progress. Use null for unknown fields. If no clear education is mentioned, return educations as an empty array. Do not invent details.",
-    "output_schema": {
-      "type": "object",
-      "required": ["value"],
-      "properties": {
-        "value": { "type": "string" },
-        "educations": {
-          "type": ["array", "null"],
-          "items": {
-            "type": "object",
-            "properties": {
-              "school": { "type": ["string", "null"] },
-              "degree": { "type": ["string", "null"] },
-              "field": { "type": ["string", "null"] },
-              "start_year": { "type": ["integer", "null"] },
-              "end_year": { "type": ["integer", "null"] },
-              "in_progress": { "type": ["boolean", "null"] }
-            }
-          }
-        }
-      }
-    },
+    "schema_key": "education_v1",
     "signal_key": "education_background"
   },
   "goal_education_summary_v1": {

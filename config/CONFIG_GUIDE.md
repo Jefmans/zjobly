@@ -6,6 +6,7 @@ Edit config only in this folder:
 - `questions.json`
 - `dev_questions.json`
 - `prompts.json`
+- `signal_schemas.json`
 
 No per-service config copies are required.
 
@@ -21,6 +22,7 @@ Admin panel (dev):
 - Open the frontend and sign in.
 - Use `Development navigation` -> `Admin config panel`.
 - Save changes to update `runtime.json`, `questions.json`, `dev_questions.json`, and `prompts.json` from the UI.
+- Save changes to update `runtime.json`, `questions.json`, `dev_questions.json`, `prompts.json`, and `signal_schemas.json` from the UI.
 - Use `Active question set` in admin config to switch between:
   - `default` -> `questions.json`
   - `dev` -> `dev_questions.json`
@@ -35,34 +37,50 @@ Admin panel (dev):
   - `runtime.json` -> `ui.enableConfigAdmin: true` (default if omitted)
   - Set `ui.enableConfigAdmin: false` only when you want to fully disable `Screen:Admin/Config`.
 
-Question output control (per question):
+Schema registry (recommended for structured questions):
 
-- Add `output` to a question in `questions.json` / `dev_questions.json`.
-- Supported values:
-  - `["prompt"]` (default behavior): use prompt extraction and existing fallback logic.
-  - `["transcript"]`: use question transcript as the signal value.
-  - `["prompt", "transcript"]`: keep both outputs. `value` stays prompt-oriented, and transcript is stored in `structured_data._transcript`.
-  - value `summary` maps to `prompt`.
-- You can use a single string too:
-  - `"output": "prompt"`
-  - `"output": "transcript"`
+- Put reusable JSON schemas in `signal_schemas.json` (for example `education_v1`).
+- In a question, reference it with:
+  - `"schema_key": "education_v1"`
+- This avoids duplicating large `output_schema` blocks in `questions.json` and `prompts.json`.
+- Inline `output_schema` still works and takes precedence when both are set.
+- Optional compatibility: prompts can also reference shared schemas with `"schema_key"` when needed for direct `/nlp/signal-from-transcript` calls that do not send `output_schema`.
 
-Question display control (per question):
+Extractor-based question config (recommended):
 
-- Add `display` to control what is shown in detailed profile UI.
-- Supported values:
-  - `["summary"]`: show signal value.
-  - `["transcript"]`: show transcript text.
-  - `["structured"]`: show structured data block.
-  - combine modes, for example `["summary", "transcript"]`.
-- You can use a single string too:
-  - `"display": "summary"`
-  - `"display": "transcript"`
-  - `"display": "structured"`
-- Compatibility aliases:
-  - `front_end` / `frontEnd` / `front-end` map to `display`.
+- Add `extractors` to a question in `questions.json` / `dev_questions.json`.
+- Each extractor can define:
+  - `signal_key` (required)
+  - `prompt_key` (optional)
+  - `schema_key` (optional)
+  - `show` (optional, default `true`)
+- Question-level `show` can be used as a default visibility toggle for all extractors.
+- Transcript is always stored per generated signal in a dedicated `transcript` attribute.
 
-Simple structured schema rule:
+Example:
 
-- If `output_schema` has `properties`, frontend auto-adds `properties.value: { "type": "string" }` and adds `"value"` to `required`.
-- So you can keep schema shorter and only define your domain fields (for example `educations`).
+```json
+{
+  "id": "candidate-education",
+  "text": "What is your education? Where did you study?",
+  "show": true,
+  "extractors": [
+    {
+      "signal_key": "education_structured",
+      "prompt_key": "goal_education_v2",
+      "schema_key": "education_v1",
+      "show": true
+    },
+    {
+      "signal_key": "education_summary",
+      "prompt_key": "goal_education_v1",
+      "show": true
+    }
+  ]
+}
+```
+
+Legacy compatibility:
+
+- Legacy question-level fields (`signal_key`, `prompt_key`, `schema_key`, `output_schema`, `output`, `display`, `goals`) are still accepted.
+- New configs should prefer `extractors` + `show` for simpler behavior.

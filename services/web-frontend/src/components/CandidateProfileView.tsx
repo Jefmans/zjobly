@@ -130,7 +130,7 @@ export function CandidateProfileView({
   const resolvedVideoUrl = profile?.playback_url || videoUrl;
   const detailedSignals = (profile?.detailed_signals || []).filter(
     (signal): signal is CandidateDetailedSignal =>
-      Boolean(signal?.question_id && signal?.goal && signal?.value),
+      Boolean(signal?.question_id && signal?.value && signal?.show !== false),
   );
 
   return (
@@ -261,12 +261,12 @@ export function CandidateProfileView({
                       const transcriptText = showTranscript ? getDetailedSignalTranscriptText(signal) : "";
                       const structuredData = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
                       return (
-                        <div
-                          key={`profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`}
+                          <div
+                          key={`profile-detailed-signal-${signal.question_id}-${signal.signal_key || signal.goal || "signal"}-${index}`}
                           className="review-signal-card"
                         >
                           <div className="review-signal-header">
-                            <span className="pill soft">{signal.goal}</span>
+                            <span className="pill soft">{signal.signal_key || signal.goal || signal.question_id}</span>
                             <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
@@ -283,7 +283,7 @@ export function CandidateProfileView({
                               <div className="structured-editor">
                                 {renderStructuredValuePreview(
                                   structuredData,
-                                  `profile-detailed-signal-${signal.question_id}-${signal.goal}-${index}`,
+                                  `profile-detailed-signal-${signal.question_id}-${signal.signal_key || signal.goal || "signal"}-${index}`,
                                 )}
                               </div>
                             </div>

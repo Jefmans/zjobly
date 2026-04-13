@@ -74,6 +74,7 @@ export type AdminConfigBundle = {
   questions: Record<string, unknown>;
   dev_questions?: Record<string, unknown>;
   prompts: Record<string, unknown>;
+  signal_schemas?: Record<string, unknown>;
   active_question_set?: string;
 };
 
@@ -256,6 +257,7 @@ export async function getSignalFromTranscript(
   transcript: string,
   promptKey: string,
   outputSchema?: Record<string, unknown>,
+  schemaKey?: string,
   signal?: AbortSignal,
 ): Promise<SignalDraft> {
   return requestJson<SignalDraft>("/nlp/signal-from-transcript", {
@@ -263,6 +265,7 @@ export async function getSignalFromTranscript(
     body: JSON.stringify({
       transcript,
       prompt_key: promptKey,
+      ...(schemaKey ? { schema_key: schemaKey } : {}),
       ...(outputSchema ? { output_schema: outputSchema } : {}),
     }),
     signal,

@@ -1,16 +1,32 @@
 import rawQuestionsConfig from "../../../../config/questions.json";
 import rawDevQuestionsConfig from "../../../../config/dev_questions.json";
+import rawSignalSchemasConfig from "../../../../config/signal_schemas.json";
 import { runtimeConfig } from "./runtimeConfig";
 
 export type VideoQuestion = {
   id: string;
   text: string;
   helperText?: string;
+  show?: boolean;
+  extractors?: VideoQuestionExtractor[];
+  // Legacy question-level fields kept for backward compatibility.
   goals?: string[];
   signalKey?: string;
   promptKey?: string;
+  schemaKey?: string;
   outputSchema?: Record<string, unknown>;
   output?: VideoQuestionOutputMode[];
+  display?: VideoQuestionDisplayMode[];
+};
+
+export type VideoQuestionExtractor = {
+  signalKey: string;
+  promptKey?: string;
+  schemaKey?: string;
+  outputSchema?: Record<string, unknown>;
+  output?: VideoQuestionOutputMode[];
+  show?: boolean;
+  // Legacy field kept for backward compatibility.
   display?: VideoQuestionDisplayMode[];
 };
 
@@ -54,6 +70,8 @@ type RawQuestion =
       targetField?: unknown;
       prompt_key?: unknown;
       promptKey?: unknown;
+      show?: unknown;
+      extractors?: unknown;
       output?: unknown;
       display?: unknown;
       front_end?: unknown;
@@ -61,6 +79,8 @@ type RawQuestion =
       "front-end"?: unknown;
       output_schema?: unknown;
       outputSchema?: unknown;
+      schema_key?: unknown;
+      schemaKey?: unknown;
       enabled?: unknown;
     };
 
@@ -69,6 +89,25 @@ type RawQuestionVariant = {
   label?: unknown;
   questions?: unknown;
   enabled?: unknown;
+};
+
+type RawExtractor = {
+  signal_key?: unknown;
+  signalKey?: unknown;
+  target_field?: unknown;
+  targetField?: unknown;
+  prompt_key?: unknown;
+  promptKey?: unknown;
+  schema_key?: unknown;
+  schemaKey?: unknown;
+  output_schema?: unknown;
+  outputSchema?: unknown;
+  output?: unknown;
+  display?: unknown;
+  front_end?: unknown;
+  frontEnd?: unknown;
+  "front-end"?: unknown;
+  show?: unknown;
 };
 
 type RawQuestionSet = {
@@ -84,10 +123,13 @@ type RawQuestionsConfig = {
   };
 };
 
+type RawSignalSchemasConfig = Record<string, unknown>;
+
 export type QuestionSetName = "default" | "dev";
 
 let defaultQuestionsConfig = rawQuestionsConfig as RawQuestionsConfig;
 let devQuestionsConfig = rawDevQuestionsConfig as RawQuestionsConfig;
+let signalSchemasConfig = rawSignalSchemasConfig as RawSignalSchemasConfig;
 
 const normalizeQuestionSetName = (value: unknown): QuestionSetName => {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -151,10 +193,26 @@ const normalizePromptKey = (value: unknown): string | undefined => {
   return key.length > 0 ? key : undefined;
 };
 
+const normalizeSchemaKey = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const key = value.trim();
+  return key.length > 0 ? key : undefined;
+};
+
 const normalizeHelperText = (value: unknown): string | undefined => {
   if (typeof value !== "string") return undefined;
   const text = value.trim();
   return text.length > 0 ? text : undefined;
+};
+
+const normalizeShow = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (normalized === "true" || normalized === "yes" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "no" || normalized === "0") return false;
+  return undefined;
 };
 
 const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefined => {
@@ -176,6 +234,12 @@ const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefi
   if (!required.includes("value")) required.push("value");
   schema.required = required;
   return schema;
+};
+
+const getSignalSchemaByKey = (schemaKey: string | undefined): Record<string, unknown> | undefined => {
+  if (!schemaKey) return undefined;
+  const candidate = signalSchemasConfig[schemaKey];
+  return normalizeOutputSchema(candidate);
 };
 
 const normalizeOutputModeValue = (value: unknown): VideoQuestionOutputMode | null => {
@@ -219,6 +283,44 @@ const normalizeDisplayModes = (value: unknown): VideoQuestionDisplayMode[] | und
   return modes.length > 0 ? modes : undefined;
 };
 
+const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null => {
+  if (!value || typeof value !== "object") return null;
+  const signalKey =
+    normalizeSignalKey(value.signal_key ?? value.signalKey) ??
+    mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
+  if (!signalKey) return null;
+  const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
+  const schemaKey = normalizeSchemaKey(value.schema_key ?? value.schemaKey);
+  const outputSchema =
+    normalizeOutputSchema(value.output_schema ?? value.outputSchema) ??
+    getSignalSchemaByKey(schemaKey);
+  const outputModes = normalizeOutputModes(value.output);
+  const displayModes = normalizeDisplayModes(
+    value.display ?? value.front_end ?? value.frontEnd ?? value["front-end"],
+  );
+  const show = normalizeShow(value.show);
+  const extractor: VideoQuestionExtractor = { signalKey };
+  if (promptKey) extractor.promptKey = promptKey;
+  if (schemaKey) extractor.schemaKey = schemaKey;
+  if (outputSchema) extractor.outputSchema = outputSchema;
+  if (outputModes) extractor.output = outputModes;
+  if (displayModes) extractor.display = displayModes;
+  if (typeof show === "boolean") extractor.show = show;
+  return extractor;
+};
+
+const normalizeExtractors = (value: unknown): VideoQuestionExtractor[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const extractors = value
+    .map((entry) =>
+      entry && typeof entry === "object" && !Array.isArray(entry)
+        ? normalizeExtractor(entry as RawExtractor)
+        : null,
+    )
+    .filter((extractor): extractor is VideoQuestionExtractor => Boolean(extractor));
+  return extractors.length > 0 ? extractors : undefined;
+};
+
 const normalizeQuestion = (
   value: RawQuestion,
   index: number,
@@ -237,6 +339,8 @@ const normalizeQuestion = (
     typeof value.id === "string" && value.id.trim().length > 0
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
+  const show = normalizeShow(value.show);
+  const extractors = normalizeExtractors(value.extractors);
   const goals = normalizeGoals(value.goals);
   const helperText = normalizeHelperText(
     value.helper_text ?? value.helperText ?? value.subtext,
@@ -245,16 +349,36 @@ const normalizeQuestion = (
     normalizeSignalKey(value.signal_key ?? value.signalKey) ??
     mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
+  const schemaKey = normalizeSchemaKey(value.schema_key ?? value.schemaKey);
   const outputModes = normalizeOutputModes(value.output);
   const displayModes = normalizeDisplayModes(
     value.display ?? value.front_end ?? value.frontEnd ?? value["front-end"],
   );
-  const outputSchema = normalizeOutputSchema(value.output_schema ?? value.outputSchema);
+  const outputSchema =
+    normalizeOutputSchema(value.output_schema ?? value.outputSchema) ??
+    getSignalSchemaByKey(schemaKey);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
+  if (typeof show === "boolean") question.show = show;
+  if (extractors) {
+    question.extractors = extractors;
+  } else if (signalKey) {
+    // Backward-compatible implicit single-extractor mapping from legacy fields.
+    const legacyExtractor: VideoQuestionExtractor = {
+      signalKey,
+    };
+    if (promptKey) legacyExtractor.promptKey = promptKey;
+    if (schemaKey) legacyExtractor.schemaKey = schemaKey;
+    if (outputSchema) legacyExtractor.outputSchema = outputSchema;
+    if (outputModes) legacyExtractor.output = outputModes;
+    if (displayModes) legacyExtractor.display = displayModes;
+    if (typeof show === "boolean") legacyExtractor.show = show;
+    question.extractors = [legacyExtractor];
+  }
   if (goals) question.goals = goals;
   if (signalKey) question.signalKey = signalKey;
   if (promptKey) question.promptKey = promptKey;
+  if (schemaKey) question.schemaKey = schemaKey;
   if (outputModes) question.output = outputModes;
   if (displayModes) question.display = displayModes;
   if (outputSchema) question.outputSchema = outputSchema;
@@ -353,6 +477,12 @@ export const applyQuestionsConfig = (nextQuestions: unknown, setName?: QuestionS
   } else {
     defaultQuestionsConfig = normalized;
   }
+  rebuildActiveQuestionConfig();
+};
+
+export const applySignalSchemasConfig = (nextSignalSchemas: unknown): void => {
+  if (!nextSignalSchemas || typeof nextSignalSchemas !== "object" || Array.isArray(nextSignalSchemas)) return;
+  signalSchemasConfig = nextSignalSchemas as RawSignalSchemasConfig;
   rebuildActiveQuestionConfig();
 };
 

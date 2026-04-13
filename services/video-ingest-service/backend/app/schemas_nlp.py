@@ -51,6 +51,11 @@ class ProfileDraftResponse(BaseModel):
 class SignalFromTranscriptRequest(BaseModel):
     transcript: str = Field(..., min_length=1, description="Transcript text to extract a specific signal from.")
     prompt_key: str = Field(..., min_length=1, description="Prompt key from prompts.json to guide extraction.")
+    schema_key: Optional[str] = Field(
+        None,
+        min_length=1,
+        description="Optional schema key from signal_schemas.json.",
+    )
     output_schema: Optional[dict[str, object]] = Field(
         None,
         description="Optional schema hint for structured extraction.",

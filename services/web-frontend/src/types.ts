@@ -34,7 +34,7 @@ export type DetailedSignalDisplayMode = "summary" | "transcript" | "structured";
 
 export type CandidateDetailedSignal = {
   question_id: string;
-  goal: string;
+  goal?: string | null;
   value: string;
   signal_key?: string | null;
   // Backward compatibility for older payloads/config.
@@ -42,6 +42,8 @@ export type CandidateDetailedSignal = {
   prompt_key?: string | null;
   question_text?: string | null;
   source?: string | null;
+  show?: boolean | null;
+  transcript?: string | null;
   display?: DetailedSignalDisplayMode[] | null;
   structured_data?: Record<string, unknown> | null;
   question_start_sec?: number | null;

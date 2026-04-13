@@ -98,8 +98,12 @@ export const resolveDetailedSignalDisplayModes = (value: unknown): DetailedSigna
 
 export const getDetailedSignalTranscriptText = (signal: {
   value?: string | null;
+  transcript?: string | null;
   structured_data?: Record<string, unknown> | null;
 }): string => {
+  if (typeof signal?.transcript === "string" && signal.transcript.trim()) {
+    return signal.transcript.trim();
+  }
   const structuredData = signal?.structured_data;
   if (structuredData && typeof structuredData._transcript === "string" && structuredData._transcript.trim()) {
     return structuredData._transcript.trim();
