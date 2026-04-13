@@ -62,7 +62,6 @@ class CandidateDetailedSignal(BaseModel):
     source: Optional[str] = None
     show: Optional[bool] = None
     transcript: Optional[str] = None
-    display: Optional[list[str]] = None
     structured_data: Optional[dict[str, object]] = None
     question_start_sec: Optional[float] = None
     question_end_sec: Optional[float] = None

@@ -4,9 +4,7 @@ import {
   getDetailedSignalIdentityKey,
   getDetailedSignalLabel,
   getDetailedSignalStructuredDataForDisplay,
-  getDetailedSignalTranscriptText,
   isVisibleDetailedSignal,
-  resolveDetailedSignalDisplayModes,
 } from "../helpers";
 import { getQuestionSet, VIDEO_QUESTION_CONFIG } from "../config/videoQuestions";
 import { runtimeConfig } from "../config/runtimeConfig";
@@ -910,28 +908,16 @@ export function CandidateProfileFlow({
   };
   const renderSignalMetadata = (signal: CandidateDetailedSignal | null | undefined) => {
     if (!signal) return null;
-    const displayModes = resolveDetailedSignalDisplayModes(signal.display);
-    const showTranscript = displayModes.includes("transcript");
-    const showStructured = displayModes.includes("structured");
     const structuredData = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
-    const transcriptText = showTranscript ? getDetailedSignalTranscriptText(signal) : "";
-    if (!showStructured && !showTranscript) return null;
+    if (!structuredData) return null;
     return (
       <div className="signal-metadata">
-        {showTranscript && (
-          <div className="field">
-            <label>Transcript</label>
-            <textarea rows={3} value={transcriptText} readOnly />
-          </div>
-        )}
-        {showStructured && structuredData && (
-          <div className="field">
-            <label>Structured data</label>
-            <pre className="signal-structured-json">
-              {JSON.stringify(structuredData, null, 2)}
-            </pre>
-          </div>
-        )}
+        <div className="field">
+          <label>Structured data</label>
+          <pre className="signal-structured-json">
+            {JSON.stringify(structuredData, null, 2)}
+          </pre>
+        </div>
       </div>
     );
   };
@@ -977,44 +963,36 @@ export function CandidateProfileFlow({
               )}
               <div className="review-grid">
                 <div className="field">
-                  <label>{pair.current && resolveDetailedSignalDisplayModes(pair.current.display).includes("summary") ? "Current value" : "Current output"}</label>
+                  <label>Current value</label>
                   {pair.current ? (
-                    resolveDetailedSignalDisplayModes(pair.current.display).includes("summary") ? (
-                      <textarea
-                        rows={1}
-                        className="autosize-textarea"
-                        ref={(element) => autoSizeTextarea(element)}
-                        value={pair.current.value}
-                        onChange={(event) => {
-                          onReviewDetailedSignalValueChange("current", pair.key, event.target.value);
-                          autoSizeTextarea(event.currentTarget);
-                        }}
-                      />
-                    ) : (
-                      <p className="hint">Summary text is not used for this extractor.</p>
-                    )
+                    <textarea
+                      rows={1}
+                      className="autosize-textarea"
+                      ref={(element) => autoSizeTextarea(element)}
+                      value={pair.current.value}
+                      onChange={(event) => {
+                        onReviewDetailedSignalValueChange("current", pair.key, event.target.value);
+                        autoSizeTextarea(event.currentTarget);
+                      }}
+                    />
                   ) : (
                     <p className="hint">No current value.</p>
                   )}
                   {renderSignalMetadata(pair.current)}
                 </div>
                 <div className="field">
-                  <label>{pair.next && resolveDetailedSignalDisplayModes(pair.next.display).includes("summary") ? "New value" : "New output"}</label>
+                  <label>New value</label>
                   {pair.next ? (
-                    resolveDetailedSignalDisplayModes(pair.next.display).includes("summary") ? (
-                      <textarea
-                        rows={1}
-                        className="autosize-textarea"
-                        ref={(element) => autoSizeTextarea(element)}
-                        value={pair.next.value}
-                        onChange={(event) => {
-                          onReviewDetailedSignalValueChange("new", pair.key, event.target.value);
-                          autoSizeTextarea(event.currentTarget);
-                        }}
-                      />
-                    ) : (
-                      <p className="hint">Summary text is not used for this extractor.</p>
-                    )
+                    <textarea
+                      rows={1}
+                      className="autosize-textarea"
+                      ref={(element) => autoSizeTextarea(element)}
+                      value={pair.next.value}
+                      onChange={(event) => {
+                        onReviewDetailedSignalValueChange("new", pair.key, event.target.value);
+                        autoSizeTextarea(event.currentTarget);
+                      }}
+                    />
                   ) : (
                     <p className="hint">No new value.</p>
                   )}
@@ -1303,26 +1281,21 @@ export function CandidateProfileFlow({
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
                           <div className="field">
-                            {resolveDetailedSignalDisplayModes(signal.display).includes("summary") ? (
-                              <>
-                                <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
-                                <textarea
-                                  id={`detailed-signal-value-${index}`}
-                                  rows={1}
-                                  className="autosize-textarea"
-                                  ref={(element) => autoSizeTextarea(element)}
-                                  value={signal.value}
-                                  onChange={(event) => {
-                                    onDetailedSignalValueChange(index, event.target.value);
-                                    autoSizeTextarea(event.currentTarget);
-                                  }}
-                                />
-                              </>
-                            ) : (
-                              <p className="hint">Summary text is not used for this extractor.</p>
-                            )}
-                            {resolveDetailedSignalDisplayModes(signal.display).includes("structured") &&
-                              isPlainRecord(signal.structured_data) &&
+                            <>
+                              <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
+                              <textarea
+                                id={`detailed-signal-value-${index}`}
+                                rows={1}
+                                className="autosize-textarea"
+                                ref={(element) => autoSizeTextarea(element)}
+                                value={signal.value}
+                                onChange={(event) => {
+                                  onDetailedSignalValueChange(index, event.target.value);
+                                  autoSizeTextarea(event.currentTarget);
+                                }}
+                              />
+                            </>
+                            {isPlainRecord(signal.structured_data) &&
                               (() => {
                                 const visibleStructured = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
                                 if (!visibleStructured) return null;

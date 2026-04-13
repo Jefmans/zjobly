@@ -55,7 +55,6 @@ Extractor-based question config (recommended):
   - `prompt_key` (optional)
   - `schema_key` (optional)
   - `output` (optional, default `["prompt"]`)
-  - `display` (optional; choose what is shown in UI)
   - `show` (optional, default `true`)
 - Recommended: set `show` explicitly on every extractor so visibility intent is obvious in config.
 - Transcript is always stored per generated signal in a dedicated `transcript` attribute.
@@ -71,13 +70,11 @@ Example:
       "signal_key": "education_structured",
       "prompt_key": "goal_education_v2",
       "schema_key": "education_v1",
-      "display": ["structured"],
       "show": true
     },
     {
       "signal_key": "education_summary",
       "prompt_key": "goal_education_v1",
-      "display": ["summary"],
       "show": true
     }
   ]

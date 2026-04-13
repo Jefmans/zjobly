@@ -30,8 +30,6 @@ export type DetailedQuestionWindow = {
   end_sec: number;
 };
 
-export type DetailedSignalDisplayMode = "summary" | "transcript" | "structured";
-
 export type CandidateDetailedSignal = {
   question_id: string;
   goal?: string | null;
@@ -42,7 +40,6 @@ export type CandidateDetailedSignal = {
   source?: string | null;
   show?: boolean | null;
   transcript?: string | null;
-  display?: DetailedSignalDisplayMode[] | null;
   structured_data?: Record<string, unknown> | null;
   question_start_sec?: number | null;
   question_end_sec?: number | null;

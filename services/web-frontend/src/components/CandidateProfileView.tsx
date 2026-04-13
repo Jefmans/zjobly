@@ -3,9 +3,7 @@ import {
   formatLocationLabel,
   getDetailedSignalLabel,
   getDetailedSignalStructuredDataForDisplay,
-  getDetailedSignalTranscriptText,
   isVisibleDetailedSignal,
-  resolveDetailedSignalDisplayModes,
 } from "../helpers";
 import { CandidateDetailedSignal, CandidateProfile, ViewMode } from "../types";
 
@@ -255,14 +253,9 @@ export function CandidateProfileView({
                 <div className="review-detail-signals">
                   {detailedSignals.map((signal, index) => (
                     (() => {
-                      const displayModes = resolveDetailedSignalDisplayModes(signal.display);
-                      const showSummary = displayModes.includes("summary");
-                      const showTranscript = displayModes.includes("transcript");
-                      const showStructured = displayModes.includes("structured");
-                      const transcriptText = showTranscript ? getDetailedSignalTranscriptText(signal) : "";
                       const structuredData = getDetailedSignalStructuredDataForDisplay(signal.structured_data);
                       return (
-                          <div
+                        <div
                           key={`profile-detailed-signal-${signal.question_id}-${getDetailedSignalLabel(signal)}-${index}`}
                           className="review-signal-card"
                         >
@@ -271,14 +264,8 @@ export function CandidateProfileView({
                             <span className="hint">{signal.signal_key || signal.question_id}</span>
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
-                          {showSummary && <p className="review-signal-value">{signal.value}</p>}
-                          {showTranscript && (
-                            <div className="field">
-                              <label>Transcript</label>
-                              <p className="review-signal-value">{transcriptText || "-"}</p>
-                            </div>
-                          )}
-                          {showStructured && structuredData && (
+                          <p className="review-signal-value">{signal.value}</p>
+                          {structuredData && (
                             <div className="field">
                               <label>Structured data</label>
                               <div className="structured-editor">

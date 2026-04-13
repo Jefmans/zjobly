@@ -17,12 +17,9 @@ export type VideoQuestionExtractor = {
   outputSchema?: Record<string, unknown>;
   output?: VideoQuestionOutputMode[];
   show?: boolean;
-  // Legacy field kept for backward compatibility.
-  display?: VideoQuestionDisplayMode[];
 };
 
 export type VideoQuestionOutputMode = "prompt" | "transcript";
-export type VideoQuestionDisplayMode = "summary" | "transcript" | "structured";
 
 export type VideoQuestionVariant = {
   id: string;
@@ -69,7 +66,6 @@ type RawExtractor = {
   schema_key?: unknown;
   output_schema?: unknown;
   output?: unknown;
-  display?: unknown;
   show?: unknown;
 };
 
@@ -172,27 +168,6 @@ const normalizeOutputModes = (value: unknown): VideoQuestionOutputMode[] | undef
   return modes.length > 0 ? modes : undefined;
 };
 
-const normalizeDisplayModeValue = (value: unknown): VideoQuestionDisplayMode | null => {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return null;
-  if (normalized === "summary" || normalized === "value" || normalized === "prompt") return "summary";
-  if (normalized === "transcript") return "transcript";
-  if (normalized === "structured" || normalized === "schema") return "structured";
-  return null;
-};
-
-const normalizeDisplayModes = (value: unknown): VideoQuestionDisplayMode[] | undefined => {
-  const rawValues = Array.isArray(value) ? value : [value];
-  const modes: VideoQuestionDisplayMode[] = [];
-  rawValues.forEach((rawValue) => {
-    const normalized = normalizeDisplayModeValue(rawValue);
-    if (!normalized) return;
-    if (!modes.includes(normalized)) modes.push(normalized);
-  });
-  return modes.length > 0 ? modes : undefined;
-};
-
 const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null => {
   if (!value || typeof value !== "object") return null;
   const signalKey = normalizeSignalKey(value.signal_key);
@@ -203,14 +178,12 @@ const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null 
     normalizeOutputSchema(value.output_schema) ??
     getSignalSchemaByKey(schemaKey);
   const outputModes = normalizeOutputModes(value.output);
-  const displayModes = normalizeDisplayModes(value.display);
   const show = normalizeShow(value.show);
   const extractor: VideoQuestionExtractor = { signalKey };
   if (promptKey) extractor.promptKey = promptKey;
   if (schemaKey) extractor.schemaKey = schemaKey;
   if (outputSchema) extractor.outputSchema = outputSchema;
   if (outputModes) extractor.output = outputModes;
-  if (displayModes) extractor.display = displayModes;
   if (typeof show === "boolean") extractor.show = show;
   return extractor;
 };

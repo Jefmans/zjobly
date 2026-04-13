@@ -74,7 +74,6 @@ import {
   getDetailedSignalIdentityKey,
   getDetailedSignalLabel,
   makeTakeId,
-  normalizeDetailedSignalDisplayModes,
 } from './helpers';
 import { getQuestionSet, VIDEO_QUESTION_CONFIG, VideoQuestion, VideoQuestionExtractor } from './config/videoQuestions';
 import {
@@ -249,7 +248,6 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         source: signal.source ? signal.source.toString().trim() : null,
         show: typeof signal.show === 'boolean' ? signal.show : null,
         transcript: signal.transcript ? signal.transcript.toString().trim() : null,
-        display: normalizeDetailedSignalDisplayModes((signal as { display?: unknown }).display),
         structured_data: normalizeStructuredData(signal.structured_data),
         question_start_sec:
           typeof signal.question_start_sec === 'number' && Number.isFinite(signal.question_start_sec)
@@ -461,7 +459,6 @@ const buildDetailedSignalsFromQuestions = async (
         source: promptKey ? `guided-video:${promptKey}` : 'guided-video',
         show: typeof extractor.show === 'boolean' ? extractor.show : true,
         transcript: transcriptOutputValue || null,
-        display: Array.isArray(extractor.display) && extractor.display.length > 0 ? extractor.display : null,
         structured_data: structuredDataForSignal,
         question_start_sec: questionWindow?.start_sec ?? null,
         question_end_sec: questionWindow?.end_sec ?? null,
