@@ -26,6 +26,8 @@ from app.schemas_nlp import (
     ProfileDraftResponse,
     SignalFromTranscriptRequest,
     SignalFromTranscriptResponse,
+    TranscriptFromVideoWindowRequest,
+    TranscriptFromVideoWindowResponse,
 )
 
 router = APIRouter(prefix="/nlp", tags=["nlp"])
@@ -517,12 +519,19 @@ def _download_object(object_key: str, dest_path: str) -> None:
         raise HTTPException(status_code=404, detail="Video not found in storage") from exc
 
 
-def _transcode_to_audio(input_path: str, output_path: str) -> None:
+def _transcode_to_audio(
+    input_path: str,
+    output_path: str,
+    start_sec: float | None = None,
+    duration_sec: float | None = None,
+) -> None:
     command = [
         "ffmpeg",
         "-y",
+        *(["-ss", f"{start_sec:.3f}"] if start_sec is not None and start_sec > 0 else []),
         "-i",
         input_path,
+        *(["-t", f"{duration_sec:.3f}"] if duration_sec is not None and duration_sec > 0 else []),
         "-vn",
         "-ac",
         "1",
@@ -543,7 +552,11 @@ def _transcode_to_audio(input_path: str, output_path: str) -> None:
         raise HTTPException(status_code=500, detail="Failed to extract audio for transcription.")
 
 
-def _transcribe_object(object_key: str) -> str:
+def _transcribe_object(
+    object_key: str,
+    start_sec: float | None = None,
+    end_sec: float | None = None,
+) -> str:
     client = get_openai_client()
     model = settings.WHISPER_MODEL or "whisper-1"
     if model.lower() == "small":
@@ -555,7 +568,22 @@ def _transcribe_object(object_key: str) -> str:
         _download_object(object_key, input_path)
 
         transcription_path = input_path
-        if os.path.getsize(input_path) > openai_max_bytes:
+        should_transcode_window = start_sec is not None or end_sec is not None
+        if should_transcode_window:
+            normalized_start = max(0.0, float(start_sec or 0.0))
+            normalized_end = max(normalized_start, float(end_sec or normalized_start))
+            duration_sec = normalized_end - normalized_start
+            if duration_sec <= 0.05:
+                raise HTTPException(status_code=400, detail="Transcript window is too short.")
+            audio_path = os.path.join(temp_dir, "audio-window.mp3")
+            _transcode_to_audio(
+                input_path,
+                audio_path,
+                start_sec=normalized_start,
+                duration_sec=duration_sec,
+            )
+            transcription_path = audio_path
+        elif os.path.getsize(input_path) > openai_max_bytes:
             audio_path = os.path.join(temp_dir, "audio.mp3")
             _transcode_to_audio(input_path, audio_path)
             transcription_path = audio_path
@@ -794,6 +822,21 @@ def generate_job_draft_from_video(payload: JobDraftFromVideoRequest) -> JobDraft
     draft = _draft_from_transcript(transcript, payload.language)
     draft.transcript = transcript
     return draft
+
+
+@router.post("/transcript-from-video-window", response_model=TranscriptFromVideoWindowResponse)
+def transcript_from_video_window(payload: TranscriptFromVideoWindowRequest) -> TranscriptFromVideoWindowResponse:
+    object_key = payload.object_key.strip()
+    if not object_key:
+        raise HTTPException(status_code=400, detail="Missing object key")
+
+    start_sec = max(0.0, float(payload.start_sec))
+    end_sec = max(start_sec, float(payload.end_sec))
+    if end_sec - start_sec <= 0.05:
+        raise HTTPException(status_code=400, detail="Transcript window is too short.")
+
+    transcript = _transcribe_object(object_key, start_sec=start_sec, end_sec=end_sec).strip()
+    return TranscriptFromVideoWindowResponse(transcript=transcript)
 
 
 @router.post("/profile-draft", response_model=ProfileDraftResponse)

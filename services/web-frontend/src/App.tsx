@@ -18,6 +18,7 @@ import {
   logoutAccount,
   getProfileDraftFromTranscript,
   getSignalFromTranscript,
+  getTranscriptFromVideoWindow,
   finalizeAudioSession,
   getAudioSessionTranscript,
   getCandidateById,
@@ -402,12 +403,14 @@ const trimToMaxChars = (value: string, maxChars: number): string => {
 
 const buildDetailedSignalsFromQuestions = async (
   questions: VideoQuestion[],
+  objectKey: string | null | undefined,
   transcript: string,
   windows: DetailedQuestionWindow[] | null | undefined,
   totalDurationSeconds: number,
 ): Promise<CandidateDetailedSignal[]> => {
   const now = new Date().toISOString();
   const signals: CandidateDetailedSignal[] = [];
+  const normalizedObjectKey = (objectKey || '').toString().trim();
   const normalizedWindows = normalizeDetailedQuestionWindows(windows);
   const transcriptSlicesByQuestionId = buildTranscriptSlicesByQuestionWindows(
     transcript,
@@ -435,8 +438,28 @@ const buildDetailedSignalsFromQuestions = async (
 
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const windowSlice = transcriptSlicesByQuestionId.get(questionId);
+    let windowTranscript = '';
+    if (
+      normalizedObjectKey &&
+      questionWindow &&
+      Number.isFinite(questionWindow.start_sec) &&
+      Number.isFinite(questionWindow.end_sec) &&
+      questionWindow.end_sec - questionWindow.start_sec > 0.05
+    ) {
+      try {
+        windowTranscript = await getTranscriptFromVideoWindow(
+          normalizedObjectKey,
+          questionWindow.start_sec,
+          questionWindow.end_sec,
+        );
+      } catch (err) {
+        console.error(`Could not transcribe video window for question ${questionId}`, err);
+      }
+    }
     const questionTranscript =
-      (windowSlice || '').trim() || sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
+      (windowTranscript || '').trim() ||
+      (windowSlice || '').trim() ||
+      sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
 
     for (const extractor of configuredExtractors) {
@@ -2230,6 +2253,7 @@ function App() {
       const generatedDetailedSignals = isDetailedUpdateFlow
         ? await buildDetailedSignalsFromQuestions(
             detailedQuestionSet?.questions ?? [],
+            objectKey,
             transcriptFromVideo,
             options?.detailedQuestionWindows ?? [],
             Math.max(0.001, Number(selectedTake.duration ?? videoDuration ?? 0)),

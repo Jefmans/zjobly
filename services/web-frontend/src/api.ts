@@ -42,6 +42,10 @@ type AudioSessionTranscriptResponse = {
   chunk_count: number;
 };
 
+type TranscriptFromVideoWindowResponse = {
+  transcript: string;
+};
+
 export type JobDraft = {
   title: string;
   description: string;
@@ -270,6 +274,24 @@ export async function getSignalFromTranscript(
     }),
     signal,
   });
+}
+
+export async function getTranscriptFromVideoWindow(
+  objectKey: string,
+  startSec: number,
+  endSec: number,
+  signal?: AbortSignal,
+): Promise<string> {
+  const response = await requestJson<TranscriptFromVideoWindowResponse>("/nlp/transcript-from-video-window", {
+    method: "POST",
+    body: JSON.stringify({
+      object_key: objectKey,
+      start_sec: startSec,
+      end_sec: endSec,
+    }),
+    signal,
+  });
+  return (response?.transcript || "").toString().trim();
 }
 
 export async function createCompany(payload: { name: string; website?: string | null }): Promise<Company> {

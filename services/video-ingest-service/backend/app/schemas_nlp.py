@@ -24,6 +24,16 @@ class JobDraftFromVideoRequest(BaseModel):
     )
 
 
+class TranscriptFromVideoWindowRequest(BaseModel):
+    object_key: str = Field(..., description="S3 object key for the uploaded video.")
+    start_sec: float = Field(..., ge=0, description="Window start in seconds.")
+    end_sec: float = Field(..., ge=0, description="Window end in seconds.")
+
+
+class TranscriptFromVideoWindowResponse(BaseModel):
+    transcript: str
+
+
 class LocationFromTranscriptRequest(BaseModel):
     transcript: str = Field(..., min_length=1, description="Transcript text to infer a location from.")
 
