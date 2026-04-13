@@ -337,6 +337,62 @@ const sliceTranscriptByWindow = (
   return source;
 };
 
+const buildTranscriptSlicesByQuestionWindows = (
+  transcript: string,
+  questions: VideoQuestion[],
+  windows: DetailedQuestionWindow[],
+): Map<string, string> => {
+  const source = (transcript || '').trim();
+  if (!source) return new Map();
+  if (!Array.isArray(questions) || questions.length === 0) return new Map();
+  if (!Array.isArray(windows) || windows.length === 0) return new Map();
+
+  const windowByQuestionId = new Map(windows.map((window) => [window.question_id, window]));
+  const orderedWindows = questions
+    .map((question) => {
+      const questionId = (question.id || '').trim();
+      if (!questionId) return null;
+      const window = windowByQuestionId.get(questionId);
+      if (!window) return null;
+      const duration = Math.max(0.2, window.end_sec - window.start_sec);
+      return {
+        question_id: questionId,
+        duration,
+      };
+    })
+    .filter((item): item is { question_id: string; duration: number } => Boolean(item));
+
+  if (orderedWindows.length === 0) return new Map();
+
+  const totalChars = source.length;
+  const totalDuration = orderedWindows.reduce((sum, item) => sum + item.duration, 0);
+  if (!Number.isFinite(totalDuration) || totalDuration <= 0 || totalChars <= 1) {
+    return new Map();
+  }
+
+  const slices = new Map<string, string>();
+  let elapsed = 0;
+  let cursor = 0;
+
+  orderedWindows.forEach((item, index) => {
+    elapsed += item.duration;
+    const targetEnd =
+      index === orderedWindows.length - 1
+        ? totalChars
+        : Math.max(cursor + 1, Math.min(totalChars, Math.round((elapsed / totalDuration) * totalChars)));
+    const start = cursor;
+    const end = Math.max(start + 1, targetEnd);
+    const snippet = source.slice(start, end).trim();
+    cursor = end;
+
+    if (snippet) {
+      slices.set(item.question_id, snippet);
+    }
+  });
+
+  return slices;
+};
+
 const trimToMaxChars = (value: string, maxChars: number): string => {
   const text = (value || '').trim();
   if (!text) return '';
@@ -353,6 +409,11 @@ const buildDetailedSignalsFromQuestions = async (
   const now = new Date().toISOString();
   const signals: CandidateDetailedSignal[] = [];
   const normalizedWindows = normalizeDetailedQuestionWindows(windows);
+  const transcriptSlicesByQuestionId = buildTranscriptSlicesByQuestionWindows(
+    transcript,
+    questions,
+    normalizedWindows,
+  );
   const windowByQuestionId = new Map(normalizedWindows.map((item) => [item.question_id, item]));
 
   for (const question of questions) {
@@ -373,7 +434,9 @@ const buildDetailedSignalsFromQuestions = async (
     if (configuredExtractors.length === 0) continue;
 
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
-    const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
+    const windowSlice = transcriptSlicesByQuestionId.get(questionId);
+    const questionTranscript =
+      (windowSlice || '').trim() || sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
 
     for (const extractor of configuredExtractors) {
