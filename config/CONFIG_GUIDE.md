@@ -48,11 +48,13 @@ Schema registry (recommended for structured questions):
 
 Extractor-based question config (recommended):
 
-- Add `extractors` to a question in `questions.json` / `dev_questions.json`.
+- Add a non-empty `extractors` array to each question in `questions.json` / `dev_questions.json`.
 - Each extractor can define:
   - `signal_key` (required)
   - `prompt_key` (optional)
   - `schema_key` (optional)
+  - `output` (optional, default `["prompt"]`)
+  - `display` (optional; choose what is shown in UI)
   - `show` (optional, default `true`)
 - Recommended: set `show` explicitly on every extractor so visibility intent is obvious in config.
 - Transcript is always stored per generated signal in a dedicated `transcript` attribute.
@@ -68,18 +70,15 @@ Example:
       "signal_key": "education_structured",
       "prompt_key": "goal_education_v2",
       "schema_key": "education_v1",
-      "display": ["structured"]
+      "display": ["structured"],
+      "show": true
     },
     {
       "signal_key": "education_summary",
       "prompt_key": "goal_education_v1",
-      "display": ["summary"]
+      "display": ["summary"],
+      "show": true
     }
   ]
 }
 ```
-
-Legacy compatibility:
-
-- Legacy question-level fields (`signal_key`, `prompt_key`, `schema_key`, `output_schema`, `output`, `display`) are still accepted.
-- New configs should prefer `extractors` + `show` for simpler behavior.

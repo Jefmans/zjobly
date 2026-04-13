@@ -54,22 +54,7 @@ type RawQuestion =
       helper_text?: unknown;
       helperText?: unknown;
       subtext?: unknown;
-      signal_key?: unknown;
-      signalKey?: unknown;
-      target_field?: unknown;
-      targetField?: unknown;
-      prompt_key?: unknown;
-      promptKey?: unknown;
       extractors?: unknown;
-      output?: unknown;
-      display?: unknown;
-      front_end?: unknown;
-      frontEnd?: unknown;
-      "front-end"?: unknown;
-      output_schema?: unknown;
-      outputSchema?: unknown;
-      schema_key?: unknown;
-      schemaKey?: unknown;
       enabled?: unknown;
     };
 
@@ -83,8 +68,6 @@ type RawQuestionVariant = {
 type RawExtractor = {
   signal_key?: unknown;
   signalKey?: unknown;
-  target_field?: unknown;
-  targetField?: unknown;
   prompt_key?: unknown;
   promptKey?: unknown;
   schema_key?: unknown;
@@ -93,9 +76,6 @@ type RawExtractor = {
   outputSchema?: unknown;
   output?: unknown;
   display?: unknown;
-  front_end?: unknown;
-  frontEnd?: unknown;
-  "front-end"?: unknown;
   show?: unknown;
 };
 
@@ -132,40 +112,10 @@ let activeQuestionSet: QuestionSetName = normalizeQuestionSetName(
 const getConfigBySet = (setName: QuestionSetName): RawQuestionsConfig =>
   setName === "dev" ? devQuestionsConfig : defaultQuestionsConfig;
 
-type LegacyTargetField = "headline" | "location" | "summary" | "keywords" | "transcript";
-
-const normalizeTargetField = (
-  value: unknown,
-): LegacyTargetField | undefined => {
-  if (typeof value !== "string") return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (
-    normalized === "headline" ||
-    normalized === "location" ||
-    normalized === "summary" ||
-    normalized === "keywords" ||
-    normalized === "transcript"
-  ) {
-    return normalized;
-  }
-  return undefined;
-};
-
 const normalizeSignalKey = (value: unknown): string | undefined => {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
-};
-
-const mapLegacyTargetFieldToSignalKey = (value: unknown): string | undefined => {
-  const target = normalizeTargetField(value);
-  if (!target) return undefined;
-  if (target === "headline") return "desired_role";
-  if (target === "location") return "desired_location";
-  if (target === "summary") return "profile_summary";
-  if (target === "keywords") return "core_skills";
-  if (target === "transcript") return "raw_transcript";
-  return undefined;
 };
 
 const normalizePromptKey = (value: unknown): string | undefined => {
@@ -251,9 +201,7 @@ const normalizeDisplayModes = (value: unknown): VideoQuestionDisplayMode[] | und
 
 const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null => {
   if (!value || typeof value !== "object") return null;
-  const signalKey =
-    normalizeSignalKey(value.signal_key ?? value.signalKey) ??
-    mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
+  const signalKey = normalizeSignalKey(value.signal_key ?? value.signalKey);
   if (!signalKey) return null;
   const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
   const schemaKey = normalizeSchemaKey(value.schema_key ?? value.schemaKey);
@@ -261,9 +209,7 @@ const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null 
     normalizeOutputSchema(value.output_schema ?? value.outputSchema) ??
     getSignalSchemaByKey(schemaKey);
   const outputModes = normalizeOutputModes(value.output);
-  const displayModes = normalizeDisplayModes(
-    value.display ?? value.front_end ?? value.frontEnd ?? value["front-end"],
-  );
+  const displayModes = normalizeDisplayModes(value.display);
   const show = normalizeShow(value.show);
   const extractor: VideoQuestionExtractor = { signalKey };
   if (promptKey) extractor.promptKey = promptKey;
@@ -309,34 +255,10 @@ const normalizeQuestion = (
   const helperText = normalizeHelperText(
     value.helper_text ?? value.helperText ?? value.subtext,
   );
-  const signalKey =
-    normalizeSignalKey(value.signal_key ?? value.signalKey) ??
-    mapLegacyTargetFieldToSignalKey(value.target_field ?? value.targetField);
-  const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
-  const schemaKey = normalizeSchemaKey(value.schema_key ?? value.schemaKey);
-  const outputModes = normalizeOutputModes(value.output);
-  const displayModes = normalizeDisplayModes(
-    value.display ?? value.front_end ?? value.frontEnd ?? value["front-end"],
-  );
-  const outputSchema =
-    normalizeOutputSchema(value.output_schema ?? value.outputSchema) ??
-    getSignalSchemaByKey(schemaKey);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
-  if (extractors) {
-    question.extractors = extractors;
-  } else if (signalKey) {
-    // Backward-compatible implicit single-extractor mapping from legacy fields.
-    const legacyExtractor: VideoQuestionExtractor = {
-      signalKey,
-    };
-    if (promptKey) legacyExtractor.promptKey = promptKey;
-    if (schemaKey) legacyExtractor.schemaKey = schemaKey;
-    if (outputSchema) legacyExtractor.outputSchema = outputSchema;
-    if (outputModes) legacyExtractor.output = outputModes;
-    if (displayModes) legacyExtractor.display = displayModes;
-    question.extractors = [legacyExtractor];
-  }
+  if (!extractors) return null;
+  question.extractors = extractors;
   return question;
 };
 

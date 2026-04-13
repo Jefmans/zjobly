@@ -192,33 +192,37 @@ def _validate_prompt_and_schema_refs(
     }
     missing_prompt_keys: set[str] = set()
     missing_schema_keys: set[str] = set()
+    questions_missing_extractors: set[str] = set()
+    extractors_missing_signal_key: set[str] = set()
 
     for question in [*_iter_question_entries(questions_config), *_iter_question_entries(dev_questions_config)]:
-        prompt_key = question.get("prompt_key") or question.get("promptKey")
-        if isinstance(prompt_key, str) and prompt_key.strip() and prompt_key.strip() not in known_prompt_keys:
-            missing_prompt_keys.add(prompt_key.strip())
-        schema_key = question.get("schema_key") or question.get("schemaKey")
-        if isinstance(schema_key, str) and schema_key.strip() and schema_key.strip() not in known_schema_keys:
-            missing_schema_keys.add(schema_key.strip())
+        question_id = question.get("id")
+        question_name = question_id.strip() if isinstance(question_id, str) and question_id.strip() else "<unknown>"
         extractors = question.get("extractors")
-        if isinstance(extractors, list):
-            for extractor in extractors:
-                if not isinstance(extractor, dict):
-                    continue
-                extractor_prompt_key = extractor.get("prompt_key") or extractor.get("promptKey")
-                if (
-                    isinstance(extractor_prompt_key, str)
-                    and extractor_prompt_key.strip()
-                    and extractor_prompt_key.strip() not in known_prompt_keys
-                ):
-                    missing_prompt_keys.add(extractor_prompt_key.strip())
-                extractor_schema_key = extractor.get("schema_key") or extractor.get("schemaKey")
-                if (
-                    isinstance(extractor_schema_key, str)
-                    and extractor_schema_key.strip()
-                    and extractor_schema_key.strip() not in known_schema_keys
-                ):
-                    missing_schema_keys.add(extractor_schema_key.strip())
+        if not isinstance(extractors, list) or not extractors:
+            questions_missing_extractors.add(question_name)
+            continue
+        for index, extractor in enumerate(extractors):
+            if not isinstance(extractor, dict):
+                extractors_missing_signal_key.add(f"{question_name}[{index}]")
+                continue
+            signal_key = extractor.get("signal_key") or extractor.get("signalKey")
+            if not isinstance(signal_key, str) or not signal_key.strip():
+                extractors_missing_signal_key.add(f"{question_name}[{index}]")
+            extractor_prompt_key = extractor.get("prompt_key") or extractor.get("promptKey")
+            if (
+                isinstance(extractor_prompt_key, str)
+                and extractor_prompt_key.strip()
+                and extractor_prompt_key.strip() not in known_prompt_keys
+            ):
+                missing_prompt_keys.add(extractor_prompt_key.strip())
+            extractor_schema_key = extractor.get("schema_key") or extractor.get("schemaKey")
+            if (
+                isinstance(extractor_schema_key, str)
+                and extractor_schema_key.strip()
+                and extractor_schema_key.strip() not in known_schema_keys
+            ):
+                missing_schema_keys.add(extractor_schema_key.strip())
 
     for prompt_value in prompts_config.values():
         if not isinstance(prompt_value, dict):
@@ -228,6 +232,16 @@ def _validate_prompt_and_schema_refs(
             missing_schema_keys.add(schema_key.strip())
 
     issues: list[str] = []
+    if questions_missing_extractors:
+        issues.append(
+            "Questions missing non-empty extractors: "
+            + ", ".join(sorted(questions_missing_extractors))
+        )
+    if extractors_missing_signal_key:
+        issues.append(
+            "Extractors missing signal_key: "
+            + ", ".join(sorted(extractors_missing_signal_key))
+        )
     if missing_prompt_keys:
         issues.append(f"Unknown prompt_key(s): {', '.join(sorted(missing_prompt_keys))}")
     if missing_schema_keys:

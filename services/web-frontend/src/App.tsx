@@ -306,43 +306,6 @@ const buildDetailedSignalChoiceDefaults = (
   return defaults;
 };
 
-const resolveSignalValue = (
-  signalKey: string | undefined,
-  draft: CandidateDraftFields | null,
-  transcript: string,
-): string => {
-  const normalizedSignalKey = (signalKey || '').toLowerCase();
-  const normalizedKeywords = Array.isArray(draft?.keywords)
-    ? draft.keywords
-        .map((item) => (item || '').toString().trim())
-        .filter((item, index, list) => item.length > 0 && list.indexOf(item) === index)
-    : [];
-  if (normalizedSignalKey.includes('role') || normalizedSignalKey.includes('headline')) {
-    return (draft?.headline || draft?.summary || '').trim();
-  }
-  if (normalizedSignalKey.includes('location')) {
-    return (draft?.location || '').trim();
-  }
-  if (
-    normalizedSignalKey.includes('summary') ||
-    normalizedSignalKey.includes('education') ||
-    normalizedSignalKey.includes('preference') ||
-    normalizedSignalKey.includes('motivation') ||
-    normalizedSignalKey.includes('plan')
-  ) {
-    return (draft?.summary || '').trim();
-  }
-  if (normalizedSignalKey.includes('skill') || normalizedSignalKey.includes('keyword')) {
-    return normalizedKeywords.join(', ').trim();
-  }
-  if (normalizedSignalKey.includes('transcript')) {
-    return transcript.slice(0, 220).trim();
-  }
-  const fallback = (draft?.summary || '').trim();
-  if (fallback) return fallback;
-  return transcript.slice(0, 220).trim();
-};
-
 const normalizeDetailedQuestionWindows = (
   windows: DetailedQuestionWindow[] | null | undefined,
 ): DetailedQuestionWindow[] => {
@@ -403,14 +366,9 @@ const trimToMaxChars = (value: string, maxChars: number): string => {
 
 const buildDetailedSignalsFromQuestions = async (
   questions: VideoQuestion[],
-  fullDraft: CandidateDraftFields | null,
   transcript: string,
   windows: DetailedQuestionWindow[] | null | undefined,
   totalDurationSeconds: number,
-  buildDraftFromSnippet: (
-    transcript: string,
-    options?: { includeLocation?: boolean },
-  ) => Promise<CandidateDraftFields | null>,
 ): Promise<CandidateDetailedSignal[]> => {
   const now = new Date().toISOString();
   const signals: CandidateDetailedSignal[] = [];
@@ -438,10 +396,6 @@ const buildDetailedSignalsFromQuestions = async (
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
-    let snippetDraft: CandidateDraftFields | null = null;
-    const includeLocationLookup = extractors.some((extractor) =>
-      (extractor.signalKey || '').toLowerCase().includes('location'),
-    );
 
     for (const extractor of extractors) {
       const signalKey = (extractor.signalKey || '').toString().trim();
@@ -482,21 +436,6 @@ const buildDetailedSignalsFromQuestions = async (
 
       if (!value) {
         value = promptExtractedValue;
-      }
-
-      if (!value && wantsPromptOutput) {
-        if (!snippetDraft) {
-          try {
-            snippetDraft = await buildDraftFromSnippet(questionTranscript, { includeLocation: includeLocationLookup });
-          } catch (err) {
-            console.error('Could not build snippet draft for detailed signal', err);
-          }
-        }
-        value = resolveSignalValue(
-          signalKey,
-          snippetDraft || fullDraft,
-          questionTranscript || transcript,
-        );
       }
 
       if (!value && wantsTranscriptOutput) {
@@ -2275,11 +2214,9 @@ function App() {
       const generatedDetailedSignals = isDetailedUpdateFlow
         ? await buildDetailedSignalsFromQuestions(
             detailedQuestionSet?.questions ?? [],
-            transcriptPrefill,
             transcriptFromVideo,
             options?.detailedQuestionWindows ?? [],
             Math.max(0.001, Number(selectedTake.duration ?? videoDuration ?? 0)),
-            buildCandidateDraftFromTranscript,
           )
         : [];
       setCandidateDetailedSignalsDraft(generatedDetailedSignals);
