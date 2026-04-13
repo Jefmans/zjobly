@@ -401,15 +401,42 @@ const trimToMaxChars = (value: string, maxChars: number): string => {
   return text.length <= safeMaxChars ? text : text.slice(0, safeMaxChars).trim();
 };
 
+const waitForRetryDelay = (delayMs: number): Promise<void> =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, delayMs));
+  });
+
+const transcribeVideoWindowWithRetry = async (
+  objectKey: string,
+  startSec: number,
+  endSec: number,
+): Promise<string> => {
+  const retryDelaysMs = [0, 350, 900];
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+    const delayMs = retryDelaysMs[attempt] ?? 0;
+    if (delayMs > 0) {
+      await waitForRetryDelay(delayMs);
+    }
+    try {
+      return await getTranscriptFromVideoWindow(objectKey, startSec, endSec);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Window transcription failed');
+};
+
 const buildDetailedSignalsFromQuestions = async (
   questions: VideoQuestion[],
   objectKey: string | null | undefined,
   transcript: string,
   windows: DetailedQuestionWindow[] | null | undefined,
   totalDurationSeconds: number,
-): Promise<CandidateDetailedSignal[]> => {
+): Promise<{ signals: CandidateDetailedSignal[]; warnings: string[] }> => {
   const now = new Date().toISOString();
   const signals: CandidateDetailedSignal[] = [];
+  const warnings = new Set<string>();
   const normalizedObjectKey = (objectKey || '').toString().trim();
   const normalizedWindows = normalizeDetailedQuestionWindows(windows);
   const transcriptSlicesByQuestionId = buildTranscriptSlicesByQuestionWindows(
@@ -447,19 +474,24 @@ const buildDetailedSignalsFromQuestions = async (
       questionWindow.end_sec - questionWindow.start_sec > 0.05
     ) {
       try {
-        windowTranscript = await getTranscriptFromVideoWindow(
+        windowTranscript = await transcribeVideoWindowWithRetry(
           normalizedObjectKey,
           questionWindow.start_sec,
           questionWindow.end_sec,
         );
       } catch (err) {
         console.error(`Could not transcribe video window for question ${questionId}`, err);
+        warnings.add(`Question "${questionText}" could not be transcribed from its exact video window.`);
       }
     }
     const questionTranscript =
       (windowTranscript || '').trim() ||
       (windowSlice || '').trim() ||
       sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
+    if (!questionTranscript.trim()) {
+      warnings.add(`Question "${questionText}" has no transcript to extract from.`);
+      continue;
+    }
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
 
     for (const extractor of configuredExtractors) {
@@ -495,6 +527,9 @@ const buildDetailedSignalsFromQuestions = async (
           promptStructuredData = normalizeStructuredData(promptExtraction?.structured_data ?? null);
         } catch (err) {
           console.error(`Could not extract signal for prompt ${promptKey}`, err);
+          if (!wantsTranscriptOutput) {
+            warnings.add(`Extractor "${signalKey}" failed for question "${questionText}".`);
+          }
         }
       }
 
@@ -506,7 +541,10 @@ const buildDetailedSignalsFromQuestions = async (
         value = transcriptOutputValue;
       }
 
-      if (!value) continue;
+      if (!value) {
+        warnings.add(`Extractor "${signalKey}" produced no value for question "${questionText}".`);
+        continue;
+      }
 
       let structuredDataForSignal = ensureStructuredDataForSchema(
         promptStructuredData,
@@ -540,7 +578,10 @@ const buildDetailedSignalsFromQuestions = async (
     }
   }
 
-  return normalizeDetailedSignals(signals);
+  return {
+    signals: normalizeDetailedSignals(signals),
+    warnings: Array.from(warnings),
+  };
 };
 
 function App() {
@@ -634,6 +675,7 @@ function App() {
   const [candidateReviewCurrent, setCandidateReviewCurrent] = useState<CandidateReviewEditable | null>(null);
   const [candidateReviewNew, setCandidateReviewNew] = useState<CandidateReviewEditable | null>(null);
   const [candidateDetailedSignalsDraft, setCandidateDetailedSignalsDraft] = useState<CandidateDetailedSignal[]>([]);
+  const [candidateDetailedExtractionWarnings, setCandidateDetailedExtractionWarnings] = useState<string[]>([]);
   const [candidateReviewChoices, setCandidateReviewChoices] = useState<CandidateReviewFieldChoices>(
     DEFAULT_CANDIDATE_REVIEW_CHOICES,
   );
@@ -2197,6 +2239,7 @@ function App() {
       setCandidateKeywordsTouched(false);
     }
     setCandidateDetailedSignalsDraft([]);
+    setCandidateDetailedExtractionWarnings([]);
     candidateProfileDraftHandledTranscriptRef.current = null;
 
     if (!selectedTake) {
@@ -2252,7 +2295,7 @@ function App() {
       const detailedQuestionSet = isDetailedUpdateFlow
         ? getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile)
         : null;
-      const generatedDetailedSignals = isDetailedUpdateFlow
+      const detailedBuildResult = isDetailedUpdateFlow
         ? await buildDetailedSignalsFromQuestions(
             detailedQuestionSet?.questions ?? [],
             objectKey,
@@ -2260,7 +2303,9 @@ function App() {
             options?.detailedQuestionWindows ?? [],
             Math.max(0.001, Number(selectedTake.duration ?? videoDuration ?? 0)),
           )
-        : [];
+        : { signals: [], warnings: [] };
+      const generatedDetailedSignals = detailedBuildResult.signals;
+      setCandidateDetailedExtractionWarnings(detailedBuildResult.warnings);
       setCandidateDetailedSignalsDraft(generatedDetailedSignals);
       setCandidateValidation(false);
       let existingProfile: CandidateProfile | null = candidateProfileDetails;
@@ -3878,6 +3923,7 @@ function App() {
               canSaveProfile: canSaveCandidateProfile,
               showValidation: candidateValidation,
               detailedSignals: candidateDetailedSignalsDraft,
+              detailedExtractionWarnings: candidateDetailedExtractionWarnings,
               onDetailedSignalValueChange: handleCandidateDetailedSignalValueChange,
               onDetailedSignalStructuredDataChange: handleCandidateDetailedSignalStructuredDataChange,
               onProfileMoveKeyword: moveCandidateProfileKeyword,

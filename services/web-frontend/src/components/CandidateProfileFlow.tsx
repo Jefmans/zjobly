@@ -69,6 +69,7 @@ type Props = {
   canSaveProfile: boolean;
   showValidation: boolean;
   detailedSignals: CandidateDetailedSignal[];
+  detailedExtractionWarnings?: string[];
   onDetailedSignalValueChange: (index: number, value: string) => void;
   onDetailedSignalStructuredDataChange: (
     index: number,
@@ -139,6 +140,7 @@ export function CandidateProfileFlow({
   canSaveProfile,
   showValidation,
   detailedSignals,
+  detailedExtractionWarnings = [],
   onDetailedSignalValueChange,
   onDetailedSignalStructuredDataChange,
   onProfileMoveKeyword,
@@ -1685,6 +1687,14 @@ export function CandidateProfileFlow({
                           ? "Review the new detailed information. Your basic profile video and basic fields stay unchanged."
                           : "Edit either side, then choose what to keep for each field."}
                       </p>
+                      {showDetailedReviewSection && detailedExtractionWarnings.length > 0 && (
+                        <div className="error">
+                          <strong>Some questions need attention:</strong>
+                          {detailedExtractionWarnings.map((warning, index) => (
+                            <div key={`detailed-warning-${index}`}>{warning}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
