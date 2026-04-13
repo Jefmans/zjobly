@@ -49,6 +49,7 @@ Schema registry (recommended for structured questions):
 Extractor-based question config (recommended):
 
 - Add a non-empty `extractors` array to each question in `questions.json` / `dev_questions.json`.
+- Use snake_case keys in config (`signal_key`, `prompt_key`, `schema_key`, `output_schema`, `helper_text`).
 - Each extractor can define:
   - `signal_key` (required)
   - `prompt_key` (optional)

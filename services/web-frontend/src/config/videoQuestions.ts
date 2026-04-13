@@ -52,8 +52,6 @@ type RawQuestion =
       id?: unknown;
       text?: unknown;
       helper_text?: unknown;
-      helperText?: unknown;
-      subtext?: unknown;
       extractors?: unknown;
       enabled?: unknown;
     };
@@ -67,13 +65,9 @@ type RawQuestionVariant = {
 
 type RawExtractor = {
   signal_key?: unknown;
-  signalKey?: unknown;
   prompt_key?: unknown;
-  promptKey?: unknown;
   schema_key?: unknown;
-  schemaKey?: unknown;
   output_schema?: unknown;
-  outputSchema?: unknown;
   output?: unknown;
   display?: unknown;
   show?: unknown;
@@ -201,12 +195,12 @@ const normalizeDisplayModes = (value: unknown): VideoQuestionDisplayMode[] | und
 
 const normalizeExtractor = (value: RawExtractor): VideoQuestionExtractor | null => {
   if (!value || typeof value !== "object") return null;
-  const signalKey = normalizeSignalKey(value.signal_key ?? value.signalKey);
+  const signalKey = normalizeSignalKey(value.signal_key);
   if (!signalKey) return null;
-  const promptKey = normalizePromptKey(value.prompt_key ?? value.promptKey);
-  const schemaKey = normalizeSchemaKey(value.schema_key ?? value.schemaKey);
+  const promptKey = normalizePromptKey(value.prompt_key);
+  const schemaKey = normalizeSchemaKey(value.schema_key);
   const outputSchema =
-    normalizeOutputSchema(value.output_schema ?? value.outputSchema) ??
+    normalizeOutputSchema(value.output_schema) ??
     getSignalSchemaByKey(schemaKey);
   const outputModes = normalizeOutputModes(value.output);
   const displayModes = normalizeDisplayModes(value.display);
@@ -252,9 +246,7 @@ const normalizeQuestion = (
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
   const extractors = normalizeExtractors(value.extractors);
-  const helperText = normalizeHelperText(
-    value.helper_text ?? value.helperText ?? value.subtext,
-  );
+  const helperText = normalizeHelperText(value.helper_text);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
   if (!extractors) return null;

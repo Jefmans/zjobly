@@ -57,7 +57,6 @@ class CandidateDetailedSignal(BaseModel):
     goal: Optional[str] = None
     value: str
     signal_key: Optional[str] = None
-    target_field: Optional[str] = None
     prompt_key: Optional[str] = None
     question_text: Optional[str] = None
     source: Optional[str] = None

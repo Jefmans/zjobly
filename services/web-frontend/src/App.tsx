@@ -235,11 +235,7 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
   return signals
     .map((signal) => {
       const questionId = (signal.question_id || '').toString().trim();
-      const signalKey = signal.signal_key
-        ? signal.signal_key.toString().trim()
-        : signal.target_field
-        ? signal.target_field.toString().trim()
-        : '';
+      const signalKey = signal.signal_key ? signal.signal_key.toString().trim() : '';
       const goal = (signal.goal || '').toString().trim() || signalKey || questionId;
       const value = (signal.value || '').toString().trim();
       if (!questionId || !value) return null;
@@ -248,7 +244,6 @@ const normalizeDetailedSignals = (signals: CandidateDetailedSignal[] | null | un
         goal,
         value,
         signal_key: signalKey || null,
-        target_field: signal.target_field ? signal.target_field.toString().trim() : null,
         prompt_key: signal.prompt_key ? signal.prompt_key.toString().trim() : null,
         question_text: signal.question_text ? signal.question_text.toString().trim() : null,
         source: signal.source ? signal.source.toString().trim() : null,
@@ -390,14 +385,13 @@ const buildDetailedSignalsFromQuestions = async (
             )
             .filter((extractor): extractor is VideoQuestionExtractor => Boolean(extractor))
         : [];
-    const extractors: VideoQuestionExtractor[] = configuredExtractors;
-    if (extractors.length === 0) continue;
+    if (configuredExtractors.length === 0) continue;
 
     const questionWindow = windowByQuestionId.get(questionId) ?? null;
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
 
-    for (const extractor of extractors) {
+    for (const extractor of configuredExtractors) {
       const signalKey = (extractor.signalKey || '').toString().trim();
       if (!signalKey) continue;
       const extractorOutputModes =
@@ -411,7 +405,6 @@ const buildDetailedSignalsFromQuestions = async (
       const outputSchema = extractor.outputSchema;
       let promptExtractedValue = '';
       let promptStructuredData: Record<string, unknown> | null = null;
-      let promptExtraction: Awaited<ReturnType<typeof getSignalFromTranscript>> | null = null;
 
       let value = '';
 
@@ -421,7 +414,7 @@ const buildDetailedSignalsFromQuestions = async (
 
       if (wantsPromptOutput && promptKey && questionTranscript.length >= 8) {
         try {
-          promptExtraction = await getSignalFromTranscript(
+          const promptExtraction = await getSignalFromTranscript(
             questionTranscript,
             promptKey,
             outputSchema,

@@ -206,17 +206,17 @@ def _validate_prompt_and_schema_refs(
             if not isinstance(extractor, dict):
                 extractors_missing_signal_key.add(f"{question_name}[{index}]")
                 continue
-            signal_key = extractor.get("signal_key") or extractor.get("signalKey")
+            signal_key = extractor.get("signal_key")
             if not isinstance(signal_key, str) or not signal_key.strip():
                 extractors_missing_signal_key.add(f"{question_name}[{index}]")
-            extractor_prompt_key = extractor.get("prompt_key") or extractor.get("promptKey")
+            extractor_prompt_key = extractor.get("prompt_key")
             if (
                 isinstance(extractor_prompt_key, str)
                 and extractor_prompt_key.strip()
                 and extractor_prompt_key.strip() not in known_prompt_keys
             ):
                 missing_prompt_keys.add(extractor_prompt_key.strip())
-            extractor_schema_key = extractor.get("schema_key") or extractor.get("schemaKey")
+            extractor_schema_key = extractor.get("schema_key")
             if (
                 isinstance(extractor_schema_key, str)
                 and extractor_schema_key.strip()
@@ -227,7 +227,7 @@ def _validate_prompt_and_schema_refs(
     for prompt_value in prompts_config.values():
         if not isinstance(prompt_value, dict):
             continue
-        schema_key = prompt_value.get("schema_key") or prompt_value.get("schemaKey")
+        schema_key = prompt_value.get("schema_key")
         if isinstance(schema_key, str) and schema_key.strip() and schema_key.strip() not in known_schema_keys:
             missing_schema_keys.add(schema_key.strip())
 
