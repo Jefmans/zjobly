@@ -172,18 +172,6 @@ type CandidateDraftFields = {
   keywords?: string[];
 };
 
-const LOCATION_INTENT_PATTERN =
-  /\b(location|where|based|located|city|country|region|remote|hybrid|on[-\s]?site|relocat|commut|locatie|waar|stad|land|regio|gemeente|provincie|postcode|post code|thuiswerk|op kantoor)\b/i;
-
-const LOCATION_PHRASE_PATTERN =
-  /\b(work|job|jobs|werken|werk)\b.{0,28}\b(in|at|near|around|te|in de|rond|omgeving)\b/i;
-
-const transcriptLikelyContainsLocationIntent = (transcript: string): boolean => {
-  const text = (transcript || '').trim();
-  if (!text) return false;
-  return LOCATION_INTENT_PATTERN.test(text) || LOCATION_PHRASE_PATTERN.test(text);
-};
-
 const normalizeStructuredData = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -354,20 +342,6 @@ const trimToMaxChars = (value: string, maxChars: number): string => {
   if (!text) return '';
   const safeMaxChars = Number.isFinite(maxChars) ? Math.max(60, Math.min(2000, Math.round(maxChars))) : 320;
   return text.length <= safeMaxChars ? text : text.slice(0, safeMaxChars).trim();
-};
-
-const extractLocationFromDetailedSignals = (
-  signals: CandidateDetailedSignal[] | null | undefined,
-): string => {
-  if (!Array.isArray(signals) || signals.length === 0) return '';
-  for (const signal of signals) {
-    const signalKey = (signal?.signal_key || '').toString().trim().toLowerCase();
-    const questionId = (signal?.question_id || '').toString().trim().toLowerCase();
-    if (!signalKey.includes('location') && !questionId.includes('location')) continue;
-    const value = (signal?.value || '').toString().trim();
-    if (value) return value;
-  }
-  return '';
 };
 
 const buildDetailedSignalsFromQuestions = async (
@@ -626,15 +600,12 @@ function App() {
   const locationSuggestionAbortRef = useRef<AbortController | null>(null);
   const lastLocationQueryRef = useRef<string | null>(null);
   const locationSuggestionDisabledRef = useRef(false);
-  const candidateProfileEditedRef = useRef<{ headline: boolean; location: boolean; summary: boolean }>({
+  const candidateProfileEditedRef = useRef<{ headline: boolean; summary: boolean }>({
     headline: false,
-    location: false,
     summary: false,
   });
-  const candidateLocationAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftAbortRef = useRef<AbortController | null>(null);
   const candidateProfileDraftHandledTranscriptRef = useRef<string | null>(null);
-  const candidateLocationHandledTranscriptRef = useRef<string | null>(null);
   const historyInitializedRef = useRef(false);
   const applyingHistoryStateRef = useRef(false);
   const lastHistoryStateRef = useRef<string>('');
@@ -947,8 +918,7 @@ function App() {
     setCandidatePostAuthOverlay(false);
     resetCandidateReview();
     candidateProfileDraftHandledTranscriptRef.current = null;
-    candidateLocationHandledTranscriptRef.current = null;
-    candidateProfileEditedRef.current = { headline: false, location: false, summary: false };
+    candidateProfileEditedRef.current = { headline: false, summary: false };
   };
 
   const setRoleAndView = (
@@ -1535,7 +1505,7 @@ function App() {
     const { name, value } = e.target;
     const isCheckbox = e.target instanceof HTMLInputElement && e.target.type === 'checkbox';
     const nextValue = isCheckbox ? e.target.checked : value;
-    if (name === 'headline' || name === 'location' || name === 'summary') {
+    if (name === 'headline' || name === 'summary') {
       candidateProfileEditedRef.current = { ...candidateProfileEditedRef.current, [name]: true };
       candidateProfileDraftAbortRef.current?.abort();
     }
@@ -2142,7 +2112,6 @@ function App() {
     }
     setCandidateDetailedSignalsDraft([]);
     candidateProfileDraftHandledTranscriptRef.current = null;
-    candidateLocationHandledTranscriptRef.current = null;
 
     if (!selectedTake) {
       setError('Record or upload a video before saving.');
@@ -2291,7 +2260,6 @@ function App() {
       }
       if (requiresAuth) {
         const currentHeadline = (existingProfile?.headline ?? candidateProfile.headline ?? '').toString().trim();
-        const currentLocation = (existingProfile?.location ?? candidateProfile.location ?? '').toString().trim();
         const currentSummary = (existingProfile?.summary ?? candidateProfile.summary ?? '').toString().trim();
         const currentKeywords = normalizeKeywords(
           existingProfile?.keywords?.length ? existingProfile.keywords : candidateKeywords,
@@ -2302,12 +2270,6 @@ function App() {
           .toString()
           .trim();
         const detailedSignalsPayload = normalizeDetailedSignals(generatedDetailedSignals);
-        const fallbackDetailedLocation = extractLocationFromDetailedSignals(detailedSignalsPayload);
-        const resolvedLocation = (
-          currentLocation
-        )
-          .toString()
-          .trim() || fallbackDetailedLocation;
         const resolvedSummary = (
           isDetailedUpdateFlow ? currentSummary : transcriptPrefill?.summary ?? currentSummary
         )
@@ -2322,16 +2284,11 @@ function App() {
           ? candidateKeywords
           : null;
         const preservedVideoObjectKey = existingProfile?.video_object_key ?? candidateVideoObjectKey ?? null;
-        const preservedLocationId = existingProfile?.location_id ?? candidateProfile.location_id ?? null;
-        const shouldPreserveLocationId =
-          Boolean(preservedLocationId) &&
-          Boolean(resolvedLocation) &&
-          resolvedLocation.toLowerCase() === currentLocation.toLowerCase();
         try {
           const savedProfile = await upsertCandidateProfile({
             headline: resolvedHeadline || null,
-            location: resolvedLocation || null,
-            location_id: shouldPreserveLocationId ? preservedLocationId : null,
+            location: null,
+            location_id: null,
             summary: resolvedSummary || null,
             keywords: resolvedKeywords && resolvedKeywords.length ? resolvedKeywords : null,
             ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
@@ -2400,7 +2357,6 @@ function App() {
     setCandidateProfileSaved(false);
 
     const headline = (candidateProfile.headline ?? '').toString().trim();
-    const location = (candidateProfile.location ?? '').toString().trim();
     const summary = (candidateProfile.summary ?? '').toString().trim();
     const hasVideo = Boolean(candidateVideoObjectKey);
     const keywords = candidateKeywordsTouched
@@ -2410,8 +2366,6 @@ function App() {
       : normalizeKeywords(candidateProfileDetails?.keywords);
     const videoObjectKey = candidateVideoObjectKey || candidateProfileDetails?.video_object_key || null;
     const detailedSignalsPayload = normalizeDetailedSignals(candidateDetailedSignalsDraft);
-    const fallbackDetailedLocation = extractLocationFromDetailedSignals(detailedSignalsPayload);
-    const resolvedLocation = location || fallbackDetailedLocation;
 
     if (!headline || !summary || (!hasVideo && !candidateProfileExists)) {
       setCandidateValidation(true);
@@ -2431,7 +2385,8 @@ function App() {
     try {
       const savedProfile = await upsertCandidateProfile({
         headline,
-        location: resolvedLocation || null,
+        location: null,
+        location_id: null,
         summary,
         keywords: keywords.length ? keywords : null,
         ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
@@ -2633,27 +2588,12 @@ function App() {
     );
     const reviewedNewKeywords = normalizeKeywords(candidateReviewNew.keywords);
     const mergedDetailedKeywords = normalizeKeywords([...preservedKeywords, ...reviewedNewKeywords]);
-    const preservedLocationId = candidateProfileDetails?.location_id ?? candidateProfile.location_id ?? null;
-    const currentProfileLocation = (candidateProfileDetails?.location ?? candidateProfile.location ?? '')
-      .toString()
-      .trim();
-    const resolvedReviewLocation = (
-      isDetailedUpdateFlow ? candidateReviewCurrent.location : pickText('location')
-    )
-      .toString()
-      .trim() || extractLocationFromDetailedSignals(selectedDetailedSignals);
-    const shouldPreserveLocationId =
-      Boolean(preservedLocationId) &&
-      Boolean(resolvedReviewLocation) &&
-      resolvedReviewLocation.toLowerCase() === currentProfileLocation.toLowerCase();
-    const locationIdForSave = shouldPreserveLocationId ? preservedLocationId : null;
-
     setCandidateProfileSaving(true);
     try {
       const savedProfile = await upsertCandidateProfile({
         headline: (isDetailedUpdateFlow ? candidateReviewCurrent.headline : pickText('headline')) || null,
-        location: resolvedReviewLocation || null,
-        location_id: locationIdForSave,
+        location: null,
+        location_id: null,
         summary: (isDetailedUpdateFlow ? candidateReviewCurrent.summary : pickText('summary')) || null,
         keywords: (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords).length
           ? (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords)
@@ -2999,45 +2939,6 @@ function App() {
     };
   }, [candidateTranscript, candidateTranscriptStatus, candidateStep]);
 
-  // Geocode candidate location from transcript only in detailed mode.
-  useEffect(() => {
-    if (candidateStep === 'review' || !candidateDetailedMode) return;
-    const text = candidateTranscript.trim();
-    if (!text || candidateTranscriptStatus !== 'final') return;
-    const transcriptKey = text.slice(0, 8000);
-    if (candidateLocationHandledTranscriptRef.current === transcriptKey) return;
-    if (candidateProfileEditedRef.current.location) return;
-    if (!transcriptLikelyContainsLocationIntent(text)) {
-      candidateLocationHandledTranscriptRef.current = transcriptKey;
-      return;
-    }
-
-    const controller = new AbortController();
-    candidateLocationAbortRef.current?.abort();
-    candidateLocationAbortRef.current = controller;
-
-    void (async () => {
-      try {
-        const res = await getLocationFromTranscript(transcriptKey, controller.signal);
-        if (controller.signal.aborted) return;
-        const suggestion = formatLocationSuggestion(res || { location: null });
-        if (suggestion) {
-          setCandidateProfile((prev) => {
-            if (candidateProfileEditedRef.current.location) return prev;
-            if ((prev.location || '').trim()) return prev;
-            return { ...prev, location: suggestion };
-          });
-        }
-        candidateLocationHandledTranscriptRef.current = transcriptKey;
-      } catch (err) {
-        if ((err as any)?.name === 'AbortError') return;
-        console.error('Candidate location suggestion failed', err);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [candidateTranscript, candidateTranscriptStatus, candidateStep, candidateDetailedMode]);
-
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
   const screenLabel = getScreenLabel(
@@ -3056,10 +2957,7 @@ function App() {
     .filter(Boolean)
     .join(' ');
   const filteredDraftKeywords = filterKeywordsByLocation(draftKeywords, form.location);
-  const filteredCandidateKeywords = filterKeywordsByLocation(
-    candidateKeywords,
-    candidateProfileDetails?.location ?? candidateProfile.location,
-  );
+  const filteredCandidateKeywords = candidateKeywords;
   const favoriteCandidateIds = new Set(candidateFavorites.map((candidate) => candidate.id));
   const canManageFavorites = role === 'employer' && Boolean(companyId);
   const canManageInvitations = role === 'employer' && Boolean(companyId);
