@@ -2229,23 +2229,25 @@ function App() {
       }
       startProcessingPoll(objectKey);
       setCandidateTranscript('');
-      setCandidateTranscriptStatus('pending');
+      setCandidateTranscriptStatus(isDetailedUpdateFlow ? undefined : 'pending');
       let transcriptPrefill: CandidateDraftFields | null = null;
       let transcriptFromVideo = '';
-      try {
-        const draft = await generateJobDraftFromVideo(objectKey);
-        const transcript = (draft?.transcript || '').trim();
-        transcriptFromVideo = transcript;
-        if (transcript) {
-          transcriptPrefill = await buildCandidateDraftFromTranscript(transcript);
-          setCandidateTranscript(transcript);
-          setCandidateTranscriptStatus('final');
-        } else {
+      if (!isDetailedUpdateFlow) {
+        try {
+          const draft = await generateJobDraftFromVideo(objectKey);
+          const transcript = (draft?.transcript || '').trim();
+          transcriptFromVideo = transcript;
+          if (transcript) {
+            transcriptPrefill = await buildCandidateDraftFromTranscript(transcript);
+            setCandidateTranscript(transcript);
+            setCandidateTranscriptStatus('final');
+          } else {
+            setCandidateTranscriptStatus(undefined);
+          }
+        } catch (err) {
+          console.error('Could not fetch transcript for candidate video', err);
           setCandidateTranscriptStatus(undefined);
         }
-      } catch (err) {
-        console.error('Could not fetch transcript for candidate video', err);
-        setCandidateTranscriptStatus(undefined);
       }
       const detailedQuestionSet = isDetailedUpdateFlow
         ? getQuestionSet(VIDEO_QUESTION_CONFIG.candidateProfile)
