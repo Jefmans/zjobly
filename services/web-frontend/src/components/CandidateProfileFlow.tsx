@@ -200,7 +200,6 @@ export function CandidateProfileFlow({
   const recordActionLabel = isPaused ? "Resume" : "Start";
   const recordAction = isPaused ? resumeRecording : startRecording;
   const showHeadlineError = showValidation && !`${profile.headline ?? ""}`.trim();
-  const showLocationError = showValidation && !`${profile.location ?? ""}`.trim();
   const showSummaryError = showValidation && !`${profile.summary ?? ""}`.trim();
   const showTranscript = !isEditingProfile;
   const backToVideoLabel = isEditingProfile ? "New Video" : "Back to select video";
@@ -1036,7 +1035,7 @@ export function CandidateProfileFlow({
                     </p>
                   ) : (
                     <p>
-                      Tell us what kind of job you want, where you want to work and what you&apos;re good at.
+                      Tell us who you are. What kind of job you want. Why an employer should choose you. What you&apos;re good at. This will become your profile video.
                       <br />
                       Videos are 3 min max.
                     </p>
@@ -1162,21 +1161,6 @@ export function CandidateProfileFlow({
                   aria-invalid={showHeadlineError}
                 />
                 {showHeadlineError && <span className="field-error">Required</span>}
-              </div>
-
-              <div className="field">
-                <label htmlFor="location">Location</label>
-                <input
-                  id="location"
-                  name="location"
-                  value={profile.location ?? ""}
-                  onChange={onProfileChange}
-                  placeholder="e.g., Remote (EU) or Antwerp"
-                  required
-                  className={showLocationError ? "invalid" : ""}
-                  aria-invalid={showLocationError}
-                />
-                {showLocationError && <span className="field-error">Required</span>}
               </div>
 
               <div className="field">
@@ -1500,8 +1484,8 @@ export function CandidateProfileFlow({
                               ) : (
                                 <>
                                   <p className="question-text">Tell us about yourself!</p>
-                                  <p className="question-label">What kind of job you want?</p>
-                                  <p className="question-label">What location?</p>
+                                  <p className="question-label">Why should an employer choose you?</p>
+                                  <p className="question-label">This will become your profile video.</p>
                                 </>
                               )}
                             </div>
@@ -1707,7 +1691,6 @@ export function CandidateProfileFlow({
                   {!showDetailedReviewSection && (
                     <>
                       {renderReviewTextField("headline", "Headline", false)}
-                      {renderReviewTextField("location", "Location", false)}
                       {renderReviewTextField("summary", "Summary", true)}
 
                       <div className="review-block">
@@ -1943,4 +1926,3 @@ export function CandidateProfileFlow({
     </>
   );
 }
-

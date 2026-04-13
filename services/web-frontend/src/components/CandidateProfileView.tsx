@@ -1,6 +1,5 @@
-﻿import { ReactNode } from "react";
+import { ReactNode } from "react";
 import {
-  formatLocationLabel,
   getDetailedSignalLabel,
   getDetailedSignalStructuredDataForDisplay,
   isVisibleDetailedSignal,
@@ -161,38 +160,6 @@ export function CandidateProfileView({
                 <span className="detail-label">Headline</span>
                 <span>{profile.headline || "Candidate profile"}</span>
               </div>
-              <div className="detail-row">
-                <span className="detail-label">Location</span>
-                <span>{formatLocationLabel(profile)}</span>
-              </div>
-              {profile.location_details && (
-                <>
-                  {profile.location_details.city && (
-                    <div className="detail-row">
-                      <span className="detail-label">City</span>
-                      <span>{profile.location_details.city}</span>
-                    </div>
-                  )}
-                  {profile.location_details.region && (
-                    <div className="detail-row">
-                      <span className="detail-label">Region</span>
-                      <span>{profile.location_details.region}</span>
-                    </div>
-                  )}
-                  {profile.location_details.country && (
-                    <div className="detail-row">
-                      <span className="detail-label">Country</span>
-                      <span>{profile.location_details.country}</span>
-                    </div>
-                  )}
-                  {profile.location_details.postal_code && (
-                    <div className="detail-row">
-                      <span className="detail-label">Postal code</span>
-                      <span>{profile.location_details.postal_code}</span>
-                    </div>
-                  )}
-                </>
-              )}
               <div className="detail-row">
                 <span className="detail-label">Discoverable</span>
                 <span>{profile.discoverable ? "Yes" : "No"}</span>

@@ -169,7 +169,6 @@ const DEFAULT_CANDIDATE_REVIEW_CHOICES: CandidateReviewFieldChoices = {
 type CandidateDraftFields = {
   headline?: string;
   summary?: string;
-  location?: string;
   keywords?: string[];
 };
 
@@ -355,6 +354,20 @@ const trimToMaxChars = (value: string, maxChars: number): string => {
   if (!text) return '';
   const safeMaxChars = Number.isFinite(maxChars) ? Math.max(60, Math.min(2000, Math.round(maxChars))) : 320;
   return text.length <= safeMaxChars ? text : text.slice(0, safeMaxChars).trim();
+};
+
+const extractLocationFromDetailedSignals = (
+  signals: CandidateDetailedSignal[] | null | undefined,
+): string => {
+  if (!Array.isArray(signals) || signals.length === 0) return '';
+  for (const signal of signals) {
+    const signalKey = (signal?.signal_key || '').toString().trim().toLowerCase();
+    const questionId = (signal?.question_id || '').toString().trim().toLowerCase();
+    if (!signalKey.includes('location') && !questionId.includes('location')) continue;
+    const value = (signal?.value || '').toString().trim();
+    if (value) return value;
+  }
+  return '';
 };
 
 const buildDetailedSignalsFromQuestions = async (
@@ -1722,42 +1735,23 @@ function App() {
   };
 
   const buildCandidateDraftFromTranscript = useCallback(
-    async (transcript: string, options?: { includeLocation?: boolean }) => {
-      const includeLocation = options?.includeLocation !== false;
+    async (transcript: string) => {
       const text = transcript.trim().slice(0, 8000);
       if (!text) return null;
-      const canSuggestLocation = includeLocation && transcriptLikelyContainsLocationIntent(text);
       const prefill: {
         headline?: string;
         summary?: string;
-        location?: string;
         keywords?: string[];
       } = {};
 
-      const profileDraftPromise = getProfileDraftFromTranscript(text);
-      const locationPromise = canSuggestLocation ? getLocationFromTranscript(text) : Promise.resolve(null);
-      const [profileDraftResult, locationResult] = await Promise.allSettled([
-        profileDraftPromise,
-        locationPromise,
-      ]);
-
-      if (profileDraftResult.status === 'fulfilled') {
-        const profileDraft = profileDraftResult.value;
+      try {
+        const profileDraft = await getProfileDraftFromTranscript(text);
         const normalizedKeywords = normalizeKeywords(profileDraft.keywords);
         prefill.headline = profileDraft.headline || '';
         prefill.summary = profileDraft.summary || '';
         prefill.keywords = normalizedKeywords;
-      } else {
-        console.error('Candidate profile prefill failed', profileDraftResult.reason);
-      }
-
-      if (canSuggestLocation) {
-        if (locationResult.status === 'fulfilled') {
-          const suggestion = formatLocationSuggestion(locationResult.value || { location: null });
-          prefill.location = suggestion || '';
-        } else {
-          console.error('Candidate location prefill failed', locationResult.reason);
-        }
+      } catch (err) {
+        console.error('Candidate profile prefill failed', err);
       }
       return Object.keys(prefill).length > 0 ? prefill : null;
     },
@@ -2245,11 +2239,7 @@ function App() {
         )
           .toString()
           .trim();
-        const draftLocation = (
-          isDetailedUpdateFlow ? currentLocation : transcriptPrefill?.location ?? currentLocation
-        )
-          .toString()
-          .trim();
+        const draftLocation = currentLocation;
         const draftSummary = (
           isDetailedUpdateFlow ? currentSummary : transcriptPrefill?.summary ?? currentSummary
         )
@@ -2311,11 +2301,13 @@ function App() {
         )
           .toString()
           .trim();
+        const detailedSignalsPayload = normalizeDetailedSignals(generatedDetailedSignals);
+        const fallbackDetailedLocation = extractLocationFromDetailedSignals(detailedSignalsPayload);
         const resolvedLocation = (
-          isDetailedUpdateFlow ? currentLocation : transcriptPrefill?.location ?? currentLocation
+          currentLocation
         )
           .toString()
-          .trim();
+          .trim() || fallbackDetailedLocation;
         const resolvedSummary = (
           isDetailedUpdateFlow ? currentSummary : transcriptPrefill?.summary ?? currentSummary
         )
@@ -2330,12 +2322,16 @@ function App() {
           ? candidateKeywords
           : null;
         const preservedVideoObjectKey = existingProfile?.video_object_key ?? candidateVideoObjectKey ?? null;
-        const detailedSignalsPayload = normalizeDetailedSignals(generatedDetailedSignals);
+        const preservedLocationId = existingProfile?.location_id ?? candidateProfile.location_id ?? null;
+        const shouldPreserveLocationId =
+          Boolean(preservedLocationId) &&
+          Boolean(resolvedLocation) &&
+          resolvedLocation.toLowerCase() === currentLocation.toLowerCase();
         try {
           const savedProfile = await upsertCandidateProfile({
             headline: resolvedHeadline || null,
             location: resolvedLocation || null,
-            location_id: candidateProfile.location_id ?? null,
+            location_id: shouldPreserveLocationId ? preservedLocationId : null,
             summary: resolvedSummary || null,
             keywords: resolvedKeywords && resolvedKeywords.length ? resolvedKeywords : null,
             ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
@@ -2414,8 +2410,10 @@ function App() {
       : normalizeKeywords(candidateProfileDetails?.keywords);
     const videoObjectKey = candidateVideoObjectKey || candidateProfileDetails?.video_object_key || null;
     const detailedSignalsPayload = normalizeDetailedSignals(candidateDetailedSignalsDraft);
+    const fallbackDetailedLocation = extractLocationFromDetailedSignals(detailedSignalsPayload);
+    const resolvedLocation = location || fallbackDetailedLocation;
 
-    if (!headline || !location || !summary || (!hasVideo && !candidateProfileExists)) {
+    if (!headline || !summary || (!hasVideo && !candidateProfileExists)) {
       setCandidateValidation(true);
       if (!hasVideo && !candidateProfileExists) {
         setError('Save your video before completing your profile.');
@@ -2433,7 +2431,7 @@ function App() {
     try {
       const savedProfile = await upsertCandidateProfile({
         headline,
-        location,
+        location: resolvedLocation || null,
         summary,
         keywords: keywords.length ? keywords : null,
         ...(detailedSignalsPayload.length > 0 ? { detailed_signals: detailedSignalsPayload } : {}),
@@ -2636,13 +2634,26 @@ function App() {
     const reviewedNewKeywords = normalizeKeywords(candidateReviewNew.keywords);
     const mergedDetailedKeywords = normalizeKeywords([...preservedKeywords, ...reviewedNewKeywords]);
     const preservedLocationId = candidateProfileDetails?.location_id ?? candidateProfile.location_id ?? null;
+    const currentProfileLocation = (candidateProfileDetails?.location ?? candidateProfile.location ?? '')
+      .toString()
+      .trim();
+    const resolvedReviewLocation = (
+      isDetailedUpdateFlow ? candidateReviewCurrent.location : pickText('location')
+    )
+      .toString()
+      .trim() || extractLocationFromDetailedSignals(selectedDetailedSignals);
+    const shouldPreserveLocationId =
+      Boolean(preservedLocationId) &&
+      Boolean(resolvedReviewLocation) &&
+      resolvedReviewLocation.toLowerCase() === currentProfileLocation.toLowerCase();
+    const locationIdForSave = shouldPreserveLocationId ? preservedLocationId : null;
 
     setCandidateProfileSaving(true);
     try {
       const savedProfile = await upsertCandidateProfile({
         headline: (isDetailedUpdateFlow ? candidateReviewCurrent.headline : pickText('headline')) || null,
-        location: (isDetailedUpdateFlow ? candidateReviewCurrent.location : pickText('location')) || null,
-        location_id: preservedLocationId,
+        location: resolvedReviewLocation || null,
+        location_id: locationIdForSave,
         summary: (isDetailedUpdateFlow ? candidateReviewCurrent.summary : pickText('summary')) || null,
         keywords: (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords).length
           ? (isDetailedUpdateFlow ? mergedDetailedKeywords : selectedKeywords)
@@ -2988,9 +2999,9 @@ function App() {
     };
   }, [candidateTranscript, candidateTranscriptStatus, candidateStep]);
 
-  // Geocode candidate location when transcript is ready and location is empty
+  // Geocode candidate location from transcript only in detailed mode.
   useEffect(() => {
-    if (candidateStep === 'review') return;
+    if (candidateStep === 'review' || !candidateDetailedMode) return;
     const text = candidateTranscript.trim();
     if (!text || candidateTranscriptStatus !== 'final') return;
     const transcriptKey = text.slice(0, 8000);
@@ -3025,7 +3036,7 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [candidateTranscript, candidateTranscriptStatus, candidateStep]);
+  }, [candidateTranscript, candidateTranscriptStatus, candidateStep, candidateDetailedMode]);
 
   const durationLabel = formatDuration(selectedTake?.duration ?? videoDuration);
   const recordLabel = formatDuration(recordDuration);
