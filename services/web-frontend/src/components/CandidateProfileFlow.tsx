@@ -977,36 +977,44 @@ export function CandidateProfileFlow({
               )}
               <div className="review-grid">
                 <div className="field">
-                  <label>Current value</label>
+                  <label>{pair.current && resolveDetailedSignalDisplayModes(pair.current.display).includes("summary") ? "Current value" : "Current output"}</label>
                   {pair.current ? (
-                    <textarea
-                      rows={1}
-                      className="autosize-textarea"
-                      ref={(element) => autoSizeTextarea(element)}
-                      value={pair.current.value}
-                      onChange={(event) => {
-                        onReviewDetailedSignalValueChange("current", pair.key, event.target.value);
-                        autoSizeTextarea(event.currentTarget);
-                      }}
-                    />
+                    resolveDetailedSignalDisplayModes(pair.current.display).includes("summary") ? (
+                      <textarea
+                        rows={1}
+                        className="autosize-textarea"
+                        ref={(element) => autoSizeTextarea(element)}
+                        value={pair.current.value}
+                        onChange={(event) => {
+                          onReviewDetailedSignalValueChange("current", pair.key, event.target.value);
+                          autoSizeTextarea(event.currentTarget);
+                        }}
+                      />
+                    ) : (
+                      <p className="hint">Summary text is not used for this extractor.</p>
+                    )
                   ) : (
                     <p className="hint">No current value.</p>
                   )}
                   {renderSignalMetadata(pair.current)}
                 </div>
                 <div className="field">
-                  <label>New value</label>
+                  <label>{pair.next && resolveDetailedSignalDisplayModes(pair.next.display).includes("summary") ? "New value" : "New output"}</label>
                   {pair.next ? (
-                    <textarea
-                      rows={1}
-                      className="autosize-textarea"
-                      ref={(element) => autoSizeTextarea(element)}
-                      value={pair.next.value}
-                      onChange={(event) => {
-                        onReviewDetailedSignalValueChange("new", pair.key, event.target.value);
-                        autoSizeTextarea(event.currentTarget);
-                      }}
-                    />
+                    resolveDetailedSignalDisplayModes(pair.next.display).includes("summary") ? (
+                      <textarea
+                        rows={1}
+                        className="autosize-textarea"
+                        ref={(element) => autoSizeTextarea(element)}
+                        value={pair.next.value}
+                        onChange={(event) => {
+                          onReviewDetailedSignalValueChange("new", pair.key, event.target.value);
+                          autoSizeTextarea(event.currentTarget);
+                        }}
+                      />
+                    ) : (
+                      <p className="hint">Summary text is not used for this extractor.</p>
+                    )
                   ) : (
                     <p className="hint">No new value.</p>
                   )}
@@ -1295,18 +1303,24 @@ export function CandidateProfileFlow({
                           </div>
                           {signal.question_text && <p className="hint review-signal-question">{signal.question_text}</p>}
                           <div className="field">
-                            <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
-                            <textarea
-                              id={`detailed-signal-value-${index}`}
-                              rows={1}
-                              className="autosize-textarea"
-                              ref={(element) => autoSizeTextarea(element)}
-                              value={signal.value}
-                              onChange={(event) => {
-                                onDetailedSignalValueChange(index, event.target.value);
-                                autoSizeTextarea(event.currentTarget);
-                              }}
-                            />
+                            {resolveDetailedSignalDisplayModes(signal.display).includes("summary") ? (
+                              <>
+                                <label htmlFor={`detailed-signal-value-${index}`}>Value</label>
+                                <textarea
+                                  id={`detailed-signal-value-${index}`}
+                                  rows={1}
+                                  className="autosize-textarea"
+                                  ref={(element) => autoSizeTextarea(element)}
+                                  value={signal.value}
+                                  onChange={(event) => {
+                                    onDetailedSignalValueChange(index, event.target.value);
+                                    autoSizeTextarea(event.currentTarget);
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <p className="hint">Summary text is not used for this extractor.</p>
+                            )}
                             {resolveDetailedSignalDisplayModes(signal.display).includes("structured") &&
                               isPlainRecord(signal.structured_data) &&
                               (() => {

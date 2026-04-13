@@ -18,11 +18,13 @@
                   "signal_key": "education_structured",
                   "prompt_key": "goal_education_v2",
                   "schema_key": "education_v1",
+                  "display": ["structured"],
                   "show": true
                 },
                 {
                   "signal_key": "education_summary",
                   "prompt_key": "goal_education_v1",
+                  "display": ["summary"],
                   "show": true
                 }
               ]
@@ -43,25 +45,43 @@
               "id": "application-motivation",
               "text": "Why do you want this job?",
               "helper_text": "Connect your motivation to this role and company context.",
-              "goals": ["motivation"],
-              "signal_key": "motivation_statement",
-              "prompt_key": "goal_motivation_v1"
+              "show": true,
+              "extractors": [
+                {
+                  "signal_key": "motivation_statement",
+                  "prompt_key": "goal_motivation_v1",
+                  "display": ["summary"],
+                  "show": true
+                }
+              ]
             },
             {
               "id": "application-first-90-days",
               "text": "What would your first 90 days look like?",
               "helper_text": "Describe priorities, expected outcomes, and how you would collaborate.",
-              "goals": ["plan"],
-              "signal_key": "first_90_day_plan",
-              "prompt_key": "goal_plan_v1"
+              "show": true,
+              "extractors": [
+                {
+                  "signal_key": "first_90_day_plan",
+                  "prompt_key": "goal_plan_v1",
+                  "display": ["summary"],
+                  "show": true
+                }
+              ]
             },
             {
               "id": "application-skills-fit",
               "text": "Which skills make you a strong fit?",
               "helper_text": "Focus on concrete skills, tools, and examples from your experience.",
-              "goals": ["skills"],
-              "signal_key": "core_skills",
-              "prompt_key": "goal_skills_v1"
+              "show": true,
+              "extractors": [
+                {
+                  "signal_key": "core_skills",
+                  "prompt_key": "goal_skills_v1",
+                  "display": ["summary"],
+                  "show": true
+                }
+              ]
             }
           ]
         }

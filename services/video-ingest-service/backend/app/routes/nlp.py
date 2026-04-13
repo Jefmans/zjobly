@@ -474,6 +474,18 @@ def _ensure_schema_keys(
     return normalized
 
 
+def _schema_requires_value(output_schema: dict[str, object] | None) -> bool:
+    if not output_schema:
+        return False
+    properties = output_schema.get("properties")
+    if isinstance(properties, dict) and "value" in properties:
+        return True
+    required = output_schema.get("required")
+    if isinstance(required, list) and "value" in required:
+        return True
+    return False
+
+
 def _schema_reformat_with_llm(
     llm: ChatOpenAI,
     raw_text: str,
@@ -649,13 +661,19 @@ def _signal_from_transcript(
             structured_data = structured_attempt
 
     if output_schema:
+        requires_value = _schema_requires_value(output_schema)
         extraction_prompt = (
             f"{system_prompt}\n"
             "Return a valid JSON object only."
-            " Include a top-level 'value' string for human-readable display."
             f" Follow this schema guidance: {json.dumps(output_schema, ensure_ascii=True)}"
         )
+        if requires_value:
+            extraction_prompt = (
+                f"{extraction_prompt}"
+                " Include a top-level 'value' string for human-readable display."
+            )
     else:
+        requires_value = False
         extraction_prompt = (
             f"{system_prompt}\n"
             "Return only the extracted value as plain text."
@@ -683,8 +701,11 @@ def _signal_from_transcript(
                 if isinstance(candidate, str) and candidate.strip():
                     fallback_value = candidate.strip()
             if not fallback_value:
-                fallback_value = (transcript or "")[:1200].strip()
-            fallback_structured = _ensure_schema_keys(structured_data or {"value": fallback_value}, output_schema)
+                if isinstance(structured_data, dict) and structured_data:
+                    fallback_value = json.dumps(structured_data, ensure_ascii=False)[:1200].strip()
+                else:
+                    fallback_value = (transcript or "")[:1200].strip()
+            fallback_structured = _ensure_schema_keys(structured_data or {}, output_schema)
             return SignalFromTranscriptResponse(value=fallback_value, structured_data=fallback_structured)
         if invoke_error is not None:
             raise HTTPException(status_code=502, detail="Could not extract the signal from the transcript") from invoke_error
@@ -698,7 +719,7 @@ def _signal_from_transcript(
     if output_schema and not _has_meaningful_schema_data(structured_data, output_schema):
         reparsed = _schema_reformat_with_llm(llm, transcript or text, output_schema)
         if reparsed is not None:
-            if isinstance(structured_data, dict):
+            if requires_value and isinstance(structured_data, dict):
                 original_value = structured_data.get("value")
                 reparsed_value = reparsed.get("value")
                 if (
@@ -722,7 +743,7 @@ def _signal_from_transcript(
 
     if output_schema and structured_data is None:
         # Keep at least a predictable structured shape for downstream UI persistence.
-        structured_data = _ensure_schema_keys({"value": text[:1200].strip()}, output_schema)
+        structured_data = _ensure_schema_keys({}, output_schema)
 
     return SignalFromTranscriptResponse(value=text[:1200].strip(), structured_data=structured_data)
 

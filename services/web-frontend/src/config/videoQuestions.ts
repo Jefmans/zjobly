@@ -9,8 +9,6 @@ export type VideoQuestion = {
   helperText?: string;
   show?: boolean;
   extractors?: VideoQuestionExtractor[];
-  // Kept for routing/grouping logic.
-  goals?: string[];
 };
 
 export type VideoQuestionExtractor = {
@@ -57,7 +55,6 @@ type RawQuestion =
       helper_text?: unknown;
       helperText?: unknown;
       subtext?: unknown;
-      goals?: unknown;
       signal_key?: unknown;
       signalKey?: unknown;
       target_field?: unknown;
@@ -139,14 +136,6 @@ const getConfigBySet = (setName: QuestionSetName): RawQuestionsConfig =>
 
 type LegacyTargetField = "headline" | "location" | "summary" | "keywords" | "transcript";
 
-const normalizeGoals = (value: unknown): string[] | undefined => {
-  if (!Array.isArray(value)) return undefined;
-  const goals = value
-    .map((goal) => (typeof goal === "string" ? goal.trim() : ""))
-    .filter((goal) => goal.length > 0);
-  return goals.length > 0 ? goals : undefined;
-};
-
 const normalizeTargetField = (
   value: unknown,
 ): LegacyTargetField | undefined => {
@@ -212,21 +201,6 @@ const normalizeShow = (value: unknown): boolean | undefined => {
 const normalizeOutputSchema = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const schema = { ...(value as Record<string, unknown>) };
-  const propertiesValue = schema.properties;
-  if (!propertiesValue || typeof propertiesValue !== "object" || Array.isArray(propertiesValue)) {
-    return schema;
-  }
-  const properties = { ...(propertiesValue as Record<string, unknown>) };
-  const valueProperty = properties.value;
-  if (!valueProperty || typeof valueProperty !== "object" || Array.isArray(valueProperty)) {
-    properties.value = { type: "string" };
-  }
-  schema.properties = properties;
-
-  const requiredValue = schema.required;
-  const required = Array.isArray(requiredValue) ? [...requiredValue] : [];
-  if (!required.includes("value")) required.push("value");
-  schema.required = required;
   return schema;
 };
 
@@ -335,7 +309,6 @@ const normalizeQuestion = (
       : `${variantId}-q${index + 1}`;
   const show = normalizeShow(value.show);
   const extractors = normalizeExtractors(value.extractors);
-  const goals = normalizeGoals(value.goals);
   const helperText = normalizeHelperText(
     value.helper_text ?? value.helperText ?? value.subtext,
   );
@@ -369,7 +342,6 @@ const normalizeQuestion = (
     if (typeof show === "boolean") legacyExtractor.show = show;
     question.extractors = [legacyExtractor];
   }
-  if (goals) question.goals = goals;
   return question;
 };
 

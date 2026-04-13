@@ -1,9 +1,8 @@
 {
   "education_v1": {
     "type": "object",
-    "required": ["value"],
+    "required": ["educations"],
     "properties": {
-      "value": { "type": "string" },
       "educations": {
         "type": ["array", "null"],
         "items": {

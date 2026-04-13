@@ -82,5 +82,5 @@ Example:
 
 Legacy compatibility:
 
-- Legacy question-level fields (`signal_key`, `prompt_key`, `schema_key`, `output_schema`, `output`, `display`, `goals`) are still accepted.
+- Legacy question-level fields (`signal_key`, `prompt_key`, `schema_key`, `output_schema`, `output`, `display`) are still accepted.
 - New configs should prefer `extractors` + `show` for simpler behavior.

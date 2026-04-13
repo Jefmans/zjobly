@@ -307,12 +307,10 @@ const buildDetailedSignalChoiceDefaults = (
 };
 
 const resolveSignalValue = (
-  goal: string,
   signalKey: string | undefined,
   draft: CandidateDraftFields | null,
   transcript: string,
 ): string => {
-  const normalizedGoal = goal.toLowerCase();
   const normalizedSignalKey = (signalKey || '').toLowerCase();
   const normalizedKeywords = Array.isArray(draft?.keywords)
     ? draft.keywords
@@ -339,21 +337,6 @@ const resolveSignalValue = (
   }
   if (normalizedSignalKey.includes('transcript')) {
     return transcript.slice(0, 220).trim();
-  }
-  if (normalizedGoal.includes('location')) {
-    return (draft?.location || '').trim();
-  }
-  if (normalizedGoal.includes('role')) {
-    return (draft?.headline || draft?.summary || '').trim();
-  }
-  if (normalizedGoal.includes('skill')) {
-    return normalizedKeywords.join(', ').trim();
-  }
-  if (normalizedGoal.includes('education')) {
-    return (draft?.summary || '').trim();
-  }
-  if (normalizedGoal.includes('preference') || normalizedGoal.includes('value')) {
-    return (draft?.summary || '').trim();
   }
   const fallback = (draft?.summary || '').trim();
   if (fallback) return fallback;
@@ -440,8 +423,6 @@ const buildDetailedSignalsFromQuestions = async (
     if (!questionId || !questionText) continue;
 
     const questionShow = question.show !== false;
-    const normalizedGoals =
-      Array.isArray(question.goals) && question.goals.length > 0 ? question.goals : ['general'];
     const configuredExtractors =
       Array.isArray(question.extractors) && question.extractors.length > 0
         ? question.extractors
@@ -459,9 +440,9 @@ const buildDetailedSignalsFromQuestions = async (
     const questionTranscript = sliceTranscriptByWindow(transcript, totalDurationSeconds, questionWindow);
     const transcriptOutputValue = trimToMaxChars(questionTranscript || transcript, 1200);
     let snippetDraft: CandidateDraftFields | null = null;
-    const includeLocationLookup =
-      extractors.some((extractor) => (extractor.signalKey || '').toLowerCase().includes('location')) ||
-      normalizedGoals.some((goal) => (goal || '').toLowerCase().includes('location'));
+    const includeLocationLookup = extractors.some((extractor) =>
+      (extractor.signalKey || '').toLowerCase().includes('location'),
+    );
 
     for (const extractor of extractors) {
       const signalKey = (extractor.signalKey || '').toString().trim();
@@ -475,7 +456,6 @@ const buildDetailedSignalsFromQuestions = async (
       const promptKey = (extractor.promptKey || '').toString().trim();
       const schemaKey = (extractor.schemaKey || '').toString().trim();
       const outputSchema = extractor.outputSchema;
-      const normalizedGoal = ((normalizedGoals[0] || signalKey || 'general') || '').toString().trim();
       let promptExtractedValue = '';
       let promptStructuredData: Record<string, unknown> | null = null;
       let promptExtraction: Awaited<ReturnType<typeof getSignalFromTranscript>> | null = null;
@@ -514,7 +494,6 @@ const buildDetailedSignalsFromQuestions = async (
           }
         }
         value = resolveSignalValue(
-          normalizedGoal,
           signalKey,
           snippetDraft || fullDraft,
           questionTranscript || transcript,
@@ -543,7 +522,7 @@ const buildDetailedSignalsFromQuestions = async (
 
       signals.push({
         question_id: questionId,
-        goal: normalizedGoal,
+        goal: null,
         value,
         signal_key: signalKey,
         prompt_key: promptKey || null,
