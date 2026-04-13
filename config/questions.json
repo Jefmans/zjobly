@@ -12,7 +12,6 @@
               "id": "candidate-job-type",
               "text": "What kind of job are you looking for?",
               "helper_text": "Mention the role title, seniority, and preferred contract type.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "desired_role",
@@ -26,7 +25,6 @@
               "id": "candidate-location",
               "text": "Where are you looking for a job?",
               "helper_text": "Share city/region and whether you prefer remote, hybrid, or on-site.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "desired_location",
@@ -40,7 +38,6 @@
               "id": "candidate-education",
               "text": "What is your education? Where did you study?",
               "helper_text": "Include school, degree, field, and graduation year if relevant.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "education_structured",
@@ -61,7 +58,6 @@
               "id": "candidate-job-values",
               "text": "What do you like in a job?",
               "helper_text": "Mention team style, growth goals, and working conditions you value.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "work_preferences",
@@ -87,7 +83,6 @@
               "id": "application-motivation",
               "text": "Why do you want this job?",
               "helper_text": "Connect your motivation to this role and company context.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "motivation_statement",
@@ -101,7 +96,6 @@
               "id": "application-first-90-days",
               "text": "What would your first 90 days look like?",
               "helper_text": "Describe priorities, expected outcomes, and how you would collaborate.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "first_90_day_plan",
@@ -115,7 +109,6 @@
               "id": "application-skills-fit",
               "text": "Which skills make you a strong fit?",
               "helper_text": "Focus on concrete skills, tools, and examples from your experience.",
-              "show": true,
               "extractors": [
                 {
                   "signal_key": "core_skills",

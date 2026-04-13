@@ -7,7 +7,6 @@ export type VideoQuestion = {
   id: string;
   text: string;
   helperText?: string;
-  show?: boolean;
   extractors?: VideoQuestionExtractor[];
 };
 
@@ -61,7 +60,6 @@ type RawQuestion =
       targetField?: unknown;
       prompt_key?: unknown;
       promptKey?: unknown;
-      show?: unknown;
       extractors?: unknown;
       output?: unknown;
       display?: unknown;
@@ -307,7 +305,6 @@ const normalizeQuestion = (
     typeof value.id === "string" && value.id.trim().length > 0
       ? value.id.trim()
       : `${variantId}-q${index + 1}`;
-  const show = normalizeShow(value.show);
   const extractors = normalizeExtractors(value.extractors);
   const helperText = normalizeHelperText(
     value.helper_text ?? value.helperText ?? value.subtext,
@@ -326,7 +323,6 @@ const normalizeQuestion = (
     getSignalSchemaByKey(schemaKey);
   const question: VideoQuestion = { id, text };
   if (helperText) question.helperText = helperText;
-  if (typeof show === "boolean") question.show = show;
   if (extractors) {
     question.extractors = extractors;
   } else if (signalKey) {
@@ -339,7 +335,6 @@ const normalizeQuestion = (
     if (outputSchema) legacyExtractor.outputSchema = outputSchema;
     if (outputModes) legacyExtractor.output = outputModes;
     if (displayModes) legacyExtractor.display = displayModes;
-    if (typeof show === "boolean") legacyExtractor.show = show;
     question.extractors = [legacyExtractor];
   }
   return question;

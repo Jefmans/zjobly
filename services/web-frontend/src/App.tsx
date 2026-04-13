@@ -422,7 +422,6 @@ const buildDetailedSignalsFromQuestions = async (
     const questionText = (question.text || '').trim();
     if (!questionId || !questionText) continue;
 
-    const questionShow = question.show !== false;
     const configuredExtractors =
       Array.isArray(question.extractors) && question.extractors.length > 0
         ? question.extractors
@@ -528,7 +527,7 @@ const buildDetailedSignalsFromQuestions = async (
         prompt_key: promptKey || null,
         question_text: questionText,
         source: promptKey ? `guided-video:${promptKey}` : 'guided-video',
-        show: typeof extractor.show === 'boolean' ? extractor.show : questionShow,
+        show: typeof extractor.show === 'boolean' ? extractor.show : true,
         transcript: transcriptOutputValue || null,
         display: Array.isArray(extractor.display) && extractor.display.length > 0 ? extractor.display : null,
         structured_data: structuredDataForSignal,

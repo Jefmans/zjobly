@@ -54,7 +54,7 @@ Extractor-based question config (recommended):
   - `prompt_key` (optional)
   - `schema_key` (optional)
   - `show` (optional, default `true`)
-- Question-level `show` can be used as a default visibility toggle for all extractors.
+- Recommended: set `show` explicitly on every extractor so visibility intent is obvious in config.
 - Transcript is always stored per generated signal in a dedicated `transcript` attribute.
 
 Example:
@@ -63,18 +63,17 @@ Example:
 {
   "id": "candidate-education",
   "text": "What is your education? Where did you study?",
-  "show": true,
   "extractors": [
     {
       "signal_key": "education_structured",
       "prompt_key": "goal_education_v2",
       "schema_key": "education_v1",
-      "show": true
+      "display": ["structured"]
     },
     {
       "signal_key": "education_summary",
       "prompt_key": "goal_education_v1",
-      "show": true
+      "display": ["summary"]
     }
   ]
 }
